@@ -1,0 +1,11 @@
+{
+  "name": "@steno/skills",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canonical steno skills (Agent Skills spec) and reviewer personas.",
+  "type": "module",
+  "files": ["skills"],
+  "scripts": { 
+    "build": "echo skills need no build" 
+  }
+}

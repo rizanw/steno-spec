@@ -1,0 +1,50 @@
+{
+  "name": "steno-spec",
+  "version": "0.1.0",
+  "description": "Shorthand specs for any coding agent: spec-driven development that is agent-agnostic and token-efficient.",
+  "keywords": [
+    "spec-driven-development",
+    "sdd",
+    "specs",
+    "spec",
+    "kiro",
+    "ears",
+    "requirements",
+    "coding-agent",
+    "agent-skills",
+    "claude-code",
+    "codex",
+    "opencode",
+    "antigravity",
+    "cursor",
+    "cli"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/rizanw/steno#readme",
+  "bugs": "https://github.com/rizanw/steno/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizanw/steno.git",
+    "directory": "packages/cli"
+  },
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { 
+    "steno": "./bin/steno.js" 
+  },
+  "files": ["bin", "skills"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node build.mjs",
+    "prepack": "node build.mjs --readme"
+  },
+  "dependencies": {
+    "commander": "^14.0.0",
+    "picomatch": "^4.0.2",
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "@steno/core": "workspace:*",
+    "@steno/skills": "workspace:*",
+    "esbuild": "^0.28.2"
+  }
+}

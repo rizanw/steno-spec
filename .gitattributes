@@ -1,0 +1,4 @@
+# LF everywhere, so fixtures, parsers and the npm README build behave the same on Windows checkouts.
+* text=auto eol=lf
+*.png binary
+*.ico binary

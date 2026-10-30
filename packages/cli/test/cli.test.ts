@@ -1,0 +1,97 @@
+// End-to-end wiring: runs the built bin/steno.js in a temp project. Needs `pnpm build` first (CI builds before testing).
+import { describe, it, expect, beforeAll } from 'vitest';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { fileURLToPath } from 'node:url';
+
+const BIN = fileURLToPath(new URL('../bin/steno.js', import.meta.url));
+
+function project() {
+  const dir = mkdtempSync(join(tmpdir(), 'steno-cli-'));
+  const steno = (...args: string[]) => {
+    const r = spawnSync(process.execPath, [BIN, ...args], { cwd: dir, encoding: 'utf8' });
+    return { code: r.status, out: r.stdout, err: r.stderr };
+  };
+  return { dir, steno };
+}
+
+beforeAll(() => {
+  if (!existsSync(BIN)) throw new Error(`${BIN} is missing; run pnpm build before the CLI tests`);
+});
+
+describe('steno CLI', () => {
+  it('init sets up .steno, the canonical skills and per-agent skills', () => {
+    const { dir, steno } = project();
+    const r = steno('init', '--agent', 'claude,codex');
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(/^initialised .*\.steno$/m);
+    expect(r.out).toMatch(/next: ask your agent/);
+    expect(existsSync(join(dir, '.steno', 'config.yaml'))).toBe(true);
+    expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
+    expect(existsSync(join(dir, '.claude', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
+    expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).toMatch(/steno:start/);
+  });
+
+  it('status --json reads the change cache without writing it; plain status records it', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'demo');
+    const cache = join(dir, '.steno', 'cache', 'seen.json');
+    const json = JSON.parse(steno('status', '--json').out);
+    expect(json.changedSinceLastStatus).toContain('requirements.md');
+    expect(existsSync(cache)).toBe(false);
+    expect(steno('status').out).toMatch(/changed since last status: requirements\.md/);
+    expect(existsSync(cache)).toBe(true);
+    expect(steno('status').out).toMatch(/changed since last status: nothing/);
+    expect(readFileSync(join(dir, '.steno', 'specs', 'demo', 'spec.yaml'), 'utf8')).not.toMatch(/seen/);
+  });
+
+  it('approve refuses any stage but the current one, even with --force', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'demo');
+    const state = join(dir, '.steno', 'specs', 'demo', 'spec.yaml');
+    const before = readFileSync(state, 'utf8');
+    for (const stage of ['design', 'tasks']) {
+      const r = steno('approve', stage, '--force');
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/only requirements can be approved now/);
+    }
+    expect(readFileSync(state, 'utf8')).toBe(before);
+    expect(steno('approve', 'requirements', '--force').out).toMatch(/phase → design/);
+  });
+
+  it('rejects a bad --budget and an import slug that leaves the specs folder', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [ ] 1. Build\n');
+    for (const b of ['abc', '0', '-5']) {
+      const r = steno('ctx', 'T1', '--budget', b);
+      expect(r.code).toBe(1);
+      expect(r.err).toMatch(/budget must be a positive whole number/);
+    }
+    expect(steno('ctx', 'T1', '--budget', '800').out).toMatch(/\/800 tokens/);
+    mkdirSync(join(dir, 'kiro', 'spec1'), { recursive: true });
+    writeFileSync(join(dir, 'kiro', 'spec1', 'requirements.md'), '# Requirements Document\n');
+    const r = steno('import', 'kiro/spec1', '../../escaped');
+    expect(r.code).toBe(1);
+    expect(existsSync(join(dir, '..', 'escaped'))).toBe(false);
+    expect(existsSync(join(dir, '.steno', 'escaped'))).toBe(false);
+  });
+
+  it('done moves the phase to done and --undo moves it back; steer lint exits 2 with full output', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q');
+    const state = join(dir, '.steno', 'specs', 'q', 'spec.yaml');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [ ] 1. Build\n  - [ ] 1.1 Core\n    - [ ] 1.1.1 Leaf\n');
+    expect(steno('done', '1').out).toMatch(/all tasks done/);
+    expect(readFileSync(state, 'utf8')).toMatch(/phase: done/);
+    expect(steno('next').out).toMatch(/all tasks done/);
+    steno('done', '1.1.1', '--undo');
+    expect(readFileSync(state, 'utf8')).toMatch(/phase: execute/);
+    writeFileSync(join(dir, '.steno', 'steering', 'bad.md'), '---\ninclusion: bogus\n---\n# Bad\n');
+    const lint = steno('steer', 'lint');
+    expect(lint.code).toBe(2);
+    expect(lint.out).toMatch(/unknown inclusion "bogus"[\s\S]*\d+ errors?, \d+ warnings?/);
+  });
+});

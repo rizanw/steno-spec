@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="480" viewBox="0 0 48 48" shape-rendering="crispEdges" role="img" aria-labelledby="steno-title">
+  <title id="steno-title">Steno — pixel terminal stenograph</title>
+  <!-- Paper tape -->
+  <path fill="#102D55" d="M18 2h14v6h-2v5H16V4h2z"/>
+  <path fill="#FFFBEA" d="M18 4h12v3h-2v6H18z"/>
+  <path fill="#102D55" d="M20 6h8v1h-8zm0 4h4v1h-4z"/>
+  <!-- Stepped machine silhouette -->
+  <path fill="#102D55" d="M14 12h20v2h3v2h2v3h2v3h3v18h-2v4h-2v3H8v-3H6v-4H4V22h3v-3h2v-3h2v-2h3z"/>
+  <path fill="#2C70C5" d="M14 14h20v2h3v3h2v3h3v17h-2v4h-2v2H10v-2H8v-4H6V23h3v-3h2v-3h3z"/>
+  <!-- Ice-blue sloping upper deck -->
+  <path fill="#77C4E8" d="M14 14h20v2h3v3h2v3h3v3H6v-2h3v-3h2v-3h3z"/>
+  <path fill="#A8E1EF" d="M15 14h18v1H15zm-4 3h3v1h-3zm-2 3h2v1H9z"/>
+  <!-- Terminal screen and pixel prompt -->
+  <path fill="#102D55" d="M14 16h20v8H14z"/>
+  <path fill="#173F70" d="M15 17h18v6H15z"/>
+  <path fill="#B8EFF2" d="M17 18h1v1h1v1h1v1h-1v1h-1v1h-1v-1h1v-1h1v-1h-1v-1h-1zm5 2h3v1h-3zm4 0h3v1h-3z"/>
+  <!-- Keyboard inset -->
+  <path fill="#102D55" d="M8 26h32v12h-4v4H12v-4H8z"/>
+  <g fill="#C6F0ED">
+    <path d="M10 28h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3z"/>
+    <path d="M12 33h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3zm4 0h3v3h-3z"/>
+    <path d="M15 38h5v3h-5zm7 0h4v3h-4zm6 0h5v3h-5z"/>
+  </g>
+  <!-- Enamel edge highlights -->
+  <path fill="#6EBCE6" d="M6 37h4v2H6zm32 0h4v2h-4zM13 42h22v1H13z"/>
+  <path fill="#20569F" d="M10 44h28v1H10z"/>
+</svg>

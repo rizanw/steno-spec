@@ -1,0 +1,9 @@
+# steno project config
+specsDir: .steno/specs
+steeringDir: .steno/steering # set to .kiro/steering to share steering with Kiro
+ctxBudget: 1500 # tokens per `steno ctx` packet
+steeringBudget: 4000 # cap for all `inclusion: always` steering together: read in full at spec start, head-truncated in task packets; ~2% of a 200k window
+reviewer: default # default | egm  — default: steno's own reviewers; egm: hand reviews to EGM when it is installed
+agents:
+  - claude
+  - codex

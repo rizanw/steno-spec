@@ -177,6 +177,7 @@ steno new shared-budgets --brief
 
 ## Next
 
+- [Tutorial](../examples/link-shortener/TUTORIAL.md): build a feature on the example project, with a finished spec to compare against
 - [Concepts](concepts.md): what the IDs, lint rules and packets are doing
 - [CLI reference](cli.md): every command and flag
 - [Agents & integrations](agents.md): other agents, EGM, coming from Kiro

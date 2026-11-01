@@ -1,0 +1,5 @@
+node_modules/
+data.json
+# installed by `steno init`
+.agents/
+.claude/

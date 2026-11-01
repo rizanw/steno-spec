@@ -1,0 +1,11 @@
+# machine-owned by steno; edit phase/approvals only via the CLI
+name: link-expiry
+title: Link expiry
+kind: feature
+mode: gated
+phase: done
+created: 2026-11-13
+approvals:
+  requirements: 2026-11-13
+  design: 2026-11-13
+  tasks: 2026-11-13

@@ -13,6 +13,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick start</a> ·
+  <a href="examples/link-shortener/TUTORIAL.md">Tutorial</a> ·
   <a href="docs/getting-started.md">Getting started</a> ·
   <a href="docs/concepts.md">Concepts</a> ·
   <a href="docs/cli.md">CLI reference</a> ·
@@ -56,7 +57,8 @@ agent > steno next                         → T2.1 Accept expiresAt in LinkServ
         steno done T2.1                    → next: T2.2
 ```
 
-The packet is the point. For `T2.1` the agent reads this instead of the whole spec (shortened here):
+The packet is the point. For `T2.1` the agent reads this instead of the whole spec (shortened here;
+run `steno ctx T2.1` in the example for the full packet):
 
 ```md
 # T2.1 Accept `expiresAt` in `LinkService.create`, store it only when given
@@ -83,6 +85,9 @@ test/links.test.ts
 steno done T2.1
 ```
 
+This spec is real. It lives in [examples/link-shortener](examples/link-shortener), with the code it
+produced.
+
 ## Quick start
 
 Install the CLI (Node ≥ 22; macOS, Linux or Windows). The package is `steno-spec`; the command is `steno`:
@@ -105,7 +110,8 @@ Pick your agents from `claude, codex, opencode, antigravity, cursor, copilot, ge
 > start a spec for <the feature you want>
 ```
 
-New to steno? [Getting started](docs/getting-started.md) covers every step in detail,
+New to steno? The [tutorial](examples/link-shortener/TUTORIAL.md) builds a feature on the example
+project in about 30 minutes. [Getting started](docs/getting-started.md) covers every step in detail,
 including quick mode, bugfix specs and brainstorming.
 
 ## The workflow
@@ -154,6 +160,7 @@ Running `steno new` yourself only writes a template. For the full flow (intake, 
 
 ## Docs
 
+- [Tutorial](examples/link-shortener/TUTORIAL.md): build a feature on the example project
 - [Getting started](docs/getting-started.md): install, first spec end to end, quick mode, bugfixes
 - [Concepts](docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](docs/cli.md): every command and flag

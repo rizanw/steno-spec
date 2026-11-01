@@ -1,0 +1,17 @@
+{
+  "name": "link-shortener-example",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Tiny link shortener API used as the steno hands-on example.",
+  "type": "module",
+  "engines": { "node": ">=22.18" },
+  "scripts": {
+    "start": "node src/main.ts",
+    "test": "node --test \"test/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}

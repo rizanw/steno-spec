@@ -46,3 +46,8 @@ Changes are easier to accept when they keep to these:
 4. **One canonical skills folder.** Skills live in `.agents/skills/`; `steno init` links or copies them into each agent's own path. No per-agent prompt forks.
 5. **Review never runs in the context that wrote the document.** Reviewers see only the `steno review` packet. If the harness cannot start a sub-agent, the skill stops instead.
 6. **Core is a library.** Anything that needs spec data calls core or `steno --json`; nothing re-implements parsing.
+
+## Trying a change end to end
+
+[examples/link-shortener](examples/link-shortener) is a small project with a finished spec. After `pnpm build`, run
+`steno status`, `steno lint` and `steno ctx T2.2` inside it to see the effect of a change on real spec files.

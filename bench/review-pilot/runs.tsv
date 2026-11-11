@@ -1,0 +1,40 @@
+# side	doc	run	persona	hits(D-ids)	total_findings	tokens	ms
+steno	seeded	1	completeness	1,2,3,4,5,6,7,8,9,10	21	67987	32651
+steno	seeded	2	clarity	1,2,3,4,5,6,7,8,9,10	22	68409	36419
+steno	seeded	1	ears	1,2,3,4,5,6,7,8,9,10	20	68871	40454
+steno	seeded	2	completeness	1,2,3,4,5,6,7,8,9,10	21	68719	42657
+steno	seeded	2	ears	1,2,3,4,5,6,7,8,9,10	20	69349	43086
+steno	clean	1	completeness	-	14 (2 high, 6 med, 6 low)	69613	43426
+egm	seeded	1	zoom-out	1,2,3,4,5,6,7,8,10	10	14621	33587
+egm	seeded	2	comprehension	1,2,3,4,5,6,7,8,9,10	15	13517	37503
+egm	seeded	1	style	1,2,3,4,5,6,7,8,9,10	17	13915	38526
+egm	seeded	2	zoom-out	1,2,3,4,5,6,7,8,10	11	15081	38670
+egm	seeded	2	structural	1,2,4,5,6,8,10	15	14238	39406
+egm	seeded	1	comprehension	1,2,3,4,5,6,7,8,9,10	17	13896	40092
+egm	seeded	1	structural	1,2,3,4,5,6,7,8,10	20	14229	40213
+egm	seeded	2	catalyst	1,2,3,4,5,6,7,8,10	4 (grouped)	14879	41228
+egm	seeded	1	catalyst	1,2,3,4,5,6,7,8,10	6	14971	41722
+steno	clean	1	clarity	-	22 (4 high, 11 med, 7 low)	69005	44163
+egm	seeded	2	design	1,2,3,4,5,6,7,8,9,10	20	14875	48687
+egm	seeded	1	design	1,2,3,4,5,6,7,8,9,10	19	15610	55089
+steno	clean	1	ears	-	20 (2 high, 11 med, 7 low)	71863	59671
+steno	seeded	1	clarity	1,2,3,4,5,6,7,8,9,10	25	71979	61395
+egm	seeded	2	style	1,2,3,4,5,6,7,8,9,10	16	13794	36730
+egm	clean	1	catalyst	-	2 (0 blocker, 1 major, 1 nit)	13648	28476
+egm	clean	1	zoom-out	-	6 (0 blocker, 0 major, 6 nit) verdict PASS	14730	37244
+egm	clean	1	structural	-	12 (2 blocker, 4 major, 6 nit) blockers = missing Alternatives/Risks sections	14033	39103
+egm	clean	1	comprehension	-	10 (0 blocker, 3 major, 7 nit)	13798	43776
+egm	clean	1	style	-	13 (0 blocker, 5 major, 8 nit)	14599	48463
+egm	clean	1	design	-	15 (2 blocker, 9 major, 4 nit) blockers = missing Alternatives/Risks sections	15355	54679
+steno-registered	seeded	3	clarity	1,2,3,4,5,6,7,8,9,10	26	13304	40009
+steno-registered	seeded	3	completeness	1,2,3,4,5,6,7,8,9,10	23	11970	30367
+steno-registered	seeded	3	ears	1,2,3,4,5,6,7,8,9,10	21	13390	41777
+steno-registered	clean	2	clarity	-	27 (7 high, 10 med, 10 low)	13818	45683
+steno-registered	clean	2	completeness	-	21 (3 high, 11 med, 7 low)	12197	33250
+steno-registered	clean	2	ears	-	21 (4 high, 13 med, 4 low)	13579	40000
+steno-registered-v2	seeded	4	clarity	1,2,3,4,5,6,7,8,9,10	14 (7 high, 4 med, 3 low)	12490	30006
+steno-registered-v2	seeded	4	completeness	1,2,3,4,5,6,7,8,9,10	13 (8 high, 3 med, 2 low)	12300	29681
+steno-registered-v2	seeded	4	ears	1,2,3,4,5,6,7,8,9,10	11 (8 high, 2 med, 1 low)	12341	29596
+steno-registered-v2	clean	3	clarity	-	6 (0 high, 3 med, 3 low)	12176	29872
+steno-registered-v2	clean	3	completeness	-	5 (0 high, 2 med, 3 low)	12001	28074
+steno-registered-v2	clean	3	ears	-	0 (No blocking findings)	10915	17187

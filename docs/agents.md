@@ -74,6 +74,10 @@ With `reviewer: default`, `steno-review` starts its own zero-history reviewers u
 
 For Claude Code, `steno init` also writes each persona as a registered read-only sub-agent in `.claude/agents/steno-reviewer-<persona>.md` (tools: Read, Grep, Glob). The skill uses these when they exist, because a registered reviewer starts with far less context than a general-purpose sub-agent handed the same persona file. Restart Claude Code after `steno init` so it loads them. Other agents fall back to a plain sub-agent.
 
+### Which to use
+
+A pilot benchmark on one requirements document ([bench/review-pilot](../bench/review-pilot/README.md)) found that steno's reviewers and EGM's each caught all ten planted defects. steno's used under half the tokens and returned far fewer findings on a document with nothing planted. EGM's design reviewer raised deeper risks that steno's did not. The benchmark did not cover the design stage, where EGM is aimed.
+
 ## Coming from Kiro
 
 steno reads Kiro's spec files as they are: `# Requirements Document`, Introduction, Glossary,

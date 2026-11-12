@@ -20,3 +20,6 @@ export * from './parse/requirements.js';
 export * from './parse/design.js';
 export * from './parse/tasks.js';
 export * from './contract.js';
+export * from './diagnostics.js';
+export * from './outline.js';
+export * from './tree.js';

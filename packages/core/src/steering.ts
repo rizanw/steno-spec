@@ -5,8 +5,8 @@ import { diskSource, type FileSource } from './source.js';
 
 export interface Steering { file: string; inclusion: 'always' | 'fileMatch' | 'manual'; pattern?: string; body: string }
 
-/** A steering file as loaded: its parsed content, or why it cannot be read. */
-export interface SteeringEntry { file: string; steering?: Steering; unreadable?: string }
+/** A steering file as loaded: its parsed content and full text, or why it cannot be read. */
+export interface SteeringEntry { file: string; steering?: Steering; text?: string; unreadable?: string }
 
 const FM = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n)?/; // LF or CRLF
 
@@ -28,7 +28,7 @@ export function loadSteeringEntries(dir: string, src: FileSource = diskSource): 
     const path = join(dir, f);
     const r = src.read(path);
     if (!r) return [];
-    return ['error' in r ? { file: path, unreadable: `${f} ${r.error}` } : { file: path, steering: parseSteering(f, r.text) }];
+    return ['error' in r ? { file: path, unreadable: `${f} ${r.error}` } : { file: path, steering: parseSteering(f, r.text), text: r.text }];
   });
 }
 

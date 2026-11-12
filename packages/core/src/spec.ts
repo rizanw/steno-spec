@@ -1,11 +1,13 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { basename, join } from 'node:path';
-import type { Spec, SpecState } from './types.js';
+import type { DesignDoc, RequirementsDoc, Spec, SpecState, TasksDoc } from './types.js';
 import { loadState, newState, saveState, STATE_FILE } from './state.js';
 import { parseRequirements } from './parse/requirements.js';
 import { parseDesign } from './parse/design.js';
 import { allTasksDone, parseTasks } from './parse/tasks.js';
 import { specsRoot } from './config.js';
+import { diskSource, type FileSource } from './source.js';
+import { StenoError } from './contract.js';
 import { requirementsTemplate, bugfixTemplate, designTemplate, tasksTemplate, briefTemplate } from './templates.js';
 
 export const ARTIFACTS = ['brief.md', 'requirements.md', 'bugfix.md', 'design.md', 'tasks.md'] as const;
@@ -20,8 +22,9 @@ export function assertSlug(name: string): void {
 }
 
 /** A spec folder has steno's state file, or (for a Kiro folder shared via `specsDir`) at least one spec artifact. */
-export function isSpecDir(dir: string): boolean {
-  return existsSync(join(dir, STATE_FILE)) || ARTIFACTS.some(f => existsSync(join(dir, f)));
+export function isSpecDir(dir: string, src: FileSource = diskSource): boolean {
+  const names = src.list(dir);
+  return names.includes(STATE_FILE) || ARTIFACTS.some(f => names.includes(f));
 }
 
 export function listSpecs(projectRoot: string): string[] {
@@ -33,32 +36,59 @@ export function listSpecs(projectRoot: string): string[] {
 }
 
 /** State for a spec written elsewhere (Kiro): every stage whose file exists counts as approved; the phase follows from what is there. */
-export function stateFromArtifacts(name: string, dir: string): SpecState {
-  const has = (f: string) => existsSync(join(dir, f));
+export function stateFromArtifacts(name: string, dir: string, src: FileSource = diskSource): SpecState {
+  const names = src.list(dir);
+  const has = (f: string) => names.includes(f);
   const state = newState(name, { kind: has('bugfix.md') ? 'bugfix' : 'feature' });
   const today = state.created;
   if (has('requirements.md') || has('bugfix.md')) state.approvals.requirements = today;
   if (has('design.md')) state.approvals.design = today;
   if (has('tasks.md')) state.approvals.tasks = today;
-  const allDone = has('tasks.md') && allTasksDone(parseTasks(readFileSync(join(dir, 'tasks.md'), 'utf8')));
+  const tasks = has('tasks.md') ? src.read(join(dir, 'tasks.md')) : undefined;
+  const allDone = !!tasks && 'text' in tasks && allTasksDone(parseCached(join(dir, 'tasks.md'), tasks.text, parseTasks));
   state.phase = has('tasks.md') ? (allDone ? 'done' : 'execute') : has('design.md') ? 'tasks' : state.approvals.requirements ? 'design' : 'requirements';
   return state;
 }
 
-/** Load a spec. A folder with artifacts but no state file (a Kiro spec in a shared `specsDir`) gets one on first touch. */
-export function loadSpec(dir: string): Spec {
-  if (!existsSync(join(dir, STATE_FILE)) && isSpecDir(dir)) saveState(dir, stateFromArtifacts(basename(dir), dir));
-  const state = loadState(dir);
-  const files: Record<string, string> = {};
-  for (const f of ARTIFACTS) { const p = join(dir, f); if (existsSync(p)) files[f] = readFileSync(p, 'utf8'); }
-  const reqRaw = files[requirementsFile(state)];
+// Parsed documents by path; a reload reparses only files whose text changed. Parsed documents are never mutated.
+const parsed = new Map<string, { text: string; doc: unknown }>();
+function parseCached<T>(path: string, text: string, parse: (t: string) => T): T {
+  const hit = parsed.get(path);
+  if (hit && hit.text === text) return hit.doc as T;
+  const doc = parse(text);
+  parsed.set(path, { text, doc });
+  return doc;
+}
+
+/** A spec from its state and the text of each document present (by file name). */
+export function buildSpec(dir: string, state: SpecState, files: Record<string, string>): Spec {
+  const reqFile = requirementsFile(state);
+  const reqRaw = files[reqFile];
   return {
     root: dir, state, files,
-    requirements: reqRaw ? parseRequirements(reqRaw) : undefined,
-    design: files['design.md'] ? parseDesign(files['design.md']) : undefined,
-    tasks: files['tasks.md'] ? parseTasks(files['tasks.md']) : undefined,
+    requirements: reqRaw ? parseCached<RequirementsDoc>(join(dir, reqFile), reqRaw, parseRequirements) : undefined,
+    design: files['design.md'] ? parseCached<DesignDoc>(join(dir, 'design.md'), files['design.md'], parseDesign) : undefined,
+    tasks: files['tasks.md'] ? parseCached<TasksDoc>(join(dir, 'tasks.md'), files['tasks.md'], parseTasks) : undefined,
     brief: files['brief.md'],
   };
+}
+
+/**
+ * Load a spec. A folder with artifacts but no state file (a Kiro spec in a shared `specsDir`) gets one on first touch.
+ * Throws `unsupported` / `unreadable` (a StenoError) when the state record or a document cannot be used.
+ */
+export function loadSpec(dir: string, src: FileSource = diskSource): Spec {
+  if (!existsSync(join(dir, STATE_FILE)) && isSpecDir(dir, src)) saveState(dir, stateFromArtifacts(basename(dir), dir, src));
+  const state = loadState(dir);
+  const files: Record<string, string> = {};
+  for (const f of ARTIFACTS) {
+    const p = join(dir, f);
+    const r = src.read(p);
+    if (!r) continue;
+    if ('error' in r) { const reason = `${f} ${r.error}`; throw new StenoError('unreadable', `${basename(dir)}: ${reason}`, { spec: basename(dir), file: p, reason }); }
+    files[f] = r.text;
+  }
+  return buildSpec(dir, state, files);
 }
 
 export interface NewSpecOptions { title?: string; bugfix?: boolean; quick?: boolean; brief?: boolean }

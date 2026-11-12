@@ -75,8 +75,13 @@ export function loadState(specDir: string): SpecState {
   return read.state;
 }
 
+/** The text of `spec.yaml` for a state. Pure, so a change can build every file's bytes before it writes any. */
+export function stateText(s: SpecState): string {
+  return `# machine-owned by steno; edit phase/approvals only via the CLI\n${YAML.stringify(s)}`;
+}
+
 export function saveState(specDir: string, s: SpecState): void {
-  writeFileSync(join(specDir, STATE_FILE), `# machine-owned by steno; edit phase/approvals only via the CLI\n${YAML.stringify(s)}`);
+  writeFileSync(join(specDir, STATE_FILE), stateText(s));
 }
 
 export function sha(text: string): string { return createHash('sha1').update(text).digest('hex').slice(0, 10); }

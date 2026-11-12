@@ -81,6 +81,18 @@ describe('tasks', () => {
     expect(issues.find(i => i.rule === 'tasks/no-req')?.id).toBe('T3');
     expect(issues.find(i => i.rule === 'tasks/uncovered-req')?.id).toBe('R2');
   });
+  it('setTaskDone keeps each line\'s own ending in a mixed document', () => {
+    const raw = '# Tasks\r\n\n- [ ] 1. Top\r\n  - [ ] 1.1 A\n  - [ ] 1.2 B\r\n- [ ] 2. Other\n';
+    const out = setTaskDone(parseTasks(setTaskDone(parseTasks(raw), 'T1.1')), 'T1.2');
+    expect(out).toBe('# Tasks\r\n\n- [x] 1. Top\r\n  - [x] 1.1 A\n  - [x] 1.2 B\r\n- [ ] 2. Other\n');
+  });
+  it('setTaskDone leaves the given document unchanged', () => {
+    const doc = parseTasks(fx('tasks.md'));
+    const before = structuredClone(doc);
+    setTaskDone(doc, 'T1.1');
+    setTaskDone(doc, 'T1', false);
+    expect(doc).toEqual(before);
+  });
 });
 
 describe('kiro import', () => {

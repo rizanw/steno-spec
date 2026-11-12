@@ -6,7 +6,7 @@ import { findCriterion, findRequirement } from './parse/requirements.js';
 import { findSection } from './parse/design.js';
 import { findTask } from './parse/tasks.js';
 import { estimateTokens } from './tokens.js';
-import { loadSteering, matchingSteering } from './steering.js';
+import { matchingSteering, type Steering } from './steering.js';
 
 export interface CtxPacket { text: string; tokens: number; budget: number; trimmed: string[]; files: string[] }
 
@@ -79,6 +79,9 @@ function filterToCriteria(body: string, critIds: string[]): string {
 
 interface Block { id: string; head: string; body: string; primary: boolean }
 
+/** Steering files for a packet, and the ones to leave out with why. */
+export interface CtxOptions { steering?: Steering[]; omit?: { file: string; reason: string }[] }
+
 /**
  * Build the minimal packet an agent needs to implement one task:
  * task line + referenced criteria + glossary terms used + referenced design sections + likely files + matching steering.
@@ -87,8 +90,12 @@ interface Block { id: string; head: string; body: string; primary: boolean }
  * reference that is not a correctness property. Secondary: properties, and sections inferred from `_Satisfies_`
  * when the task names none. Secondary sections are filtered to the task's criteria and trimmed first; the primary
  * section is cut last, so the signatures and rules an implementer needs survive the budget.
+ *
+ * Steering comes from `opts.steering` (the caller's usable files); nothing is read here. `opts.omit` names steering files
+ * (bare names, such as `tech.md`) to leave out: one with a usable copy in `opts.steering` (unsaved edits) is listed in
+ * `trimmed` only when the packet would include it; one without (Unreadable) is always listed, since its rule is unknown.
  */
-export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget: number): CtxPacket {
+export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget: number, opts: CtxOptions = {}): CtxPacket {
   if (!spec.tasks) throw new Error('tasks.md does not exist yet');
   const task = findTask(spec.tasks, taskId);
   if (!task) throw new Error(`unknown task ${taskId}`);
@@ -148,7 +155,11 @@ export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget
   // tests live with the behaviour: name the existing test file of each source file, after the sources
   const tests = files.flatMap(f => testFilesFor(projectRoot, f)).filter(t => !files.includes(t));
   files = [...files, ...new Set(tests)];
-  const steering = matchingSteering(loadSteering(projectRoot), files.map(f => f.replace(/ \(new\)$/, '')));
+  const matched = matchingSteering(opts.steering ?? [], files.map(f => f.replace(/ \(new\)$/, '')));
+  const omit = opts.omit ?? [];
+  const steering = matched.filter(s => !omit.some(o => o.file === s.file));
+  const omitted = omit.filter(o => matched.some(s => s.file === o.file) || !(opts.steering ?? []).some(s => s.file === o.file))
+    .map(o => `steering/${o.file} (${o.reason})`);
 
   const shortDef = (d: string) => { const m = /^(.{0,90}?[.;:])\s/.exec(d + ' '); return m ? m[1] : d.length > 90 ? d.slice(0, 87) + '…' : d; };
   const render = (primaryKeep: number, secondaryKeep: number, steerKeep: number, terms: 'full' | 'short' | 'none', filesMax: number) => {
@@ -192,7 +203,7 @@ export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget
     text = render(p, s, st, t, f); tokens = estimateTokens(text);
     if (tokens <= budget) break;
   }
-  return { text, tokens, budget, trimmed: [...new Set(trimmed)], files };
+  return { text, tokens, budget, trimmed: [...new Set([...trimmed, ...omitted])], files };
 }
 
 /**

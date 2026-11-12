@@ -168,7 +168,7 @@ export function register(program: Command): void {
       const spec = resolveSpec(ctx, name);
       const budget = Number(opts.budget ?? loadConfig(ctx.root).ctxBudget);
       if (!Number.isInteger(budget) || budget <= 0) fail(`budget must be a positive whole number of tokens, got "${opts.budget ?? budget}"`);
-      const p = buildCtx(spec, ctx.root, normTaskId(taskId), budget);
+      const p = buildCtx(spec, ctx.root, normTaskId(taskId), budget, { steering: loadSteering(ctx.root) });
       out(ctx, p, `<!-- steno ctx ${normTaskId(taskId)} ~${p.tokens}/${p.budget} tokens${p.trimmed.length ? `; trimmed: ${p.trimmed.join(', ')}` : ''} -->\n${p.text}`);
     });
 

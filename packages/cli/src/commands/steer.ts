@@ -1,7 +1,8 @@
 import { Command } from 'commander';
 import { relative } from 'node:path';
-import { scan, writeSteering, lintSteering, listSteering, templateFor, extractSchema, formatSchema, hasErrors, STEERING_TOPICS, GREENFIELD_MSG, loadConfig, type Suggestion } from '@steno/core';
-import { ctxFromOpts, out, fmtIssues, fail } from '../io.js';
+import { scan, writeSteering, lintSteering, listSteering, templateFor, extractSchema, formatSchema, STEERING_TOPICS, GREENFIELD_MSG, loadConfig,
+  steeringDiagnostics, steeringMatches, readDiagnostics, configDiagnostics, type Suggestion, type LintIssue } from '@steno/core';
+import { ctxFromOpts, project, out, fmtIssues, fail } from '../io.js';
 
 function fmtSuggestion(s: Suggestion): string {
   const where = s.inclusion === 'fileMatch' ? `"${s.pattern}"` : s.inclusion;
@@ -81,9 +82,18 @@ export function register(program: Command): void {
     .description('check steering files: frontmatter, patterns that match nothing, size, placeholders, the always-budget')
     .action(() => {
       const ctx = g();
-      const issues = lintSteering(ctx.root);
-      out(ctx, { issues }, fmtIssues(issues));
-      if (hasErrors(issues)) process.exitCode = 2;
+      const snap = project(ctx);
+      // the builders the server calls, plus the no-match warning only this command gives
+      const lint = steeringDiagnostics(snap, steeringMatches(ctx.root));
+      // Unreadable steering files and configuration warnings, which lintSteering does not see
+      const extra = [...readDiagnostics(snap).filter(d => d.rule === 'steering/unreadable'), ...configDiagnostics(snap)];
+      const diagnostics = [...lint, ...extra];
+      const issues: LintIssue[] = [
+        ...lintSteering(ctx.root),
+        ...extra.map(d => ({ level: d.severity === 'error' ? 'error' as const : 'warn' as const, file: d.file, line: d.line, rule: d.rule, msg: d.message })),
+      ];
+      out(ctx, { diagnostics }, () => fmtIssues(issues), { versioned: true });
+      if (diagnostics.some(d => d.severity === 'error')) process.exitCode = 2;
     });
 
   steer.command('list')

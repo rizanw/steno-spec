@@ -5,6 +5,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { outlineOf, type DocKind } from '@steno/core';
 
 const BIN = fileURLToPath(new URL('../bin/steno.js', import.meta.url));
 
@@ -123,8 +124,8 @@ describe('steno CLI', () => {
     const { dir, steno } = project();
     steno('init'); steno('new', 'crash', '--bugfix');
     const json = JSON.parse(steno('lint', '--json').out);
-    expect(json.issues.length).toBeGreaterThan(0);
-    expect(json.issues.every((i: { file: string }) => i.file === 'bugfix.md')).toBe(true);
+    expect(json.diagnostics.length).toBeGreaterThan(0);
+    expect(json.diagnostics.every((d: { file: string }) => d.file === '.steno/specs/crash/bugfix.md')).toBe(true);
     expect(steno('lint').out).toMatch(/bugfix\.md/);
     const r = steno('approve', 'requirements');
     expect(r.code).not.toBe(0);
@@ -238,5 +239,127 @@ describe('steno CLI', () => {
     expect(r.err).toMatch(/warning: .*outside the project root/);
     expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
     expect(readFileSync(cfg, 'utf8')).toBe('specsDir: ../out\n');
+  });
+  it('list --json returns the spec tree, with dates for a derived spec and the flag of an Unusable one', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q'); steno('new', 'b');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [x] 1. Build\n- [ ] 2. Ship\n- [ ]* 3. Extra\n');
+    writeFileSync(join(dir, '.steno', 'specs', 'b', 'spec.yaml'), 'phase: nope\n');
+    // a folder with documents and no spec.yaml: derived, written by list
+    mkdirSync(join(dir, '.steno', 'specs', 'k'));
+    writeFileSync(join(dir, '.steno', 'specs', 'k', 'requirements.md'), '# Requirements Document\n');
+    writeFileSync(join(dir, '.steno', 'specs', 'k', 'design.md'), '# Design\n');
+    const r = steno('list', '--json');
+    expect(r.code).toBe(0);
+    const tree = JSON.parse(r.out);
+    expect(tree.protocolVersion).toBe(1);
+    expect(tree.notSetUp).toBeUndefined();
+    expect(tree.steering).toEqual([]);
+    const by = (n: string) => tree.specs.find((s: { name: string }) => s.name === n);
+    expect(by('q')).toMatchObject({ kind: 'feature', mode: 'quick', phase: 'execute', documents: ['requirements.md', 'design.md', 'tasks.md'],
+      tasks: { total: 2, done: 1, optionalTotal: 1, optionalDone: 0 }, next: { id: 'T2', title: 'Ship' } });
+    expect(by('b')).toEqual({ name: 'b', unreadable: true, files: [{ file: '.steno/specs/b/spec.yaml', reason: expect.any(String) }] });
+    const today = new Date().toISOString().slice(0, 10);
+    expect(by('k').approvals).toEqual({ requirements: today, design: today });
+    expect(existsSync(join(dir, '.steno', 'specs', 'k', 'spec.yaml'))).toBe(true);
+    expect(steno('list').out).toMatch(/^b\s+unreadable$/m);
+  });
+
+  it('ctx --json returns the task packet and leaves an Unreadable steering file out, listed as trimmed', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [ ] 1. Build\n');
+    writeFileSync(join(dir, '.steno', 'steering', 'good.md'), '# Good\nGOOD-RULE\n');
+    writeFileSync(join(dir, '.steno', 'steering', 'bad.md'), Buffer.from([0x23, 0x20, 0xff, 0xfe, 0x0a]));
+    const r = steno('ctx', 'T1', '--json');
+    expect(r.code).toBe(0);
+    const p = JSON.parse(r.out);
+    expect(Object.keys(p).sort()).toEqual(['budget', 'files', 'protocolVersion', 'spec', 'task', 'text', 'tokens', 'trimmed']);
+    expect(p).toMatchObject({ protocolVersion: 1, spec: 'q', task: 'T1' });
+    expect(p.text).toMatch(/GOOD-RULE/);
+    expect(p.text).not.toMatch(/\[bad\.md\]/);
+    expect(p.trimmed).toContain('steering/bad.md (bad.md is not UTF-8 text)');
+    expect(steno('ctx', 'T1').out).toMatch(/^<!-- steno ctx T1 .*trimmed: .*steering\/bad\.md/);
+  });
+
+  it('lint and steer lint --json return Diagnostic lists; errors exit 2', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q'); steno('new', 'b');
+    const all = JSON.parse(steno('lint', 'q', '--json').out);
+    expect(all).toMatchObject({ protocolVersion: 1, spec: 'q' });
+    expect(new Set(all.diagnostics.map((d: { file: string }) => d.file)).size).toBeGreaterThan(1);
+    const design = steno('lint', 'design', 'q', '--json');
+    const one = JSON.parse(design.out);
+    expect(one.diagnostics.length).toBeGreaterThan(0);
+    expect(one.diagnostics.every((d: { file: string; spec: string }) => d.file === '.steno/specs/q/design.md' && d.spec === 'q')).toBe(true);
+    expect(design.code).toBe(one.diagnostics.some((d: { severity: string }) => d.severity === 'error') ? 2 : 0);
+    // a named Unusable spec: its read errors, exit 2
+    writeFileSync(join(dir, '.steno', 'specs', 'b', 'spec.yaml'), 'phase: nope\n');
+    const bad = steno('lint', 'b', '--json');
+    expect(bad.code).toBe(2);
+    expect(JSON.parse(bad.out)).toEqual({ protocolVersion: 1, spec: 'b', diagnostics: [
+      { file: '.steno/specs/b/spec.yaml', line: 1, severity: 'error', rule: 'spec/unreadable', message: expect.any(String), spec: 'b' }] });
+    // steer lint: an Unreadable steering file is a lint error, a configuration warning is listed
+    writeFileSync(join(dir, '.steno', 'steering', 'bad.md'), Buffer.from([0xff, 0xfe]));
+    writeFileSync(join(dir, '.steno', 'config.yaml'), readFileSync(join(dir, '.steno', 'config.yaml'), 'utf8') + 'bogusKey: 1\n');
+    const steer = steno('steer', 'lint', '--json');
+    expect(steer.code).toBe(2);
+    const list = JSON.parse(steer.out);
+    expect(list.protocolVersion).toBe(1);
+    expect(list.spec).toBeUndefined();
+    expect(list.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ file: '.steno/steering/bad.md', line: 1, severity: 'error', rule: 'steering/unreadable' }),
+      expect.objectContaining({ file: '.steno/config.yaml', severity: 'warning', rule: 'config/unknown-key' }),
+    ]));
+    expect(steno('steer', 'lint').out).toMatch(/steering\/unreadable[\s\S]*config\/unknown-key/);
+  });
+
+  it('show requirements|design|tasks --json returns the outline outlineOf builds', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q'); steno('new', 'crash', '--bugfix');
+    for (const [spec, id, file, kind] of [['q', 'requirements', 'requirements.md', 'requirements'], ['q', 'design', 'design.md', 'design'],
+      ['q', 'tasks', 'tasks.md', 'tasks'], ['crash', 'requirements', 'bugfix.md', 'bugfix']] as const) {
+      const r = steno('show', id, spec, '--json');
+      expect(r.code).toBe(0);
+      const text = readFileSync(join(dir, '.steno', 'specs', spec, file), 'utf8');
+      expect(JSON.parse(r.out)).toEqual({ protocolVersion: 1, spec, document: file, items: outlineOf(kind as DocKind, text) });
+    }
+  });
+
+  it('done, reopen and approve return the change result; a blocked approve is lint-blocked with findings until --force', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q'); steno('new', 'a');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [ ] 1. Build\n- [ ] 2. Ship\n');
+    const json = (r: { out: string }) => JSON.parse(r.out);
+    expect(json(steno('done', '1', 'q', '--json'))).toEqual({ protocolVersion: 1, spec: 'q', phase: 'execute', task: 'T1', done: true });
+    expect(json(steno('done', '2', 'q', '--json'))).toEqual({ protocolVersion: 1, spec: 'q', phase: 'done', task: 'T2', done: true });
+    expect(json(steno('done', '2', 'q', '--undo', '--json'))).toEqual({ protocolVersion: 1, spec: 'q', phase: 'execute', task: 'T2', done: false });
+    expect(steno('done', '2', 'q').out).toMatch(/^done T2\nall tasks done/);
+
+    const blocked = steno('approve', 'requirements', 'a', '--json');
+    expect(blocked.code).toBe(2);
+    const err = json(blocked);
+    expect(err).toMatchObject({ protocolVersion: 1, code: 'lint-blocked', spec: 'a' });
+    expect(err.findings.length).toBeGreaterThan(0);
+    expect(err.findings.every((d: { severity: string; file: string }) => d.severity === 'error' && d.file === '.steno/specs/a/requirements.md')).toBe(true);
+    const text = steno('approve', 'requirements', 'a');
+    expect(text.code).toBe(2);
+    expect(text.out).toMatch(/E requirements\.md/);
+    expect(json(steno('approve', 'requirements', 'a', '--force', '--json')))
+      .toEqual({ protocolVersion: 1, spec: 'a', phase: 'design', approved: 'requirements', forced: true });
+
+    steno('new', 'idea', '--brief');
+    expect(json(steno('approve', 'brief', 'idea', '--json'))).toEqual({ protocolVersion: 1, spec: 'idea', phase: 'requirements', approved: 'brief' });
+  });
+
+  it('new, quick and import return a change result with the files created', () => {
+    const { dir, steno } = project();
+    steno('init');
+    const json = (r: { out: string }) => JSON.parse(r.out);
+    expect(json(steno('new', 'a', '--json'))).toEqual({ protocolVersion: 1, spec: 'a', phase: 'requirements', created: ['requirements.md', 'spec.yaml'] });
+    expect(json(steno('quick', 'q', '--json'))).toEqual({ protocolVersion: 1, spec: 'q', phase: 'execute', created: ['requirements.md', 'design.md', 'tasks.md', 'spec.yaml'] });
+    mkdirSync(join(dir, 'kiro', 'k1'), { recursive: true });
+    writeFileSync(join(dir, 'kiro', 'k1', 'requirements.md'), '# Requirements Document\n');
+    expect(json(steno('import', 'kiro/k1', 'k1', '--json'))).toEqual({ protocolVersion: 1, spec: 'k1', phase: expect.any(String), created: ['requirements.md', 'spec.yaml'] });
   });
 });

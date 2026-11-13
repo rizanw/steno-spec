@@ -1,7 +1,7 @@
 import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  findProjectRoot, loadProject, persistDerived, check, StenoError,
+  findProjectRoot, loadProject, persistDerived, check, StenoError, PROTOCOL_VERSION,
   type ProjectSnapshot, type SpecEntry, type Request, type Task, type LintIssue,
 } from '@steno/core';
 
@@ -35,8 +35,15 @@ export function resolveSpec(ctx: Ctx, req: Request): { entry: SpecEntry; task?: 
   return { ...r, snap };
 }
 
-export function out(ctx: Ctx, data: unknown, text: string | (() => string)): void {
-  if (ctx.json) process.stdout.write(JSON.stringify(data, null, 2) + '\n');
+/**
+ * Print `data` as JSON with `--json`, else the text. `versioned` marks a JSON_Contract shape (the commands D-cli-json
+ * lists): its JSON states the protocol version first.
+ */
+export function out(ctx: Ctx, data: unknown, text: string | (() => string), opts: { versioned?: boolean } = {}): void {
+  if (ctx.json) {
+    const body = opts.versioned ? { protocolVersion: PROTOCOL_VERSION, ...(data as object) } : data;
+    process.stdout.write(JSON.stringify(body, null, 2) + '\n');
+  }
   else process.stdout.write((typeof text === 'function' ? text() : text) + '\n');
 }
 

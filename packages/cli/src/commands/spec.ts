@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { basename, join, relative } from 'node:path';
 import {
-  traceCriteria, createSpec, importKiroSpec, loadSpec, lintSpec, readDiagnostics, hasErrors, saveState, scaffoldCurrent, artifactFor,
-  derivePhase, syncDonePhase, allTasksDone, loadSeen, saveSeen, sha, traceMatrix, buildCtx, nextTask, setTaskDone, findTask, findRequirement, findCriterion,
-  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState, type Request, type LintIssue, StenoError,
+  traceCriteria, createSpec, importKiroSpec, loadSpec, lintSpec, readDiagnostics, specDiagnostics, scaffoldCurrent, artifactFor,
+  applyTaskChange, applyApprove, buildTree, outlineOf, persistDerived, STATE_FILE, PROTOCOL_VERSION, type ChangeResult, type DocKind, type ProjectSnapshot, loadSeen, saveSeen, sha, traceMatrix, buildCtx, nextTask, findTask, findRequirement, findCriterion,
+  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState, type Request, type LintIssue, type Steering, StenoError,
 } from '@steno/core';
 import { ctxFromOpts, resolveSpec, project, out, fmtIssues, fail, type Ctx } from '../io.js';
 
@@ -30,6 +30,19 @@ function phaseHint(state: SpecState): string {
   return state.phase === 'requirements' ? hint.replaceAll('requirements.md', requirementsFile(state)) : hint;
 }
 
+/** The Change_Result of a command that created a Spec: its documents and `spec.yaml`. */
+function created(dir: string, files: string[], phase: ChangeResult['phase']): ChangeResult {
+  return { protocolVersion: PROTOCOL_VERSION, spec: basename(dir), phase, created: [...files, STATE_FILE] };
+}
+
+/** The usable steering files of a snapshot, and the Unreadable ones as `omit` entries for `buildCtx`. */
+function steeringOf(snap: ProjectSnapshot): { steering: Steering[]; omit: { file: string; reason: string }[] } {
+  return {
+    steering: snap.steering.flatMap(e => (e.steering ? [e.steering] : [])),
+    omit: snap.steering.flatMap(e => (e.unreadable !== undefined ? [{ file: basename(e.file), reason: e.unreadable }] : [])),
+  };
+}
+
 export function register(program: Command): void {
   const g = () => ctxFromOpts(program.opts());
 
@@ -42,7 +55,7 @@ export function register(program: Command): void {
       const ctx = g();
       const r = createSpec(ctx.root, slug, { title: opts.title, bugfix: opts.bugfix, brief: opts.brief });
       const tip = loadSteering(ctx.root).length || isGreenfield(probe(ctx.root)) ? '' : '\ntip: no steering files yet; ask your agent to "generate steering" so specs start from project facts';
-      out(ctx, r, `created ${relative(process.cwd(), r.dir)}: ${r.written.join(', ')}\nnext: ${phaseHint(r.state)}${tip}`);
+      out(ctx, created(r.dir, r.written, r.state.phase), `created ${relative(process.cwd(), r.dir)}: ${r.written.join(', ')}\nnext: ${phaseHint(r.state)}${tip}`, { versioned: true });
     });
 
   program.command('quick <slug>')
@@ -51,7 +64,7 @@ export function register(program: Command): void {
     .action((slug, opts) => {
       const ctx = g();
       const r = createSpec(ctx.root, slug, { title: opts.title, quick: true });
-      out(ctx, r, `created ${relative(process.cwd(), r.dir)} (quick): ${r.written.join(', ')}\nfill all three, then: steno lint && steno next`);
+      out(ctx, created(r.dir, r.written, r.state.phase), `created ${relative(process.cwd(), r.dir)} (quick): ${r.written.join(', ')}\nfill all three, then: steno lint && steno next`, { versioned: true });
     });
 
   program.command('import <dir> [slug]')
@@ -59,17 +72,19 @@ export function register(program: Command): void {
     .action((dir, slug) => {
       const ctx = g();
       const r = importKiroSpec(ctx.root, dir, slug);
-      out(ctx, r, `imported ${r.files.join(', ')} → ${relative(process.cwd(), r.dir)}\nrun: steno lint ${slug ?? ''}`.trim());
+      out(ctx, created(r.dir, r.files, loadSpec(r.dir).state.phase), `imported ${r.files.join(', ')} → ${relative(process.cwd(), r.dir)}\nrun: steno lint ${slug ?? ''}`.trim(), { versioned: true });
     });
 
   program.command('list').description('list specs and their phase').action(() => {
     const ctx = g();
+    const snap = project(ctx);
+    // the CLI writes each derived spec.yaml, so the tree shows the dates it has just written
+    for (const e of snap.specs) persistDerived(snap, e.name);
+    const tree = buildTree(snap);
+    delete tree.notSetUp;   // the CLI never sets it: a missing .steno is an empty project here
     // a spec steno cannot read shows its flag instead of a phase, so the user sees why it is skipped elsewhere
-    const rows = project(ctx).specs.map(e => 'spec' in e
-      ? { name: e.name, phase: e.spec.state.phase, mode: e.spec.state.mode, kind: e.spec.state.kind }
-      : { name: e.name, flag: e.flag });
-    out(ctx, rows, rows.length ? rows.map(r => 'flag' in r
-      ? `${r.name.padEnd(28)} ${r.flag}`
+    out(ctx, tree, () => tree.specs.length ? tree.specs.map(r => r.phase === undefined
+      ? `${r.name.padEnd(28)} ${r.unsupported ? 'unsupported' : 'unreadable'}`
       : `${r.name.padEnd(28)} ${r.phase.padEnd(12)} ${r.mode}${r.kind === 'bugfix' ? ' bugfix' : ''}`).join('\n') : 'no specs');
   });
 
@@ -124,10 +139,11 @@ export function register(program: Command): void {
       if (what && !['requirements', 'design', 'tasks'].includes(what)) { name = what; what = undefined; }
       const { entry, snap } = resolveSpec(ctx, { kind: 'lint', spec: name });
       // check lets lint through for a broken spec, so the user can see what is wrong with it
+      const diagnostics = 'spec' in entry ? specDiagnostics(snap, entry.name, what) : readDiagnostics(snap).filter(d => d.spec === entry.name);
       const issues: LintIssue[] = 'spec' in entry ? lintSpec(entry.spec, what)
-        : readDiagnostics(snap).filter(d => d.spec === entry.name).map(d => ({ level: 'error' as const, file: d.file, line: d.line, rule: d.rule, msg: d.message }));
-      out(ctx, { spec: entry.name, issues }, fmtIssues(issues));
-      if (hasErrors(issues)) process.exitCode = 2;
+        : diagnostics.map(d => ({ level: 'error' as const, file: d.file, line: d.line, rule: d.rule, msg: d.message }));
+      out(ctx, { spec: entry.name, diagnostics }, () => fmtIssues(issues), { versioned: true });
+      if (diagnostics.some(d => d.severity === 'error')) process.exitCode = 2;
     });
 
   program.command('approve <phase> [spec]')
@@ -136,20 +152,17 @@ export function register(program: Command): void {
     .action((phase, name, opts) => {
       const ctx = g();
       // check refuses an unknown phase and any stage but the current one
-      const spec = useSpec(ctx, { kind: 'approve', spec: name, phase });
-      if (phase !== 'brief') {
-        const issues = lintSpec(spec, phase);
-        if (hasErrors(issues) && !opts.force) {
-          if (!ctx.json) process.stdout.write(fmtIssues(issues) + '\n');
-          throw new StenoError('lint-blocked', 'fix errors first (or --force)', { spec: spec.state.name });
-        }
-        spec.state.approvals[phase as 'requirements'] = new Date().toISOString().slice(0, 10);
+      const { entry, snap } = resolveSpec(ctx, { kind: 'approve', spec: name, phase });
+      const spec = (entry as { spec: Spec }).spec;
+      let r: ChangeResult;
+      try {
+        r = applyApprove(snap, entry.name, phase, { force: opts.force });
+      } catch (e) {
+        // text mode prints the findings as before; with --json they travel in the structured error
+        if (e instanceof StenoError && e.code === 'lint-blocked' && !ctx.json) process.stdout.write(fmtIssues(lintSpec(spec, phase)) + '\n');
+        throw e;
       }
-      const allDone = !!spec.tasks && allTasksDone(spec.tasks);
-      spec.state.phase = phase === 'brief' ? 'requirements' : derivePhase(spec.state, allDone);
-      saveState(spec.root, spec.state);
-      out(ctx, { spec: spec.state.name, approved: phase, phase: spec.state.phase },
-        `approved ${phase}. phase → ${spec.state.phase}\nnext: ${phaseHint(spec.state)}`);
+      out(ctx, r, `approved ${phase}. phase → ${r.phase}\nnext: ${phaseHint({ ...spec.state, phase: r.phase })}`);
     });
 
   program.command('scaffold [spec]')
@@ -184,8 +197,9 @@ export function register(program: Command): void {
       const { entry, snap } = resolveSpec(ctx, { kind: 'packet', spec: name, task: normTaskId(taskId), budget: opts.budget });
       const spec = (entry as { spec: Spec }).spec;
       const budget = opts.budget === undefined ? snap.config.ctxBudget : Number(opts.budget);
-      const p = buildCtx(spec, ctx.root, normTaskId(taskId), budget, { steering: loadSteering(ctx.root) });
-      out(ctx, p, `<!-- steno ctx ${normTaskId(taskId)} ~${p.tokens}/${p.budget} tokens${p.trimmed.length ? `; trimmed: ${p.trimmed.join(', ')}` : ''} -->\n${p.text}`);
+      // an Unreadable steering file is left out of the packet and listed among the trimmed parts
+      const p = buildCtx(spec, ctx.root, normTaskId(taskId), budget, steeringOf(snap));
+      out(ctx, { spec: entry.name, task: normTaskId(taskId), ...p }, `<!-- steno ctx ${normTaskId(taskId)} ~${p.tokens}/${p.budget} tokens${p.trimmed.length ? `; trimmed: ${p.trimmed.join(', ')}` : ''} -->\n${p.text}`, { versioned: true });
     });
 
   program.command('show <id> [spec]')
@@ -200,6 +214,12 @@ export function register(program: Command): void {
       const spec = useSpec(ctx, { kind: 'read', spec: name });
       const text = showItem(spec, id);
       if (text === undefined) fail(`not found: ${id}`);
+      if (ctx.json && (id === 'requirements' || id === 'design' || id === 'tasks')) {
+        // the Outline, built by the same outlineOf the server's document symbols use
+        const document = id === 'requirements' ? requirementsFile(spec.state) : `${id}.md`;
+        const kind: DocKind = id === 'requirements' && spec.state.kind === 'bugfix' ? 'bugfix' : id;
+        return out(ctx, { spec: spec.state.name, document, items: outlineOf(kind, spec.files[document]!) }, text, { versioned: true });
+      }
       out(ctx, { id, text }, text);
     });
 
@@ -209,13 +229,10 @@ export function register(program: Command): void {
     .action((taskId, name, opts) => {
       const ctx = g();
       const id = normTaskId(taskId);
-      const spec = useSpec(ctx, { kind: opts.undo ? 'reopen' : 'done', spec: name, task: id });
-      const raw = setTaskDone(spec.tasks!, id, !opts.undo);
-      writeFileSync(join(spec.root, 'tasks.md'), raw);
-      const fresh = loadSpec(spec.root);
-      if (syncDonePhase(fresh.state, allTasksDone(fresh.tasks!))) saveState(fresh.root, fresh.state);
-      const nxt = nextTask(fresh.tasks!);
-      out(ctx, { task: id, done: !opts.undo, next: nxt?.id ?? null, phase: fresh.state.phase },
+      const { entry, snap } = resolveSpec(ctx, { kind: opts.undo ? 'reopen' : 'done', spec: name, task: id });
+      const r = applyTaskChange(snap, entry.name, id, !opts.undo);
+      const nxt = nextTask(loadSpec((entry as { spec: Spec }).spec.root).tasks!);
+      out(ctx, r,
         `${opts.undo ? 'reopened' : 'done'} ${id}${nxt ? `\nnext: ${describeTask(nxt)}\n→ steno ctx ${nxt.id}` : '\nall tasks done'}`);
     });
 

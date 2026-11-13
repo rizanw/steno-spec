@@ -1,7 +1,7 @@
 // End-to-end wiring: runs the built bin/steno.js in a temp project. Needs `pnpm build` first (CI builds before testing).
 import { describe, it, expect, beforeAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -174,5 +174,69 @@ describe('steno CLI', () => {
     expect(readFileSync(join(spec, 'reviews', 'requirements-round2.md'), 'utf8')).toBe(body([crit(1), crit(2), crit(3)]));
     expect(steno('review', '--full').out).toMatch(/round 1 \(full\), 2 criteria/);
     expect(steno('review', '--stage', 'bogus').code).toBe(1);
+  });
+
+  it('--version names the protocol', () => {
+    const r = project().steno('--version');
+    expect(r.code).toBe(0);
+    expect(r.out.trim()).toMatch(/^\d+\.\d+\.\d+ \(protocol 1\)$/);
+  });
+
+  it('with --json a failure writes one structured error and nothing else to stdout', () => {
+    const { steno } = project();
+    steno('init'); steno('new', 'a'); steno('new', 'b');
+    const json = (r: { out: string }) => JSON.parse(r.out);
+    const several = steno('next', '--json');
+    expect(several.code).toBe(1);
+    expect(json(several)).toEqual({ protocolVersion: 1, code: 'invalid-request', message: 'several specs; pass one of: a, b', field: 'spec' });
+    for (const args of [['next', '--bogus', '--json'], ['ctx', '--json']]) {
+      const r = steno(...args);
+      expect(r.code).toBe(1);
+      expect(json(r).code).toBe('invalid-request');
+    }
+    expect(json(steno('status', 'nope', '--json'))).toMatchObject({ code: 'not-found', spec: 'nope' });
+    expect(json(steno('new', 'a', '--json')).code).toBe('failed');
+    const blocked = steno('approve', 'requirements', 'a', '--json');
+    expect(blocked.code).toBe(2);
+    expect(json(blocked)).toMatchObject({ protocolVersion: 1, code: 'lint-blocked', spec: 'a' });
+    // text mode keeps the message on stderr
+    const text = steno('next');
+    expect(text.out).toBe('');
+    expect(text.err).toMatch(/^steno: several specs/);
+  });
+
+  it('refuses an Unusable spec, lists it with its flag and lets a named lint through', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'a'); steno('new', 'b');
+    const state = join(dir, '.steno', 'specs', 'b', 'spec.yaml');
+    writeFileSync(state, 'phase: nope\n');
+    const named = steno('status', 'b', '--json');
+    expect(named.code).toBe(1);
+    expect(JSON.parse(named.out)).toMatchObject({ code: 'unreadable', spec: 'b' });
+    expect(JSON.parse(steno('lint', '--json').out)).toMatchObject({ code: 'unreadable', spec: 'b' });
+    expect(steno('status', 'a').code).toBe(0);
+    expect(steno('list').out).toMatch(/^b\s+unreadable$/m);
+    const lint = steno('lint', 'b');
+    expect(lint.code).toBe(2);
+    expect(lint.out).toMatch(/\[spec\/unreadable\]/);
+    expect(readFileSync(state, 'utf8')).toBe('phase: nope\n');
+  });
+
+  it('an Unreadable configuration gives not-set-up; init installs the skills and leaves it unchanged', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'a');
+    const cfg = join(dir, '.steno', 'config.yaml');
+    writeFileSync(cfg, 'specsDir: ../out\n');
+    for (const args of [['list', '--json'], ['status', '--json'], ['steer', 'lint', '--json']]) {
+      const r = steno(...args);
+      expect(r.code).toBe(1);
+      expect(JSON.parse(r.out).code).toBe('not-set-up');
+    }
+    rmSync(join(dir, '.agents'), { recursive: true });
+    const r = steno('init');
+    expect(r.code).toBe(0);
+    expect(r.err).toMatch(/warning: .*outside the project root/);
+    expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
+    expect(readFileSync(cfg, 'utf8')).toBe('specsDir: ../out\n');
   });
 });

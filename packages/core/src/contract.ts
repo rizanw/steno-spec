@@ -134,7 +134,7 @@ export class StenoError extends Error {
   }
 }
 
-/** The Structured_Error for any thrown value; anything that is not a StenoError is `failed`. */
+/** The structured error for any thrown value; anything that is not a StenoError is `failed`. */
 export function toStructuredError(err: unknown): StructuredError {
   if (!(err instanceof StenoError)) return { protocolVersion: PROTOCOL_VERSION, code: 'failed', message: err instanceof Error ? err.message : String(err) };
   const out: StructuredError = { protocolVersion: PROTOCOL_VERSION, code: err.code, message: err.message };
@@ -146,7 +146,7 @@ export function toStructuredError(err: unknown): StructuredError {
   return out;
 }
 
-// --- compatibility check against a recorded contract (R9.4, R9.5, R9.6) ------------------------
+// --- compatibility check against a recorded contract ------------------------------------------
 export interface ContractRecord { protocolVersion: number; errorCodes: readonly string[]; lensCommands: readonly string[]; shapes: Record<string, Fields> }
 
 const sameSet = (a: readonly string[], b: readonly string[]) => a.length === b.length && [...a].sort().join('\0') === [...b].sort().join('\0');

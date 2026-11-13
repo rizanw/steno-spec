@@ -16,7 +16,7 @@ export function newState(name: string, opts: { title?: string; kind?: 'feature' 
   };
 }
 
-/** The current on-disk Format_Version of a spec; the only one this steno accepts. A record without one is version 1. */
+/** The current on-disk format version of a spec; the only one this steno accepts. A record without one is version 1. */
 export const FORMAT_VERSION = 1;
 
 /** A usable state, or why the record cannot be used. */

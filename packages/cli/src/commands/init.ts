@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, cpSync, readdirSync, writeFileSync, readFileSync
 import { dirname, join, relative, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { AGENTS, agentByKey, loadConfig, saveConfig, configTemplate, reviewerAgent, REVIEWER_AGENT_PREFIX, linkOrCopy } from '@steno/core';
+import { AGENTS, agentByKey, readConfig, saveConfig, configTemplate, reviewerAgent, REVIEWER_AGENT_PREFIX, linkOrCopy } from '@steno/core';
 import { ctxFromOpts, out, fail } from '../io.js';
 
 const require = createRequire(import.meta.url);
@@ -96,9 +96,15 @@ export function register(program: Command): void {
         if (!cur.includes('<!-- steno:start -->') && !/^## Spec-driven work \(steno\)\s*$/m.test(cur)) writeFileSync(p, (cur ? cur.trimEnd() + '\n' : '# Agent instructions\n') + AGENTS_MD_BLOCK);
       }
 
-      saveConfig(root, { agents: [...new Set([...loadConfig(root).agents, ...keys])] });
+      // A broken config.yaml is the user's to fix: install the skills anyway, but never overwrite their file
+      const cfg = readConfig(root);
+      const warnings: string[] = [];
+      if (cfg.unreadable) {
+        warnings.push(`${cfg.unreadable}; left unchanged, so the agents were not recorded. Fix it and run steno init again`);
+        process.stderr.write(`steno: warning: ${warnings[0]}\n`);
+      } else saveConfig(root, { agents: [...new Set([...cfg.config.agents, ...keys])] });
 
-      out(ctx, { root, skills: installed, agents: linked, reviewers }, () => [
+      out(ctx, { root, skills: installed, agents: linked, reviewers, ...(warnings.length ? { warnings } : {}) }, () => [
         `initialised ${relative(process.cwd(), root) || '.'}/.steno`,
         `skills (${installed.length}): ${installed.join(', ')}`,
         ...Object.entries(linked).map(([k, d]) => `  ${k.padEnd(11)} ${relative(root, d)}${agentByKey(k)?.note ? `  (${agentByKey(k)!.note})` : ''}`),

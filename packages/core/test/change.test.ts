@@ -31,7 +31,7 @@ const failOn = (n: number): Writer => { let i = 0; return (p, b) => { if (++i ==
 const thrown = (fn: () => unknown) => { try { fn(); } catch (e) { return e as StenoError; } throw new Error('did not throw'); };
 
 describe('applyTaskChange', () => {
-  it('ticks the task and its parent and moves the Phase to done (R5.1)', () => {
+  it('ticks the task and its parent and moves the Phase to done', () => {
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/tasks.md': '# Tasks\n\n- [ ] 1. Top\n  - [ ] 1.1 Leaf\n' });
     const r = applyTaskChange(loadProject(root), 'a', 'T1.1', true);
     expect(r).toEqual({ protocolVersion: 1, spec: 'a', phase: 'done', task: 'T1.1', done: true });
@@ -49,14 +49,14 @@ describe('applyTaskChange', () => {
     expect(bytes(root, 'spec.yaml')).toEqual(before);
   });
 
-  it('keeps the byte order mark and each line ending (R5.14)', () => {
+  it('keeps the byte order mark and each line ending', () => {
     const text = '# Tasks\r\n\n- [ ] 1. A\r\n- [ ] 2. B\n';
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/tasks.md': Buffer.concat([BOM, Buffer.from(text)]) });
     applyTaskChange(loadProject(root), 'a', 'T1', true);
     expect(bytes(root, 'tasks.md')).toEqual(Buffer.concat([BOM, Buffer.from('# Tasks\r\n\n- [x] 1. A\r\n- [ ] 2. B\n')]));
   });
 
-  it('restores every file when the second write fails (R5.11)', () => {
+  it('restores every file when the second write fails', () => {
     const text = '- [ ] 1. A\r\n';
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/tasks.md': Buffer.concat([BOM, Buffer.from(text)]) });
     const before = { tasks: bytes(root, 'tasks.md'), state: bytes(root, 'spec.yaml') };
@@ -67,7 +67,7 @@ describe('applyTaskChange', () => {
     expect(bytes(root, 'spec.yaml')).toEqual(before.state);
   });
 
-  it('writes the derived record in the same step, and removes it when the change fails (R6.3)', () => {
+  it('writes the derived record in the same step, and removes it when the change fails', () => {
     const files = { '.steno/specs/a/requirements.md': REQS, '.steno/specs/a/design.md': '# D\n', '.steno/specs/a/tasks.md': '- [ ] 1. A\n- [ ] 2. B\n' };
     const failing = project(files);
     expect(() => applyTaskChange(loadProject(failing), 'a', 'T1', true, { write: failOn(2) })).toThrow(StenoError);
@@ -82,13 +82,13 @@ describe('applyTaskChange', () => {
 });
 
 describe('applyApprove', () => {
-  it('records today\'s date and moves on when lint passes (R5.2)', () => {
+  it('records today\'s date and moves on when lint passes', () => {
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'requirements'), '.steno/specs/a/requirements.md': REQS });
     expect(applyApprove(loadProject(root), 'a', 'requirements')).toEqual({ protocolVersion: 1, spec: 'a', phase: 'design', approved: 'requirements' });
     expect(parseState(bytes(root, 'spec.yaml').toString())).toMatchObject({ state: { phase: 'design', approvals: { requirements: today } } });
   });
 
-  it('is blocked by lint errors with the error findings and writes nothing (R5.3)', () => {
+  it('is blocked by lint errors with the error findings and writes nothing', () => {
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'requirements'), '.steno/specs/a/requirements.md': BAD_REQS });
     const before = bytes(root, 'spec.yaml');
     const e = thrown(() => applyApprove(loadProject(root), 'a', 'requirements'));
@@ -104,7 +104,7 @@ describe('applyApprove', () => {
     expect(applyApprove(loadProject(root), 'a', 'requirements', { force: true })).toMatchObject({ phase: 'design', approved: 'requirements', forced: true });
   });
 
-  it('moves brief to requirements without lint (R5.7)', () => {
+  it('moves brief to requirements without lint', () => {
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'brief'), '.steno/specs/a/brief.md': '<placeholder>\n' });
     expect(applyApprove(loadProject(root), 'a', 'brief')).toEqual({ protocolVersion: 1, spec: 'a', phase: 'requirements', approved: 'brief' });
     expect(parseState(bytes(root, 'spec.yaml').toString())).toMatchObject({ state: { phase: 'requirements', approvals: {} } });
@@ -136,7 +136,7 @@ const tasksDoc = (allOpen: boolean) => fc.array(fc.tuple(fc.integer({ min: 0, ma
     return lines.map((l, i) => l + eols[i % eols.length]).join('');
   });
 
-describe('Property 1: a task change touches only checkbox characters (D-prop-1)', () => {
+describe('a task change touches only checkbox characters', () => {
   it('differs from the input only between the brackets of task lines', () => {
     fc.assert(fc.property(tasksDoc(false), fc.nat(), fc.boolean(), (raw, pick, done) => {
       const doc = parseTasks(raw);
@@ -165,7 +165,7 @@ describe('Property 1: a task change touches only checkbox characters (D-prop-1)'
   });
 });
 
-describe('Property 2: done then reopen restores the document (D-prop-2)', () => {
+describe('done then reopen restores the document', () => {
   it('returns the original text when no parent was already checked', () => {
     fc.assert(fc.property(tasksDoc(true), fc.nat(), (raw, pick) => {
       const doc = parseTasks(raw);

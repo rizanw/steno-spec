@@ -22,7 +22,7 @@ function project(files: Record<string, string | Buffer>, config?: string) {
 const spec = (e: SpecEntry | undefined) => (e && 'spec' in e ? e : undefined);
 
 describe('loadProject', () => {
-  it('is not Set_Up without .steno or with an Unreadable configuration, and does not throw', () => {
+  it('is not set up without .steno or with an Unreadable configuration, and does not throw', () => {
     const bare = mkdtempSync(join(tmpdir(), 'steno-proj-'));
     expect(loadProject(bare)).toMatchObject({ setUp: false, reason: expect.stringMatching(/no \.steno/), specs: [], steering: [] });
     expect(loadProject(project({}, '- a\n'))).toMatchObject({ setUp: false, reason: expect.stringMatching(/not a mapping/) });
@@ -31,7 +31,7 @@ describe('loadProject', () => {
     expect(ok.configWarnings).toEqual([{ key: 'foo', line: 1, kind: 'unknown-key' }]);
   });
 
-  it('decides Set_Up from disk even when the editor has the configuration open', () => {
+  it('decides whether it is set up from disk even when the editor has the configuration open', () => {
     const root = project({}, '- a\n');
     const src = overlaySource(new Map([[join(root, '.steno', 'config.yaml'), 'ctxBudget: 5\n']]), () => true);
     expect(loadProject(root, src).setUp).toBe(false);

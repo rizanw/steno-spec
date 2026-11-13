@@ -57,8 +57,7 @@ describe('loadState', () => {
   });
 });
 
-// Property 5: Format version is judged first (validates 8.3)
-describe('Property 5: format version is judged first', () => {
+describe('format version is judged first', () => {
   it('holds', () => {
     const version = fc.anything().filter(v => v !== 1 && v !== undefined);
     const others = fc.dictionary(fc.constantFrom('name', 'title', 'kind', 'mode', 'phase', 'created', 'approvals', 'seen', 'other'), fc.jsonValue());

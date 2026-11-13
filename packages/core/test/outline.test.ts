@@ -52,8 +52,7 @@ describe('itemTitle', () => {
     expect(itemTitle('', 'a'.repeat(80))).toBe('a'.repeat(80));
   });
 
-  // Property 3: Outline titles are bounded
-  it('property 3: a title has at most 80 characters and follows the first line', () => {
+  it('a title has at most 80 characters and follows the first line', () => {
     fc.assert(fc.property(fc.string({ unit: 'grapheme', maxLength: 200 }), fc.string({ maxLength: 40 }), (line, rest) => {
       const first = line.split(/\r?\n/)[0];
       const t = itemTitle('', `${first}\n${rest}`);
@@ -65,8 +64,7 @@ describe('itemTitle', () => {
   });
 });
 
-// Property 4: Outline ranges nest
-describe('property 4: outline ranges nest', () => {
+describe('outline ranges nest', () => {
   const check = (items: OutlineItem[], parent?: OutlineItem) => {
     let prev: OutlineItem | undefined;
     for (const i of items) {

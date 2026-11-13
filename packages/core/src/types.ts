@@ -37,7 +37,7 @@ export interface SpecState {
   phase: Phase;
   created: string;
   approvals: Partial<Record<'requirements' | 'design' | 'tasks', string>>;
-  /** Format_Version, kept only when the record holds one; absent means 1. */
+  /** The format version, kept only when the record holds one; absent means 1. */
   formatVersion?: number;
 }
 

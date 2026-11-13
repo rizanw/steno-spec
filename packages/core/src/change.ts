@@ -33,7 +33,7 @@ function usable(snap: ProjectSnapshot, name: string): { spec: Spec; derived: boo
   return e;
 }
 
-/** A copy of the state; a derived one gets today's date as `created` and for each derived approval (R6.3). */
+/** A copy of the state; a derived one gets today's date as `created` and for each derived approval. */
 function workingState(e: { spec: Spec; derived: boolean }): SpecState {
   const s = structuredClone(e.spec.state);
   if (e.derived) { s.created = today(); for (const k of Object.keys(s.approvals) as (keyof SpecState['approvals'])[]) s.approvals[k] = today(); }
@@ -49,7 +49,7 @@ function writeAll(files: { path: string; text: string; original?: Buffer }[], wr
   try {
     for (const f of files) {
       touched.push(f);
-      // 5.14: put the byte order mark back when the file had one
+      // put the byte order mark back when the file had one
       const body = Buffer.from(f.text, 'utf8');
       write(f.path, f.original?.subarray(0, 3).equals(BOM) ? Buffer.concat([BOM, body]) : body);
     }
@@ -64,7 +64,7 @@ function writeAll(files: { path: string; text: string; original?: Buffer }[], wr
   }
 }
 
-/** Mark a task done or reopen it, with its subtasks, its parents and the Phase, as `steno done [--undo]` does (R5.1). */
+/** Mark a task done or reopen it, with its subtasks, its parents and the Phase, as `steno done [--undo]` does. */
 export function applyTaskChange(snap: ProjectSnapshot, spec: string, task: string, done: boolean, opts: { write?: Writer } = {}): ChangeResult {
   const e = usable(snap, spec);
   const doc = e.spec.tasks;
@@ -81,9 +81,9 @@ export function applyTaskChange(snap: ProjectSnapshot, spec: string, task: strin
 }
 
 /**
- * Approve the current stage, as `steno approve` does: the Lint_Gate on that stage's saved files, then today's date as the
- * approval (R5.2). With errors and no `force` it throws `lint-blocked` with the error findings and writes nothing (R5.3).
- * Approving `brief` moves to `requirements` with no lint (R5.7).
+ * Approve the current stage, as `steno approve` does: the lint gate on that stage's saved files, then today's date as the
+ * approval. With errors and no `force` it throws `lint-blocked` with the error findings and writes nothing.
+ * Approving `brief` moves to `requirements` with no lint.
  */
 export function applyApprove(snap: ProjectSnapshot, spec: string, phase: string, opts: { force?: boolean; write?: Writer } = {}): ChangeResult {
   const e = usable(snap, spec);

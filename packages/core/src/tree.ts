@@ -1,4 +1,4 @@
-// The Spec_Tree: every Spec and Steering_File of a snapshot, as the server returns it and `steno list --json` prints it.
+// The spec tree: every Spec and steering file of a snapshot, as the server returns it and `steno list --json` prints it.
 import { relative, sep } from 'node:path';
 import type { TasksDoc } from './types.js';
 import { PROTOCOL_VERSION, type SpecTree, type TaskCounts, type TreeSpec, type TreeSteering } from './contract.js';
@@ -40,7 +40,7 @@ function treeSteering(snap: ProjectSnapshot, e: ProjectSnapshot['steering'][numb
   return { path, inclusion: e.steering!.inclusion };
 }
 
-/** The Spec_Tree of a snapshot; `notSetUp` is set when the snapshot is not Set_Up. */
+/** The spec tree of a snapshot; `notSetUp` is set when the snapshot is not set up. */
 export function buildTree(snap: ProjectSnapshot): SpecTree {
   const tree: SpecTree = {
     protocolVersion: PROTOCOL_VERSION,

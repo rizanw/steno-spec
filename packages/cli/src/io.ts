@@ -1,4 +1,9 @@
-import { findProjectRoot, loadConfig, listSpecs, loadSpec, specDir, type Spec, type LintIssue } from '@steno/core';
+import { statSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  findProjectRoot, loadProject, persistDerived, check, StenoError,
+  type ProjectSnapshot, type SpecEntry, type Request, type Task, type LintIssue,
+} from '@steno/core';
 
 export interface Ctx { root: string; json: boolean }
 
@@ -6,21 +11,28 @@ export function ctxFromOpts(opts: { json?: boolean; root?: string }): Ctx {
   return { root: findProjectRoot(opts.root ?? process.cwd()), json: !!opts.json };
 }
 
-/** Resolve a spec: explicit name, else the only spec, else the one whose phase is not done. */
-export function resolveSpec(ctx: Ctx, name?: string): Spec {
-  const names = listSpecs(ctx.root);
-  if (!names.length) throw new Error(`no specs under ${loadConfig(ctx.root).specsDir}. Run: steno new <slug>`);
-  let pick = name;
-  if (!pick) {
-    if (names.length === 1) pick = names[0];
-    else {
-      const active = names.map(n => loadSpec(specDir(ctx.root, n))).filter(s => s.state.phase !== 'done');
-      if (active.length === 1) pick = active[0].state.name;
-      else throw new Error(`several specs; pass one of: ${names.join(', ')}`);
-    }
-  }
-  if (!names.includes(pick)) throw new Error(`unknown spec "${pick}" (have: ${names.join(', ')})`);
-  return loadSpec(specDir(ctx.root, pick));
+const isDir = (p: string) => { try { return statSync(p).isDirectory(); } catch { return false; } };
+
+/**
+ * The project for a command that takes no Spec. Throws `not-set-up` when the configuration is Unreadable;
+ * a missing `.steno/` is left to the command, as before.
+ */
+export function project(ctx: Ctx): ProjectSnapshot {
+  const snap = loadProject(ctx.root);
+  if (!snap.setUp && isDir(join(snap.root, '.steno')))
+    throw new StenoError('not-set-up', snap.reason ?? `${snap.root} is not set up; run steno init`, { reason: snap.reason });
+  return snap;
+}
+
+/**
+ * Pick the Spec a command works on through `check` (steps 1 to 6 of the refusal order), refusing Unusable ones, then
+ * write the derived `spec.yaml` of the entry it returns. Returns the snapshot too, for the commands that need it.
+ */
+export function resolveSpec(ctx: Ctx, req: Request): { entry: SpecEntry; task?: Task; snap: ProjectSnapshot } {
+  const snap = loadProject(ctx.root);
+  const r = check(req, snap, { cli: true });
+  persistDerived(snap, r.entry.name);
+  return { ...r, snap };
 }
 
 export function out(ctx: Ctx, data: unknown, text: string | (() => string)): void {
@@ -36,4 +48,5 @@ export function fmtIssues(issues: LintIssue[]): string {
   return lines.join('\n');
 }
 
-export function fail(msg: string): never { process.stderr.write(`steno: ${msg}\n`); process.exit(1); }
+/** Stop the command with a `failed` error; `main.ts` reports it. */
+export function fail(msg: string): never { throw new StenoError('failed', msg); }

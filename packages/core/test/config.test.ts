@@ -63,8 +63,7 @@ describe('loadConfig', () => {
   });
 });
 
-// Property 6: Bad configuration never changes a good setting (validates 2.8)
-describe('Property 6: bad configuration never changes a good setting', () => {
+describe('bad configuration never changes a good setting', () => {
   const KEYS = Object.keys(DEFAULT_CONFIG) as (keyof Config)[];
   const folder = fc.stringMatching(/^[a-z][a-z0-9_-]{0,8}(\/[a-z][a-z0-9_-]{0,8}){0,2}$/);
   const valid = fc.record<Config>({

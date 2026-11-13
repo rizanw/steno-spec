@@ -41,7 +41,7 @@ describe('check: one case per step', () => {
     expect(r.task?.id).toBe('T1');
   });
 
-  it('step 1: a missing field, an empty string counting as missing (R5.8, R5.15)', () => {
+  it('step 1: a missing field, an empty string counting as missing', () => {
     expect(refusal(ok, { kind: 'done', task: 'T1' })).toMatchObject({ code: 'invalid-request', field: 'spec' });
     expect(refusal(ok, { kind: 'done', spec: '', task: 'T1' })).toMatchObject({ code: 'invalid-request', field: 'spec' });
     expect(refusal(ok, { kind: 'reopen', spec: 'a', task: '' })).toMatchObject({ code: 'invalid-request', field: 'task' });
@@ -62,7 +62,7 @@ describe('check: one case per step', () => {
     expect(refusal(badCfg, { kind: 'read', spec: 'a' }, { cli: true })).toMatchObject({ code: 'not-set-up' });
   });
 
-  it('step 3: an unknown spec (R5.9)', () => {
+  it('step 3: an unknown spec', () => {
     expect(refusal(ok, { kind: 'done', spec: 'zz', task: 'T1' })).toMatchObject({ code: 'not-found', spec: 'zz' });
   });
 
@@ -75,13 +75,13 @@ describe('check: one case per step', () => {
     expect(refusal(root, { kind: 'done', spec: 'a', task: 'T1' })).toBeUndefined();
   });
 
-  it('step 5: an unknown task, or a spec without tasks.md (R5.9)', () => {
+  it('step 5: an unknown task, or a spec without tasks.md', () => {
     expect(refusal(ok, { kind: 'done', spec: 'a', task: 'T9' })).toMatchObject({ code: 'not-found', field: 'task' });
     const noTasks = project({ '.steno/specs/n/spec.yaml': STATE('n', 'requirements') });
     expect(refusal(noTasks, { kind: 'packet', spec: 'n', task: 'T1' })).toMatchObject({ code: 'not-found' });
   });
 
-  it('step 6: approve rules (R5.5, R5.6)', () => {
+  it('step 6: approve rules', () => {
     const gated = project(sp('g', 'design'));
     expect(refusal(gated, { kind: 'approve', spec: 'g', phase: 'execute' })).toMatchObject({ code: 'invalid-request', reason: expect.stringMatching(/phase must be/) });
     expect(refusal(gated, { kind: 'approve', spec: 'g', phase: 'tasks' })).toMatchObject({ code: 'invalid-request', reason: expect.stringMatching(/only design/) });
@@ -90,7 +90,7 @@ describe('check: one case per step', () => {
     expect(refusal(quick, { kind: 'approve', spec: 'q', phase: 'tasks' })).toMatchObject({ code: 'invalid-request', reason: expect.stringMatching(/quick spec/) });
   });
 
-  it('step 7: unsaved edits in a file the change writes or, for approve and packet, any Spec_Document', () => {
+  it('step 7: unsaved edits in a file the change writes or, for approve and packet, any spec document', () => {
     const asked: string[][] = [];
     const tasks = join(ok, '.steno/specs/a/tasks.md'), reqs = join(ok, '.steno/specs/a/requirements.md');
     const dirty = (file: string) => (paths: string[]) => { asked.push(paths); return paths.includes(file) ? file : undefined; };
@@ -109,7 +109,7 @@ describe('check on the CLI: the default spec', () => {
     expect(check({ kind: 'read' }, loadProject(project({ ...sp('a', 'done'), ...sp('b') })), { cli: true }).entry.name).toBe('b');
   });
 
-  it('cannot choose: invalid-request on spec, after the Unusable test (R7.13)', () => {
+  it('cannot choose: invalid-request on spec, after the Unusable test', () => {
     expect(refusal(project({ ...sp('a'), ...sp('b') }), { kind: 'read' }, { cli: true })).toMatchObject({ code: 'invalid-request', field: 'spec' });
     expect(refusal(project({}), { kind: 'read' }, { cli: true })).toMatchObject({ code: 'invalid-request', field: 'spec' });
     expect(refusal(project({ ...sp('a'), ...sp('b'), ...BROKEN }), { kind: 'read' }, { cli: true })).toMatchObject({ code: 'unsupported', spec: 'bad' });
@@ -117,7 +117,7 @@ describe('check on the CLI: the default spec', () => {
   });
 });
 
-describe('check: when several refusals apply, the first in order wins (R9.23)', () => {
+describe('check: when several refusals apply, the first in order wins', () => {
   const root = project({ ...sp('a', 'design'), ...sp('q', 'execute', 'quick'), ...BROKEN });
   const bare = project({}, { steno: false });
   const always = () => join(root, '.steno/specs/a/tasks.md');

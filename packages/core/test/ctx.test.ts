@@ -93,7 +93,7 @@ describe('ctx packet: checkpoints', () => {
   });
 });
 
-describe('ctx packet: omitted steering files (R6.12, R7.10)', () => {
+describe('ctx packet: omitted steering files', () => {
   it('lists an omitted file the packet would include, with its reason, and leaves it out', () => {
     const { root, dir } = project();
     const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000, { steering: loadSteering(root), omit: [{ file: 'tech.md', reason: 'unsaved edits' }] });

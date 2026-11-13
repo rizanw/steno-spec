@@ -46,14 +46,13 @@ describe('buildTree', () => {
     ]);
   });
 
-  it('marks a snapshot that is not Set_Up', () => {
+  it('marks a snapshot that is not set up', () => {
     const tree = buildTree(loadProject(mkdtempSync(join(tmpdir(), 'steno-tree-'))));
     expect(tree).toEqual({ protocolVersion: PROTOCOL_VERSION, notSetUp: true, specs: [], steering: [] });
   });
 });
 
-// Property 8: Task counts add up
-describe('property 8: task counts add up', () => {
+describe('task counts add up', () => {
   it('total + optionalTotal is the number of leaf tasks, and done counts never exceed their totals', () => {
     const num = fc.array(fc.integer({ min: 1, max: 3 }), { minLength: 1, maxLength: 3 }).map(a => a.join('.'));
     const line = fc.tuple(num, fc.boolean(), fc.boolean()).map(([n, d, o]) => `- [${d ? 'x' : ' '}]${o ? '*' : ''} ${n}. T`);

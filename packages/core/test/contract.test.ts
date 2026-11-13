@@ -11,7 +11,7 @@ const current = (): ContractRecord => JSON.parse(JSON.stringify(CONTRACT));
 const recorded = (): ContractRecord => JSON.parse(readFileSync(RECORD, 'utf8'));
 
 describe('StenoError', () => {
-  it('becomes a Structured_Error with a contract code and only the fields it has', () => {
+  it('becomes a structured error with a contract code and only the fields it has', () => {
     const findings = [{ file: '.steno/specs/a/requirements.md', line: 3, severity: 'error' as const, rule: 'ears/vague', message: 'vague' }];
     const s = toStructuredError(new StenoError('lint-blocked', 'lint errors', { spec: 'a', findings }));
     expect(ERROR_CODES).toContain(s.code);
@@ -41,7 +41,7 @@ describe('contract record', () => {
   it('exists for the current protocol version (run `pnpm contract:record`)', () => {
     expect(existsSync(RECORD)).toBe(true);
   });
-  it('break test: nothing a Client relies on changed within the version (R9.4, R9.5)', () => {
+  it('break test: nothing a Client relies on changed within the version', () => {
     expect(contractBreaks(recorded(), current())).toEqual([]);
   });
   it('equality test: the record matches CONTRACT exactly (run `pnpm contract:record`)', () => {
@@ -51,7 +51,7 @@ describe('contract record', () => {
 
 describe('contractBreaks', () => {
   const edit = (f: (c: any) => void) => { const c: any = current(); f(c); return contractBreaks(current(), c); };
-  it('allows a new optional field and a new shape (R9.6)', () => {
+  it('allows a new optional field and a new shape', () => {
     expect(edit(c => { c.shapes.TaskPacket.extra = { type: 'string', optional: true }; c.shapes.Extra = {}; })).toEqual([]);
   });
   it('catches a removed or renamed field', () => {
@@ -64,7 +64,7 @@ describe('contractBreaks', () => {
   it('catches a change between optional and required', () => {
     expect(edit(c => { delete c.shapes.ChangeResult.task.optional; })).toEqual([expect.stringContaining('ChangeResult.task')]);
   });
-  it('catches a changed value set, error codes included (R9.5)', () => {
+  it('catches a changed value set, error codes included', () => {
     expect(edit(c => { c.shapes.Diagnostic.severity.type.enum.push('info'); })).toHaveLength(1);
     expect(edit(c => { c.errorCodes.push('timeout'); })).toEqual([expect.stringContaining('errorCodes')]);
   });

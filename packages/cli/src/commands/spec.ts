@@ -2,11 +2,18 @@ import { Command } from 'commander';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
-  traceCriteria, createSpec, importKiroSpec, listSpecs, loadSpec, specDir, lintSpec, hasErrors, saveState, scaffoldCurrent, artifactFor,
-  derivePhase, approvalError, syncDonePhase, allTasksDone, loadSeen, saveSeen, sha, traceMatrix, loadConfig, buildCtx, nextTask, setTaskDone, findTask, findRequirement, findCriterion,
-  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState,
+  traceCriteria, createSpec, importKiroSpec, loadSpec, lintSpec, readDiagnostics, hasErrors, saveState, scaffoldCurrent, artifactFor,
+  derivePhase, syncDonePhase, allTasksDone, loadSeen, saveSeen, sha, traceMatrix, buildCtx, nextTask, setTaskDone, findTask, findRequirement, findCriterion,
+  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState, type Request, type LintIssue, StenoError,
 } from '@steno/core';
-import { ctxFromOpts, resolveSpec, out, fmtIssues, fail } from '../io.js';
+import { ctxFromOpts, resolveSpec, project, out, fmtIssues, fail, type Ctx } from '../io.js';
+
+/** The usable Spec a command works on; `check` refuses an Unusable one for every kind but `lint`. */
+function useSpec(ctx: Ctx, req: Request): Spec {
+  const { entry } = resolveSpec(ctx, req);
+  if (!('spec' in entry)) throw new Error(`${entry.name} is ${entry.flag}`);
+  return entry.spec;
+}
 
 const PHASE_HINT: Record<string, string> = {
   brief: 'fill brief.md, then: steno approve brief',
@@ -57,15 +64,20 @@ export function register(program: Command): void {
 
   program.command('list').description('list specs and their phase').action(() => {
     const ctx = g();
-    const rows = listSpecs(ctx.root).map(n => { const s = loadSpec(specDir(ctx.root, n)); return { name: n, phase: s.state.phase, mode: s.state.mode, kind: s.state.kind }; });
-    out(ctx, rows, rows.length ? rows.map(r => `${r.name.padEnd(28)} ${r.phase.padEnd(12)} ${r.mode}${r.kind === 'bugfix' ? ' bugfix' : ''}`).join('\n') : 'no specs');
+    // a spec steno cannot read shows its flag instead of a phase, so the user sees why it is skipped elsewhere
+    const rows = project(ctx).specs.map(e => 'spec' in e
+      ? { name: e.name, phase: e.spec.state.phase, mode: e.spec.state.mode, kind: e.spec.state.kind }
+      : { name: e.name, flag: e.flag });
+    out(ctx, rows, rows.length ? rows.map(r => 'flag' in r
+      ? `${r.name.padEnd(28)} ${r.flag}`
+      : `${r.name.padEnd(28)} ${r.phase.padEnd(12)} ${r.mode}${r.kind === 'bugfix' ? ' bugfix' : ''}`).join('\n') : 'no specs');
   });
 
   program.command('status [spec]')
     .description('one-screen summary; says what changed since last status')
     .action((name) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
+      const spec = useSpec(ctx, { kind: 'read', spec: name });
       const tasks = spec.tasks?.tasks ?? [];
       const leaves = tasks.filter(t => t.children.length === 0);
       const done = leaves.filter(t => t.done).length;
@@ -110,9 +122,11 @@ export function register(program: Command): void {
     .action((what, name) => {
       const ctx = g();
       if (what && !['requirements', 'design', 'tasks'].includes(what)) { name = what; what = undefined; }
-      const spec = resolveSpec(ctx, name);
-      const issues = lintSpec(spec, what);
-      out(ctx, { spec: spec.state.name, issues }, fmtIssues(issues));
+      const { entry, snap } = resolveSpec(ctx, { kind: 'lint', spec: name });
+      // check lets lint through for a broken spec, so the user can see what is wrong with it
+      const issues: LintIssue[] = 'spec' in entry ? lintSpec(entry.spec, what)
+        : readDiagnostics(snap).filter(d => d.spec === entry.name).map(d => ({ level: 'error' as const, file: d.file, line: d.line, rule: d.rule, msg: d.message }));
+      out(ctx, { spec: entry.name, issues }, fmtIssues(issues));
       if (hasErrors(issues)) process.exitCode = 2;
     });
 
@@ -121,13 +135,14 @@ export function register(program: Command): void {
     .option('-f, --force', 'approve despite lint errors')
     .action((phase, name, opts) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
-      if (!['brief', 'requirements', 'design', 'tasks'].includes(phase)) fail(`phase must be brief|requirements|design|tasks`);
-      const gate = approvalError(spec.state, phase);
-      if (gate) fail(gate);
+      // check refuses an unknown phase and any stage but the current one
+      const spec = useSpec(ctx, { kind: 'approve', spec: name, phase });
       if (phase !== 'brief') {
         const issues = lintSpec(spec, phase);
-        if (hasErrors(issues) && !opts.force) { process.stdout.write(fmtIssues(issues) + '\n'); fail(`fix errors first (or --force)`); }
+        if (hasErrors(issues) && !opts.force) {
+          if (!ctx.json) process.stdout.write(fmtIssues(issues) + '\n');
+          throw new StenoError('lint-blocked', 'fix errors first (or --force)', { spec: spec.state.name });
+        }
         spec.state.approvals[phase as 'requirements'] = new Date().toISOString().slice(0, 10);
       }
       const allDone = !!spec.tasks && allTasksDone(spec.tasks);
@@ -141,7 +156,7 @@ export function register(program: Command): void {
     .description("write the current phase's artifact skeleton if it is missing (the phase skill runs this first); idempotent")
     .action((name) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
+      const spec = useSpec(ctx, { kind: 'read', spec: name });
       const f = artifactFor(spec.state);
       if (!f) fail(`phase ${spec.state.phase} has no artifact to scaffold`);
       const written = scaffoldCurrent(spec);
@@ -154,7 +169,7 @@ export function register(program: Command): void {
     .option('--optional', 'include optional (*) tasks')
     .action((name, opts) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
+      const spec = useSpec(ctx, { kind: 'read', spec: name });
       if (!spec.tasks) fail('tasks.md does not exist yet');
       const t = nextTask(spec.tasks, opts.optional);
       out(ctx, t ?? null, t ? `${describeTask(t)}\n→ steno ctx ${t.id}` : 'all tasks done');
@@ -165,9 +180,10 @@ export function register(program: Command): void {
     .option('-b, --budget <tokens>', 'token budget (default from config)')
     .action((taskId, name, opts) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
-      const budget = Number(opts.budget ?? loadConfig(ctx.root).ctxBudget);
-      if (!Number.isInteger(budget) || budget <= 0) fail(`budget must be a positive whole number of tokens, got "${opts.budget ?? budget}"`);
+      // check has already refused a bad budget and an unknown task
+      const { entry, snap } = resolveSpec(ctx, { kind: 'packet', spec: name, task: normTaskId(taskId), budget: opts.budget });
+      const spec = (entry as { spec: Spec }).spec;
+      const budget = opts.budget === undefined ? snap.config.ctxBudget : Number(opts.budget);
       const p = buildCtx(spec, ctx.root, normTaskId(taskId), budget, { steering: loadSteering(ctx.root) });
       out(ctx, p, `<!-- steno ctx ${normTaskId(taskId)} ~${p.tokens}/${p.budget} tokens${p.trimmed.length ? `; trimmed: ${p.trimmed.join(', ')}` : ''} -->\n${p.text}`);
     });
@@ -181,7 +197,7 @@ export function register(program: Command): void {
         if (!s) fail(`no steering file ${id}`);
         return out(ctx, s, s.body);
       }
-      const spec = resolveSpec(ctx, name);
+      const spec = useSpec(ctx, { kind: 'read', spec: name });
       const text = showItem(spec, id);
       if (text === undefined) fail(`not found: ${id}`);
       out(ctx, { id, text }, text);
@@ -192,10 +208,9 @@ export function register(program: Command): void {
     .option('--undo', 'mark not done')
     .action((taskId, name, opts) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
-      if (!spec.tasks) fail('tasks.md does not exist yet');
       const id = normTaskId(taskId);
-      const raw = setTaskDone(spec.tasks, id, !opts.undo);
+      const spec = useSpec(ctx, { kind: opts.undo ? 'reopen' : 'done', spec: name, task: id });
+      const raw = setTaskDone(spec.tasks!, id, !opts.undo);
       writeFileSync(join(spec.root, 'tasks.md'), raw);
       const fresh = loadSpec(spec.root);
       if (syncDonePhase(fresh.state, allTasksDone(fresh.tasks!))) saveState(fresh.root, fresh.state);
@@ -208,7 +223,7 @@ export function register(program: Command): void {
     .option('-c, --criteria', 'one row per acceptance criterion; flags criteria on no task or on more than two')
     .action((name, opts) => {
     const ctx = g();
-    const spec = resolveSpec(ctx, name);
+    const spec = useSpec(ctx, { kind: 'read', spec: name });
     if (opts.criteria) {
       const crows = traceCriteria(spec);
       const flag = (n: number) => n === 0 ? '  ← none' : n > 2 ? `  ← ${n} tasks` : '';
@@ -224,7 +239,7 @@ export function register(program: Command): void {
     .option('--full', 'forget earlier rounds and start a new full review at round 1')
     .action((name, opts) => {
       const ctx = g();
-      const spec = resolveSpec(ctx, name);
+      const spec = useSpec(ctx, { kind: 'read', spec: name });
       const stage: string = opts.stage;
       if (!['requirements', 'design', 'tasks', 'drift'].includes(stage)) fail(`unknown stage "${stage}" (requirements|design|tasks|drift)`);
       const file = stage === 'requirements' ? requirementsFile(spec.state) : stage === 'drift' ? 'tasks.md' : `${stage}.md`;

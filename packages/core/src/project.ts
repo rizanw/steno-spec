@@ -52,8 +52,8 @@ function loadEntry(dir: string, name: string, src: FileSource): SpecEntry {
 }
 
 /**
- * Load every Spec and Steering_File once, each on its own, keeping the ones steno cannot use as entries. Never throws and
- * never writes (no derived `spec.yaml`, no `.steno/cache`). Whether the project is Set_Up comes from disk whatever `src` is.
+ * Load every Spec and steering file once, each on its own, keeping the ones steno cannot use as entries. Never throws and
+ * never writes (no derived `spec.yaml`, no `.steno/cache`). Whether the project is set up comes from disk whatever `src` is.
  */
 export function loadProject(root: string, src: FileSource = diskSource): ProjectSnapshot {
   root = resolve(root);

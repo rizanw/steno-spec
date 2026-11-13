@@ -14,7 +14,7 @@ const rel = (snap: ProjectSnapshot, abs: string) => relative(snap.root, abs).spl
 const severity = (i: LintIssue): Diagnostic['severity'] => (i.level === 'error' ? 'error' : 'warning');
 
 /**
- * The lint Diagnostics of one usable Spec, for one stage when `only` is given (as `steno lint` and the Lint_Gate).
+ * The lint Diagnostics of one usable Spec, for one stage when `only` is given (as `steno lint` and the lint gate).
  * A finding on a file the Spec has keeps its line (line 1 when it has none); a finding on a file the Spec lacks, such
  * as `spec/missing`, goes to line 1 of the Spec's `spec.yaml` path. An Unusable or unknown Spec gives nothing.
  */
@@ -33,7 +33,7 @@ export function specDiagnostics(snap: ProjectSnapshot, name: string, only?: 'req
 }
 
 /**
- * The steering lint Diagnostics of the snapshot's readable Steering_Files. The no-match warning appears only when
+ * The steering lint Diagnostics of the snapshot's readable steering files. The no-match warning appears only when
  * `matches` is given. A finding on no file (`steering/budget`) goes to line 1 of the configuration path.
  */
 export function steeringDiagnostics(snap: ProjectSnapshot, matches?: Map<string, number>): Diagnostic[] {
@@ -54,12 +54,12 @@ export function steeringDiagnostics(snap: ProjectSnapshot, matches?: Map<string,
 
 /**
  * One error on line 1 of each file steno cannot use: an Unreadable configuration (`config/unreadable`), each file of an
- * Unusable Spec (`spec/unsupported` or `spec/unreadable`) and each Unreadable Steering_File (`steering/unreadable`).
+ * Unusable Spec (`spec/unsupported` or `spec/unreadable`) and each Unreadable steering file (`steering/unreadable`).
  */
 export function readDiagnostics(snap: ProjectSnapshot): Diagnostic[] {
   const config = rel(snap, configPath(snap.root));
   if (!snap.setUp) {
-    // The other cause of Not_Set_Up is a missing `.steno/`, which has no file to put a Diagnostic on.
+    // The other reason a project is not set up is a missing `.steno/`, which has no file to put a Diagnostic on.
     const unreadable = snap.reason?.startsWith('.steno/config.yaml');
     return unreadable ? [{ file: config, line: 1, severity: 'error', rule: 'config/unreadable', message: snap.reason! }] : [];
   }
@@ -85,7 +85,7 @@ export function configDiagnostics(snap: ProjectSnapshot): Diagnostic[] {
 
 /**
  * Every Diagnostic of a project, as the server publishes them: lint of each usable Spec and of the steering files, read
- * errors and configuration warnings. For a snapshot that is not Set_Up, only the `config/unreadable` error when that is
+ * errors and configuration warnings. For a snapshot that is not set up, only the `config/unreadable` error when that is
  * the cause.
  */
 export function projectDiagnostics(snap: ProjectSnapshot, matches?: Map<string, number>): Diagnostic[] {

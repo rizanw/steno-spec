@@ -18,7 +18,7 @@ export interface CheckOptions { cli: boolean; unsaved?: (paths: string[]) => str
 
 const APPROVABLE = ['brief', 'requirements', 'design', 'tasks'];
 const isDir = (p: string) => { try { return statSync(p).isDirectory(); } catch { return false; } };
-/** R5.15: an empty string counts as an omitted field. */
+/** An empty string counts as an omitted field, so a client sending `spec: ""` is treated like one that leaves it out. */
 const given = (v: unknown): v is string => typeof v === 'string' && v !== '';
 const invalid = (field: string, message: string) => new StenoError('invalid-request', message, { field });
 const isUsable = (e: SpecEntry): e is Extract<SpecEntry, { spec: unknown }> => 'spec' in e;
@@ -69,7 +69,7 @@ export function check(req: Request, snap: ProjectSnapshot, opts: CheckOptions): 
     if (!entry) throw new StenoError('not-found', `unknown spec "${name}"${names.length ? ` (have: ${names.join(', ')})` : ''}`, { spec: name });
   }
 
-  // 4. unsupported / unreadable: the target Spec, or on the CLI with no Spec named, the first Unusable one (R7.13)
+  // 4. unsupported / unreadable: the target Spec, or on the CLI with no Spec named, the first Unusable one
   if (entry) {
     if (!isUsable(entry) && req.kind !== 'lint') throw unusableError(entry);
   } else {
@@ -99,7 +99,7 @@ export function check(req: Request, snap: ProjectSnapshot, opts: CheckOptions): 
     if (reason) throw new StenoError('invalid-request', reason, { field: 'phase', spec: entry.name, reason });
   }
 
-  // 7. unsaved-edits: the files a change writes and, for approve and a packet, every Spec_Document
+  // 7. unsaved-edits: the files a change writes and, for approve and a packet, every spec document
   if (opts.unsaved && isUsable(entry) && req.kind !== 'read' && req.kind !== 'lint') {
     const dir = entry.spec.root;
     const paths = req.kind === 'done' || req.kind === 'reopen'

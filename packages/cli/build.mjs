@@ -1,4 +1,4 @@
-// Builds the published `steno-spec` package: one bundled entry point (core inlined)
+// Builds the published `steno-spec` package: two bundled entry points, bin/steno.js and bin/lsp.js (core inlined)
 // plus a copy of the skills, so the tarball needs no workspace packages.
 import { build } from 'esbuild';
 import { cpSync, rmSync, chmodSync, copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -16,9 +16,20 @@ await build({
   format: 'esm',
   target: 'node22',
   // Third-party packages stay real dependencies; only @steno/core is inlined.
-  external: ['commander', 'picomatch', 'yaml'],
+  external: ['commander', 'picomatch', 'yaml', 'vscode-languageserver', 'vscode-languageserver-textdocument'],
 });
 chmodSync(join(here, 'bin', 'steno.js'), 0o755);
+
+// The language server is its own file, loaded by `steno lsp` alone, so other commands never load the protocol library.
+await build({
+  entryPoints: [join(here, 'src', 'lsp', 'server.ts')],
+  outfile: join(here, 'bin', 'lsp.js'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  external: ['commander', 'picomatch', 'yaml', 'vscode-languageserver', 'vscode-languageserver-textdocument'],
+});
 
 rmSync(join(here, 'skills'), { recursive: true, force: true });
 cpSync(join(here, '..', 'skills', 'skills'), join(here, 'skills'), { recursive: true });

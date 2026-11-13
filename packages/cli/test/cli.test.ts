@@ -362,4 +362,21 @@ describe('steno CLI', () => {
     writeFileSync(join(dir, 'kiro', 'k1', 'requirements.md'), '# Requirements Document\n');
     expect(json(steno('import', 'kiro/k1', 'k1', '--json'))).toEqual({ protocolVersion: 1, spec: 'k1', phase: expect.any(String), created: ['requirements.md', 'spec.yaml'] });
   });
+  it('only steno lsp loads the protocol library, and it refuses --root', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'demo');
+    expect(readFileSync(BIN, 'utf8')).not.toMatch(/vscode-languageserver/);
+    expect(existsSync(fileURLToPath(new URL('../bin/lsp.js', import.meta.url)))).toBe(true);
+    // log every module steno resolves, then run a command other than lsp
+    const hook = `import { registerHooks } from 'node:module';
+      registerHooks({ resolve(s, c, next) { process.stderr.write('RESOLVE ' + s + '\\n'); return next(s, c); } });`;
+    const r = spawnSync(process.execPath, ['--import', `data:text/javascript,${encodeURIComponent(hook)}`, BIN, 'list'], { cwd: dir, encoding: 'utf8' });
+    expect(r.status).toBe(0);
+    expect(r.stderr).toMatch(/RESOLVE commander/);
+    expect(r.stderr).not.toMatch(/vscode-languageserver|lsp\.js/);
+    const bad = steno('lsp', '--root', 'x');
+    expect(bad.code).toBe(1);
+    expect(bad.err).toMatch(/^steno: --root does not apply to steno lsp/);
+    expect(JSON.parse(steno('lsp', '--root', 'x', '--json').out)).toMatchObject({ code: 'invalid-request', field: 'root', protocolVersion: 1 });
+  });
 });

@@ -1,7 +1,7 @@
 // The language server end to end: spawns the built `steno lsp` and talks LSP to it. Needs `pnpm build` first.
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -28,6 +28,8 @@ class Client {
   private id = 0;
   private pending = new Map<number, { resolve: (v: any) => void; reject: (e: any) => void }>();
   exited: Promise<number | null>;
+  /** every notification and request the server sent, with the time it arrived */
+  received: { method: string; params: any; id?: number; at: number }[] = [];
 
   constructor() {
     this.proc = spawn(process.execPath, [BIN, 'lsp'], { stdio: 'pipe' });
@@ -43,7 +45,12 @@ class Client {
       if (this.buf.length < head + 4 + len) return;
       const msg = JSON.parse(this.buf.subarray(head + 4, head + 4 + len).toString());
       this.buf = this.buf.subarray(head + 4 + len);
-      const p = msg.id !== undefined && msg.method === undefined ? this.pending.get(msg.id) : undefined;
+      if (msg.method !== undefined) {
+        this.received.push({ method: msg.method, params: msg.params, id: msg.id, at: Date.now() });
+        if (msg.id !== undefined) this.send({ id: msg.id, result: null });   // answer server requests (registrations)
+        continue;
+      }
+      const p = msg.id !== undefined ? this.pending.get(msg.id) : undefined;
       if (p) { this.pending.delete(msg.id); if (msg.error) p.reject(msg.error); else p.resolve(msg.result); }
     }
   }
@@ -59,6 +66,26 @@ class Client {
   }
 
   notify(method: string, params: unknown = {}): void { this.send({ method, params }); }
+
+  /** The first message after index `from` that matches, waiting up to `ms`. */
+  async waitFor(method: string, match: (params: any) => boolean = () => true, ms = 3000, from = 0): Promise<{ params: any; at: number }> {
+    const end = Date.now() + ms;
+    for (;;) {
+      const m = this.received.slice(from).find(r => r.method === method && match(r.params));
+      if (m) return m;
+      if (Date.now() > end) throw new Error(`no ${method} within ${ms} ms`);
+      await new Promise(r => setTimeout(r, 20));
+    }
+  }
+
+  /** The Diagnostics last published for `path`, or undefined when none were. */
+  diagnostics(path: string): any[] | undefined {
+    return this.received.filter(r => r.method === 'textDocument/publishDiagnostics' && r.params.uri === uri(path)).at(-1)?.params.diagnostics;
+  }
+
+  open(path: string, text: string, version = 1): void {
+    this.notify('textDocument/didOpen', { textDocument: { uri: uri(path), languageId: 'markdown', version, text } });
+  }
 
   async initialize(params: object): Promise<any> {
     const r = await this.request('initialize', { processId: null, capabilities: {}, ...params });
@@ -157,5 +184,254 @@ describe('steno lsp: spec tree', () => {
     const tree = await c.request('steno/specTree');
     expect(tree.specs[0].tasks).toEqual({ total: 2, done: 0, optionalTotal: 0, optionalDone: 0 });
     expect(tree.specs[0].next).toEqual({ id: 'T1', title: 'One' });
+  });
+});
+
+// --- server views ------------------------------------------------------------------------------
+const REQ = '# Requirements Document\n\n## Requirements\n\n### Requirement 1: Login\n\n**User Story:** As a user, I want to log in, so that I can work.\n\n#### Acceptance Criteria\n\n1. WHEN a user submits valid credentials, THE system SHALL create a session.\n';
+const REQ2 = REQ + '2. WHEN a user logs out, THE system SHALL end the session.\n';
+// cites R1.2, which REQ lacks: one `design/unknown-req` finding on line 7
+const DESIGN = '# Design\n\n## Overview\n\nShort.\n\n## Sessions {#D-session}\n_Satisfies: 1.1, 1.2_\n\nThe store.\n';
+const PUBLISH = 'textDocument/publishDiagnostics';
+const TREE = 'steno/treeChanged';
+const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+/** A set-up project with Spec `demo` holding REQ and DESIGN; returns its paths. */
+function demo() {
+  const dir = project(true, 'demo');
+  const spec = join(dir, '.steno', 'specs', 'demo');
+  const p = { dir, spec, req: join(spec, 'requirements.md'), design: join(spec, 'design.md'), tasks: join(spec, 'tasks.md'), config: join(dir, '.steno', 'config.yaml') };
+  writeFileSync(p.req, REQ);
+  writeFileSync(p.design, DESIGN);
+  return p;
+}
+const watchCaps = { workspace: { didChangeWatchedFiles: { dynamicRegistration: true } } };
+const has = (rule: string) => (ps: any) => ps.diagnostics.some((d: any) => d.code === rule);
+const empty = (ps: any) => ps.diagnostics.length === 0;
+
+describe('steno lsp: diagnostics', () => {
+  it('publishes the Diagnostics of unopened files at start, as protocol diagnostics', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    const { params } = await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    expect(params.diagnostics).toEqual([{
+      range: { start: { line: 6, character: 0 }, end: { line: 7, character: 0 } },
+      severity: 1, source: 'steno', code: 'design/unknown-req', message: expect.stringContaining('R1.2'),
+    }]);
+    expect(c.diagnostics(p.req)).toBeUndefined();   // a file with no findings is never sent
+  });
+
+  it('clears a finding fixed by an edit', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    const sent = Date.now();
+    c.open(p.design, DESIGN.replace('1.1, 1.2', '1.1'));
+    const { at } = await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+    expect(at - sent).toBeLessThan(1000);
+  });
+
+  it('refreshes another file of the same Spec when an edit changes its findings', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    c.open(p.req, REQ);
+    c.notify('textDocument/didChange', { textDocument: { uri: uri(p.req), version: 2 }, contentChanges: [{ text: REQ2 }] });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+    // closing the unsaved edit brings the saved text, and its finding, back
+    c.notify('textDocument/didClose', { textDocument: { uri: uri(p.req) } });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && has('design/unknown-req')(ps), 3000, from);
+  });
+
+  it('publishes no lint Diagnostic when the project is not set up', async () => {
+    const dir = project(false);
+    const c = client();
+    await c.initialize({ rootUri: uri(dir) });
+    c.open(join(dir, 'notes.md'), '# Notes\n');
+    await pause(600);
+    expect(c.received.filter(r => r.method === PUBLISH)).toEqual([]);
+  });
+});
+
+describe('steno lsp: watching', () => {
+  it('without the registration capability, a file changed on disk refreshes Diagnostics and sends one notice', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    expect(c.received.some(r => r.method === 'client/registerCapability')).toBe(false);
+    writeFileSync(p.design, DESIGN.replace('1.1, 1.2', '1.1'));
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+    await c.waitFor(TREE, undefined, 3000, from);
+    await pause(700);
+    expect(c.received.slice(from).filter(r => r.method === TREE)).toHaveLength(1);
+  });
+
+  it('with the capability, registers the watched folders and reloads on the Client events', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir), capabilities: watchCaps });
+    const reg = await c.waitFor('client/registerCapability');
+    const [registration] = reg.params.registrations;
+    expect(registration.method).toBe('workspace/didChangeWatchedFiles');
+    const globs = registration.registerOptions.watchers.map((w: any) => w.globPattern);
+    const fwd = (s: string) => s.split('\\').join('/');
+    expect(globs).toEqual(expect.arrayContaining([fwd(join(p.dir, '.steno')), fwd(p.config), fwd(join(p.dir, '.steno', 'specs')) + '/**', fwd(join(p.dir, '.steno', 'steering')) + '/**']));
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    writeFileSync(p.design, DESIGN.replace('1.1, 1.2', '1.1'));
+    c.notify('workspace/didChangeWatchedFiles', { changes: [{ uri: uri(p.design), type: 2 }] });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+    await c.waitFor(TREE, undefined, 1000, from);
+  });
+
+  it('sends a notice after the last change of a burst', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir), capabilities: watchCaps });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    let last = 0;
+    for (let i = 0; i < 8; i++) {
+      writeFileSync(p.design, DESIGN + `\nedit ${i}\n`);
+      c.notify('workspace/didChangeWatchedFiles', { changes: [{ uri: uri(p.design), type: 2 }] });
+      last = Date.now();
+      await pause(100);
+    }
+    const notices = () => c.received.slice(from).filter(r => r.method === TREE);
+    await pause(1000);
+    expect(notices().at(-1)!.at).toBeGreaterThanOrEqual(last);
+    expect(notices().at(-1)!.at - last).toBeLessThan(1000);
+    // the burst lasted 800 ms, so the 500 ms cap gave a notice before its end too
+    expect(notices()[0].at).toBeLessThan(last);
+  });
+});
+
+describe('steno lsp: set-up changes and removed files', () => {
+  it('serves a project that becomes set up after start', async () => {
+    const dir = project(false);
+    const c = client();
+    await c.initialize({ rootUri: uri(dir) });
+    await pause(200);
+    spawnSync(process.execPath, [BIN, 'init'], { cwd: dir });
+    spawnSync(process.execPath, [BIN, 'new', 'demo'], { cwd: dir });
+    await c.waitFor(TREE);
+    const req = join(dir, '.steno', 'specs', 'demo', 'requirements.md');
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(req) && has('spec/placeholder')(ps));
+    expect((await c.request('steno/specTree')).specs.map((s: any) => s.name)).toEqual(['demo']);
+  });
+
+  it('keeps only the configuration error when the configuration breaks, and sends a notice', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    const from = c.received.length;
+    writeFileSync(p.config, 'specsDir: [unclosed\n');
+    const { params } = await c.waitFor(PUBLISH, ps => ps.uri === uri(p.config), 3000, from);
+    expect(params.diagnostics).toEqual([expect.objectContaining({ code: 'config/unreadable', severity: 1, range: { start: { line: 0, character: 0 }, end: { line: 1, character: 0 } } })]);
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+    await c.waitFor(TREE, undefined, 3000, from);
+  });
+
+  it('keeps the Diagnostics of a deleted file while it is open, and clears them on close', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design));
+    c.open(p.design, DESIGN);
+    rmSync(p.design);
+    const from = c.received.length;
+    await c.waitFor(TREE, undefined, 3000, from);
+    await pause(300);
+    expect(c.diagnostics(p.design)).toEqual([expect.objectContaining({ code: 'design/unknown-req' })]);
+    c.notify('textDocument/didClose', { textDocument: { uri: uri(p.design) } });
+    await c.waitFor(PUBLISH, ps => ps.uri === uri(p.design) && empty(ps), 3000, from);
+  });
+});
+
+describe('steno lsp: document symbols', () => {
+  const symbols = (c: Client, path: string) => c.request('textDocument/documentSymbol', { textDocument: { uri: uri(path) } });
+
+  it('outlines each document kind from its current text', async () => {
+    const p = demo();
+    spawnSync(process.execPath, [BIN, 'new', 'fix', '--bugfix'], { cwd: p.dir });
+    const steering = join(p.dir, '.steno', 'steering', 'product.md');
+    writeFileSync(steering, '# Product\n\n## Users\n\nText.\n\n### Admins\n\nMore.\n');
+    writeFileSync(p.tasks, '# Tasks\n\n- [ ] 1. Session\n  - [ ] 1.1 Add store\n');
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+
+    const req = await symbols(c, p.req);
+    expect(req).toEqual([expect.objectContaining({ name: 'Login', detail: 'R1', kind: 2, range: { start: { line: 4, character: 0 }, end: expect.any(Object) } })]);
+    expect(req[0].children.map((s: any) => s.detail)).toEqual(['R1.1']);
+    expect((await symbols(c, p.design)).map((s: any) => s.detail)).toEqual(['D-overview', 'D-session']);
+    expect((await symbols(c, steering)).map((s: any) => [s.name, s.children.map((k: any) => k.name)])).toEqual([['Users', ['Admins']]]);
+    const bugfix = await symbols(c, join(p.dir, '.steno', 'specs', 'fix', 'bugfix.md'));
+    expect(bugfix.length).toBeGreaterThan(0);
+    // the open text, not the saved file
+    c.open(p.tasks, '# Tasks\n\n- [ ] 1. Session\n  - [ ] 1.1 Add store\n- [ ] 2. Logout\n');
+    const tasks = await symbols(c, p.tasks);
+    expect(tasks.map((s: any) => [s.detail, s.name, s.children.map((k: any) => k.detail)])).toEqual([['T1', 'Session', ['T1.1']], ['T2', 'Logout', []]]);
+  });
+
+  it('refuses a document that neither exists nor is open with not-found', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    const err = await symbols(c, p.tasks).then(() => undefined, e => e);
+    expect(err).toMatchObject({ code: -32803, data: { protocolVersion: PROTOCOL_VERSION, code: 'not-found', file: p.tasks } });
+  });
+
+  it('returns an empty list outside the specs and steering folders, for an Unusable Spec, and when not set up', async () => {
+    const p = demo();
+    writeFileSync(join(p.dir, 'README.md'), '# Readme\n\n## Part\n');
+    writeFileSync(p.req, Buffer.from([0x23, 0x20, 0xff, 0xfe, 0x0a]));   // not UTF-8: the Spec is Unusable
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    expect(await symbols(c, join(p.dir, 'README.md'))).toEqual([]);
+    expect(await symbols(c, join(tmpdir(), 'elsewhere', '.steno', 'specs', 'demo', 'design.md'))).toEqual([]);
+    expect(await symbols(c, p.design)).toEqual([]);
+    const bare = project(false);
+    const b = client();
+    await b.initialize({ rootUri: uri(bare) });
+    expect(await symbols(b, join(bare, '.steno', 'specs', 'demo', 'design.md'))).toEqual([]);
+  });
+});
+
+describe('steno lsp: task lenses', () => {
+  const lenses = (c: Client, path: string) => c.request('textDocument/codeLens', { textDocument: { uri: uri(path) } });
+
+  it('gives data-only lenses with the contract command IDs, and registers no handler for them', async () => {
+    const p = demo();
+    const text = '# Tasks\n\n- [ ] 1. Session\n  - [ ] 1.1 Add store\n  - [x] 1.2 Done one\n- [ ]* 2. Extra\n';
+    writeFileSync(p.tasks, text);
+    const c = client();
+    const init = await c.initialize({ rootUri: uri(p.dir) });
+    expect(init.capabilities.executeCommandProvider).toBeUndefined();
+    expect(await lenses(c, p.tasks)).toEqual([]);   // only while the document is open
+    c.open(p.tasks, text);
+    expect(await lenses(c, p.tasks)).toEqual([
+      { range: { start: { line: 3, character: 0 }, end: { line: 3, character: 0 } }, command: { title: 'Run T1.1', command: 'steno.task.run', arguments: [{ spec: 'demo', task: 'T1.1', optional: false }] } },
+      { range: { start: { line: 4, character: 0 }, end: { line: 4, character: 0 } }, command: { title: 'Done', command: 'steno.task.done', arguments: [{ spec: 'demo', task: 'T1.2', optional: false }] } },
+      { range: { start: { line: 5, character: 0 }, end: { line: 5, character: 0 } }, command: { title: 'Run T2 (optional)', command: 'steno.task.run', arguments: [{ spec: 'demo', task: 'T2', optional: true }] } },
+    ]);
+    const err = await c.request('workspace/executeCommand', { command: 'steno.task.run', arguments: [] }).then(() => undefined, e => e);
+    expect(err).toMatchObject({ code: -32601 });
+  });
+
+  it('gives no lens when the project is not set up', async () => {
+    const dir = project(false);
+    const c = client();
+    await c.initialize({ rootUri: uri(dir) });
+    const tasks = join(dir, '.steno', 'specs', 'demo', 'tasks.md');
+    c.open(tasks, '# Tasks\n\n- [ ] 1. One\n');
+    expect(await lenses(c, tasks)).toEqual([]);
   });
 });

@@ -52,3 +52,46 @@ export function unsaved(s: Session, paths: string[]): string | undefined {
     return !disk || 'error' in disk || disk.text !== decodeText(text).text;
   });
 }
+
+/** What asked for a reload: an open, edit or close of a document, or a watcher event. */
+export type ReloadCause = 'edit' | 'event';
+/** Per cause: wait this long after the latest request, and never longer than `cap` after the first one not yet served. */
+export const RELOAD_DELAYS: Record<ReloadCause, { quiet: number; cap: number }> = {
+  edit: { quiet: 100, cap: 300 },
+  event: { quiet: 150, cap: 500 },
+};
+
+export interface ReloadTimer {
+  request(cause: ReloadCause): void;
+  dispose(): void;
+}
+
+/**
+ * The one reload timer: it fires at the earliest pending deadline, and one run serves every pending request of both
+ * causes. `run` learns which causes it served.
+ */
+export function createReloadTimer(run: (served: Set<ReloadCause>) => void, delays = RELOAD_DELAYS): ReloadTimer {
+  const pending = new Map<ReloadCause, { first: number; last: number }>();
+  let timer: NodeJS.Timeout | undefined;
+  const arm = () => {
+    if (timer) clearTimeout(timer);
+    let due = Infinity;
+    for (const [cause, p] of pending) due = Math.min(due, p.last + delays[cause].quiet, p.first + delays[cause].cap);
+    timer = setTimeout(fire, Math.max(0, due - Date.now()));
+  };
+  const fire = () => {
+    timer = undefined;
+    const served = new Set(pending.keys());
+    pending.clear();
+    run(served);
+  };
+  return {
+    request(cause) {
+      const now = Date.now();
+      const p = pending.get(cause);
+      if (p) p.last = now; else pending.set(cause, { first: now, last: now });
+      arm();
+    },
+    dispose() { if (timer) clearTimeout(timer); timer = undefined; pending.clear(); },
+  };
+}

@@ -3,12 +3,16 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createConnection, TextDocuments, TextDocumentSyncKind, type InitializeParams, type InitializeResult } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { PROTOCOL_VERSION } from '@steno/core';
-import { createSession, NO_PROJECT, reload, type Session } from './session.js';
+import { PROTOCOL_VERSION, projectDiagnostics } from '@steno/core';
+import { createReloadTimer, createSession, NO_PROJECT, reload, type ReloadCause, type Session } from './session.js';
 import { registerRequests } from './requests.js';
+import { createPublisher, toLspDiagnostic, type Publisher } from './publish.js';
+import { watchKey, watchProject, type Watcher } from './watch.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
+
+export const TREE_CHANGED = 'steno/treeChanged';
 
 /** The folder to serve: the first workspace folder, else `rootUri`; other folders are ignored. Only `file:` URIs count. */
 export function pickRoot(p: Pick<InitializeParams, 'workspaceFolders' | 'rootUri'>): string | undefined {
@@ -25,12 +29,36 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
   const conn = createConnection(input, output);
   const docs = new TextDocuments(TextDocument);
   let session: Session = { open: new Map(), saved: NO_PROJECT, editor: NO_PROJECT };
-  // resources to release when the process exits (the watcher, once there is one)
-  const closers: (() => void)[] = [];
+  let publisher: Publisher | undefined;
+  let watcher: Watcher | undefined;
+  let watchedKey = '';
+  let clientWatches = false;
+  // resources to release when the process exits
+  const closers: (() => void)[] = [() => watcher?.close(), () => timer.dispose()];
   process.on('exit', () => { for (const close of closers) close(); });
+
+  const rewatch = () => {
+    const key = watchKey(session, clientWatches);
+    if (watcher && key === watchedKey) return;
+    watcher?.close();
+    watchedKey = key;
+    watcher = watchProject(conn, session, () => timer.request('event'), clientWatches);
+  };
+
+  // one reload serves every pending edit and watcher event; the notice follows any reload that served an event or flipped set-up
+  const timer = createReloadTimer((served: Set<ReloadCause>) => {
+    if (session.root === undefined) return;
+    const flipped = reload(session);
+    publisher?.sync(projectDiagnostics(session.editor));
+    if (served.has('event') || flipped.becameSetUp || flipped.becameNotSetUp) {
+      rewatch();
+      void conn.sendNotification(TREE_CHANGED);
+    }
+  });
 
   conn.onInitialize((params): InitializeResult => {
     session = createSession(pickRoot(params));
+    clientWatches = params.capabilities.workspace?.didChangeWatchedFiles?.dynamicRegistration === true;
     return {
       serverInfo: { name: 'steno', version },
       capabilities: {
@@ -42,12 +70,21 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
     };
   });
 
-  // text sync (the library reports an open as a content change too): every open, edit and close updates the open texts and reloads both snapshots
+  // serving begins: every file's Diagnostics, open or not, then the watcher. With no usable root there is neither.
+  conn.onInitialized(() => {
+    if (session.root === undefined) return;
+    publisher = createPublisher((uri, items) => void conn.sendDiagnostics({ uri, diagnostics: items.map(toLspDiagnostic) }), session.root);
+    publisher.sync(projectDiagnostics(session.editor));
+    rewatch();
+  });
+
+  // text sync (the library reports an open as a content change too): every open, edit and close updates the open texts
+  // at once, so requests see the current text, and asks for a reload
   const sync = (uri: string, text: string | undefined) => {
     const path = toPath(uri);
     if (!path) return;
     if (text === undefined) session.open.delete(path); else session.open.set(path, text);
-    reload(session);
+    timer.request('edit');
   };
   docs.onDidChangeContent(e => sync(e.document.uri, e.document.getText()));
   docs.onDidClose(e => sync(e.document.uri, undefined));

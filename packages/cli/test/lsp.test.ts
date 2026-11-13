@@ -1,7 +1,7 @@
 // The language server end to end: spawns the built `steno lsp` and talks LSP to it. Needs `pnpm build` first.
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -433,5 +433,213 @@ describe('steno lsp: task lenses', () => {
     const tasks = join(dir, '.steno', 'specs', 'demo', 'tasks.md');
     c.open(tasks, '# Tasks\n\n- [ ] 1. One\n');
     expect(await lenses(c, tasks)).toEqual([]);
+  });
+});
+
+// --- server requests ---------------------------------------------------------------------------
+const TASKS = '# Tasks\n\n- [ ] 1. Session\n  - [ ] 1.1 Add the store\n    - _Requirements: 1.1_ _Design: D-session_\n  - [ ] 1.2 Add expiry\n    - _Requirements: 1.1_\n- [ ] 2. Logout\n';
+const refusal = (p: Promise<any>) => p.then(() => { throw new Error('expected a refusal'); }, e => e);
+const cliJson = (dir: string, ...args: string[]) => JSON.parse(spawnSync(process.execPath, [BIN, ...args, '--json'], { cwd: dir, encoding: 'utf8' }).stdout);
+
+/** `demo()` with TASKS written and a valid design, ready for packets and changes. */
+function withTasks() {
+  const p = demo();
+  writeFileSync(p.design, DESIGN.replace('1.1, 1.2', '1.1'));
+  writeFileSync(p.tasks, TASKS);
+  return { ...p, steering: join(p.dir, '.steno', 'steering') };
+}
+
+describe('steno lsp: task packets', () => {
+  const packet = (c: Client, params: object) => c.request('steno/taskPacket', params);
+
+  it('returns the packet steno ctx builds from the saved files, with the configured budget by default', async () => {
+    const p = withTasks();
+    writeFileSync(join(p.steering, 'tech.md'), '# Tech\n\nNode.\n');
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    // an open document whose text matches its saved copy has no unsaved edits
+    c.open(p.req, REQ);
+    const r = await packet(c, { spec: 'demo', task: 'T1.1' });
+    expect(r).toEqual(cliJson(p.dir, 'ctx', 'T1.1', 'demo'));
+    expect(r.budget).toBe(1500);
+    expect(r.text).toContain('[tech.md]');
+    const small = await packet(c, { spec: 'demo', task: 'T1.1', budget: 200 });
+    expect(small).toEqual(cliJson(p.dir, 'ctx', 'T1.1', 'demo', '--budget', '200'));
+  });
+
+  it('refuses a budget that is not a positive whole number', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    for (const budget of [0, -5, 1.5, 'ten']) {
+      const err = await refusal(packet(c, { spec: 'demo', task: 'T1.1', budget }));
+      expect(err).toMatchObject({ code: -32803, data: { protocolVersion: PROTOCOL_VERSION, code: 'invalid-request', field: 'budget' } });
+    }
+  });
+
+  it('refuses a Spec_Document with unsaved edits, naming the file', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    c.open(p.design, DESIGN + '\nMore.\n');
+    const err = await refusal(packet(c, { spec: 'demo', task: 'T1.1' }));
+    expect(err).toMatchObject({ code: -32803, data: { code: 'unsaved-edits', spec: 'demo', file: p.design } });
+  });
+
+  it('leaves out an included steering file with unsaved edits and an Unreadable one, listing both', async () => {
+    const p = withTasks();
+    writeFileSync(join(p.steering, 'tech.md'), '# Tech\n\nNode.\n');
+    writeFileSync(join(p.steering, 'notes.md'), '---\ninclusion: manual\n---\n# Notes\n');
+    writeFileSync(join(p.steering, 'bad.md'), Buffer.from([0x23, 0x20, 0xff, 0xfe, 0x0a]));
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    c.open(join(p.steering, 'tech.md'), '# Tech\n\nDeno.\n');
+    c.open(join(p.steering, 'notes.md'), '---\ninclusion: manual\n---\n# Notes, edited\n');
+    const r = await packet(c, { spec: 'demo', task: 'T1.1' });
+    expect(r.text).not.toContain('[tech.md]');
+    expect(r.text).not.toContain('Deno');
+    expect(r.trimmed).toContain('steering/tech.md (unsaved edits)');
+    expect(r.trimmed).toContainEqual(expect.stringMatching(/^steering\/bad\.md \(.+\)$/));
+    // a manual file the packet would not include is not listed, edited or not
+    expect(r.trimmed.some((t: string) => t.startsWith('steering/notes.md'))).toBe(false);
+  });
+
+  it('refuses with not-set-up when the project is not set up', async () => {
+    const c = client();
+    await c.initialize({ rootUri: uri(project(false)) });
+    const err = await refusal(packet(c, { spec: 'demo', task: 'T1.1' }));
+    expect(err).toMatchObject({ code: -32803, data: { code: 'not-set-up' } });
+  });
+});
+
+describe('steno lsp: state changes', () => {
+  const done = (c: Client, task: string) => c.request('steno/taskDone', { spec: 'demo', task });
+
+  it('marks a task done and reopens it, reloading and sending the notice', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    let from = c.received.length;
+    expect(await done(c, 'T1.1')).toEqual({ protocolVersion: PROTOCOL_VERSION, spec: 'demo', phase: 'requirements', task: 'T1.1', done: true });
+    expect(readFileSync(p.tasks, 'utf8')).toContain('- [x] 1.1 Add the store');
+    await c.waitFor(TREE, undefined, 1000, from);
+    expect((await c.request('steno/specTree')).specs[0].next).toEqual({ id: 'T1.2', title: 'Add expiry' });
+    from = c.received.length;
+    expect(await c.request('steno/taskReopen', { spec: 'demo', task: 'T1.1' })).toMatchObject({ task: 'T1.1', done: false });
+    expect(readFileSync(p.tasks, 'utf8')).toContain('- [ ] 1.1 Add the store');
+    await c.waitFor(TREE, undefined, 1000, from);
+  });
+
+  it('applies two changes sent back to back, one after the other', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    const [a, b] = await Promise.all([done(c, 'T1.1'), done(c, 'T1.2')]);
+    expect([a.task, b.task]).toEqual(['T1.1', 'T1.2']);
+    const text = readFileSync(p.tasks, 'utf8');
+    expect(text).toContain('- [x] 1.1 Add the store');
+    expect(text).toContain('- [x] 1.2 Add expiry');
+    expect(text).toContain('- [x] 1. Session');
+  });
+
+  it('refuses a change for unsaved edits, an Unusable Spec and a project not set up, writing nothing', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    c.open(p.tasks, TASKS + '- [ ] 3. More\n');
+    expect(await refusal(done(c, 'T1.1'))).toMatchObject({ code: -32803, data: { protocolVersion: PROTOCOL_VERSION, code: 'unsaved-edits', file: p.tasks } });
+    expect(readFileSync(p.tasks, 'utf8')).toBe(TASKS);
+
+    const q = withTasks();
+    writeFileSync(q.req, Buffer.from([0x23, 0x20, 0xff, 0xfe, 0x0a]));
+    const u = client();
+    await u.initialize({ rootUri: uri(q.dir) });
+    expect(await refusal(done(u, 'T1.1'))).toMatchObject({ code: -32803, data: { code: 'unreadable', spec: 'demo', file: q.req, reason: expect.any(String) } });
+    expect(readFileSync(q.tasks, 'utf8')).toBe(TASKS);
+
+    const bare = client();
+    await bare.initialize({ rootUri: uri(project(false)) });
+    expect(await refusal(done(bare, 'T1.1'))).toMatchObject({ code: -32803, data: { code: 'not-set-up' } });
+  });
+});
+
+describe('steno lsp: approve', () => {
+  const approve = (c: Client, phase: string) => c.request('steno/approve', { spec: 'demo', phase });
+  const stateOf = (p: { spec: string }) => readFileSync(join(p.spec, 'spec.yaml'), 'utf8');
+
+  it('approves the current stage', async () => {
+    const p = demo();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    const from = c.received.length;
+    expect(await approve(c, 'requirements')).toEqual({ protocolVersion: PROTOCOL_VERSION, spec: 'demo', phase: 'design', approved: 'requirements' });
+    expect(stateOf(p)).toMatch(/phase: design/);
+    await c.waitFor(TREE, undefined, 1000, from);
+  });
+
+  it('refuses an approval blocked by lint, and takes no force', async () => {
+    const p = demo();
+    writeFileSync(p.req, '# Requirements Document\n\n## Requirements\n');
+    const before = stateOf(p);
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    const err = await refusal(c.request('steno/approve', { spec: 'demo', phase: 'requirements', force: true }));
+    expect(err).toMatchObject({ code: -32803, data: { code: 'lint-blocked', spec: 'demo', findings: [expect.objectContaining({ rule: 'req/empty' })] } });
+    expect(stateOf(p)).toBe(before);
+  });
+
+  it('refuses an approval while any Spec_Document of the Spec has unsaved edits', async () => {
+    const p = demo();
+    const before = stateOf(p);
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    c.open(p.design, DESIGN + '\nMore.\n');
+    expect(await refusal(approve(c, 'requirements'))).toMatchObject({ code: -32803, data: { code: 'unsaved-edits', file: p.design } });
+    expect(stateOf(p)).toBe(before);
+  });
+
+  it('finishes a change before exiting on an exit message sent right after it', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    void c.request('steno/taskDone', { spec: 'demo', task: 'T1.1' }).catch(() => {});
+    c.notify('exit');
+    await c.exited;
+    expect(readFileSync(p.tasks, 'utf8')).toContain('- [x] 1.1 Add the store');
+  });
+});
+
+describe('steno lsp: end to end on the example project', () => {
+  const EXAMPLE = fileURLToPath(new URL('../../../examples/link-shortener', import.meta.url));
+  const gitStatus = () => spawnSync('git', ['status', '--porcelain', '--', EXAMPLE], { cwd: EXAMPLE, encoding: 'utf8' }).stdout;
+
+  it('publishes Diagnostics, lists the Spec and ticks a task in a copy, leaving the repository clean', async () => {
+    const before = gitStatus();
+    const dir = mkdtempSync(join(tmpdir(), 'steno-lsp-example-'));
+    cpSync(EXAMPLE, dir, { recursive: true, filter: src => !src.includes('node_modules') });
+    const spec = join(dir, '.steno', 'specs', 'link-expiry');
+    const tasks = join(spec, 'tasks.md');
+    // every task of the example is done: reopen the first leaf in the copy so there is one to tick
+    spawnSync(process.execPath, [BIN, 'done', 'T1.1', 'link-expiry', '--undo'], { cwd: dir });
+    expect(readFileSync(tasks, 'utf8')).toContain('- [ ] 1.1 ');
+
+    const c = client();
+    await c.initialize({ rootUri: uri(dir) });
+    // the example lints clean, so a finding is added in the open text of its design
+    const design = join(spec, 'design.md');
+    c.open(design, readFileSync(design, 'utf8') + '\n## Extra {#D-extra}\n_Satisfies: 99.1_\n\nText.\n');
+    await c.waitFor(PUBLISH, has('design/unknown-req'));
+
+    const tree = await c.request('steno/specTree');
+    expect(tree.specs.map((s: any) => s.name)).toEqual(['link-expiry']);
+    expect(tree.specs[0].next).toEqual(expect.objectContaining({ id: 'T1.1' }));
+
+    const from = c.received.length;
+    expect(await c.request('steno/taskDone', { spec: 'link-expiry', task: 'T1.1' })).toMatchObject({ spec: 'link-expiry', task: 'T1.1', done: true });
+    expect(readFileSync(tasks, 'utf8')).toContain('- [x] 1.1 ');
+    await c.waitFor(TREE, undefined, 1000, from);
+    await pause(800);
+    expect(c.received.slice(from).filter(r => r.method === TREE)).toHaveLength(1);
+    expect(gitStatus()).toBe(before);
   });
 });

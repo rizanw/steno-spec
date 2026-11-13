@@ -1,4 +1,5 @@
 // The steno language server, built as bin/lsp.js and loaded only by `steno lsp`. stdio transport only: no network module here.
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { createConnection, TextDocuments, TextDocumentSyncKind, type InitializeParams, type InitializeResult } from 'vscode-languageserver/node';
@@ -37,12 +38,29 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
   const closers: (() => void)[] = [() => watcher?.close(), () => timer.dispose()];
   process.on('exit', () => { for (const close of closers) close(); });
 
+  // the files the server's own state changes wrote, with the bytes written: their watcher events are echoes, already
+  // reloaded and noticed, and are dropped until the file holds something else
+  const own = new Map<string, string>();
+  const read = (path: string) => { try { return readFileSync(path, 'latin1'); } catch { return undefined; } };
+  const TEMP = /\.steno-\d+\.tmp$/;
+  const onWatch = (paths: string[]) => {
+    const foreign = paths.filter(p => {
+      if (TEMP.test(p)) return false;
+      const mine = own.get(p);
+      if (mine === undefined) return true;
+      if (read(p) === mine) return false;
+      own.delete(p);
+      return true;
+    });
+    if (foreign.length) timer.request('event');
+  };
+
   const rewatch = () => {
     const key = watchKey(session, clientWatches);
     if (watcher && key === watchedKey) return;
     watcher?.close();
     watchedKey = key;
-    watcher = watchProject(conn, session, () => timer.request('event'), clientWatches);
+    watcher = watchProject(conn, session, onWatch, clientWatches);
   };
 
   // one reload serves every pending edit and watcher event; the notice follows any reload that served an event or flipped set-up
@@ -89,7 +107,15 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
   docs.onDidChangeContent(e => sync(e.document.uri, e.document.getText()));
   docs.onDidClose(e => sync(e.document.uri, undefined));
 
-  registerRequests(conn, () => session);
+  // a state change the server applied: reload, publish and send the notice at once, with no wait
+  const changed = (written: string[]) => {
+    for (const path of written) { const bytes = read(path); if (bytes === undefined) own.delete(path); else own.set(path, bytes); }
+    reload(session);
+    publisher?.sync(projectDiagnostics(session.editor));
+    rewatch();
+    void conn.sendNotification(TREE_CHANGED);
+  };
+  registerRequests(conn, () => session, changed);
   docs.listen(conn);
   conn.listen();
 }

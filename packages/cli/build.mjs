@@ -34,13 +34,15 @@ await build({
 rmSync(join(here, 'skills'), { recursive: true, force: true });
 cpSync(join(here, '..', 'skills', 'skills'), join(here, 'skills'), { recursive: true });
 
-// On pack, ship the repo README and LICENSE with the package.
+// On pack, ship the repo README, LICENSE and JSON contract with the package.
 if (process.argv.includes('--readme')) {
   if (existsSync(join(root, 'LICENSE'))) copyFileSync(join(root, 'LICENSE'), join(here, 'LICENSE'));
   // npm does not render mermaid: swap each diagram for the text version kept in the comment after it.
   const readme = readFileSync(join(root, 'README.md'), 'utf8')
     .replace(/```mermaid\r?\n[\s\S]*?\r?\n```\r?\n<!-- npm-text\r?\n([\s\S]*?)\r?\n-->/g, '$1');
   writeFileSync(join(here, 'README.md'), absoluteLinks(readme));
+  // the JSON contract ships with the release it describes
+  writeFileSync(join(here, 'JSON-CONTRACT.md'), absoluteLinks(readFileSync(join(root, 'docs', 'json-contract.md'), 'utf8')));
 }
 
 // npm resolves relative README links against npmjs.com, so point them at the repo instead:

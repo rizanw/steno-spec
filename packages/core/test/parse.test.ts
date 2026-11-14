@@ -35,6 +35,13 @@ describe('requirements', () => {
     expect(rules).toContain('R2.1:ears/split');
     expect(rules.filter(r => r.endsWith('ears/shall'))).toHaveLength(0);
   });
+  it('flags a vague word on its own, before a space, comma or full stop, and not inside another word', () => {
+    const vague = (text: string) => lintRequirements(parseRequirements(
+      `# Requirements\n\n## Requirements\n\n### Requirement 1: X\n\n**User Story:** As a user, I want x, so that y.\n\n#### Acceptance Criteria\n\n1. ${text}\n`,
+    )).find(i => i.rule === 'ears/vague')?.msg;
+    expect(vague('WHEN asked, THE system SHALL answer fast, Quickly and as needed.')).toBe('vague wording: fast, quickly, as needed — make it testable');
+    expect(vague('WHEN asked, THE system SHALL serve breakfast and fastest routes.')).toBeUndefined();
+  });
 });
 
 describe('design', () => {
@@ -80,6 +87,15 @@ describe('tasks', () => {
     const issues = lintTasks(parseTasks(fx('tasks.md')), parseRequirements(fx('requirements.md')));
     expect(issues.find(i => i.rule === 'tasks/no-req')?.id).toBe('T3');
     expect(issues.find(i => i.rule === 'tasks/uncovered-req')?.id).toBe('R2');
+  });
+  it('lints orphan tasks and unknown requirement, criterion and design references', () => {
+    const doc = parseTasks('# Tasks\n\n- [ ] 1. Top\n  - [ ] 1.1 Good\n    - _Requirements: R1, R1.1_ _Design: D-auth_\n'
+      + '  - [ ] 1.2 Bad\n    - _Requirements: R9, R1.9_ _Design: D-none_\n  - [ ] 3.1 Orphan\n    - _Requirements: R1_\n');
+    const issues = lintTasks(doc, parseRequirements(fx('requirements.md')), parseDesign(fx('design.md')));
+    const of = (rule: string) => issues.filter(i => i.rule === rule).map(i => [i.id, i.msg]);
+    expect(of('tasks/orphan')).toEqual([['T3.1', 'parent T3 does not exist']]);
+    expect(of('tasks/unknown-req')).toEqual([['T1.2', 'references unknown R9'], ['T1.2', 'references unknown R1.9']]);
+    expect(of('tasks/unknown-design')).toEqual([['T1.2', 'references unknown design section D-none']]);
   });
   it('setTaskDone keeps each line\'s own ending in a mixed document', () => {
     const raw = '# Tasks\r\n\n- [ ] 1. Top\r\n  - [ ] 1.1 A\n  - [ ] 1.2 B\r\n- [ ] 2. Other\n';

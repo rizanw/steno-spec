@@ -31,9 +31,9 @@ steno review --stage drift      # after the last task: does the code still match
 
 | Option | What it does |
 |---|---|
-| `--json` | Prints machine-readable JSON instead of text. Use it in scripts and editor integrations. |
+| `--json` | Prints machine-readable JSON instead of text. Use it in scripts and editor integrations. The output of `list`, `ctx`, `show requirements\|design\|tasks`, `lint`, `steer lint`, `done`, `approve`, `new`, `quick` and `import` follows the [JSON contract](json-contract.md); other commands' JSON can change between releases. A failed command writes one JSON error object, and nothing else, to standard output. |
 | `--root <dir>` | Runs against the project in `<dir>`. By default steno walks up from the current folder until it finds a `.steno/` folder. Use `steno --root . init` to set up a project inside a folder that already belongs to another steno project. |
-| `--version`, `--help` | Work as you would expect. Every command also accepts `--help`. |
+| `--version`, `--help` | Work as you would expect. `--version` also names the JSON contract's protocol version, for example `0.1.1 (protocol 1)`. Every command also accepts `--help`. |
 
 **Picking a spec.** Many commands take an optional `[spec]` argument, the spec's slug (for example `login-with-email`). You can leave it out when there is only one spec, or only one that is not finished yet; steno picks that one. If it can't tell which one you mean, it lists the candidates and asks you to name one.
 
@@ -212,7 +212,9 @@ What it does:
 
 ### `steno list`
 
-Lists all specs with their phase, their mode (gated or quick) and their kind (feature or bugfix).
+Lists all specs with their phase, their mode (gated or quick) and their kind (feature or bugfix). A spec steno cannot use, for example because a file is not UTF-8 text, is listed as `unreadable` or `unsupported`.
+
+With `--json` it returns the spec tree of the [JSON contract](json-contract.md#spectree): every spec with its approvals, task counts and next task, and every steering file. A spec folder without a `spec.yaml` gets one written, with today's date for each approval its documents imply.
 
 ---
 
@@ -341,6 +343,23 @@ In practice the `steno-review` skill runs this for you and hands the packet to t
 
 ---
 
+## Editor integration
+
+### `steno lsp`
+
+Runs the steno language server over standard input and output. You don't run it by hand: an editor plugin starts it and talks to it. It serves the project folder the editor opens (the first workspace folder), never searches parent folders, and makes no network connections. `--root` does not apply.
+
+What the editor gets:
+
+- **Diagnostics:** the findings of `steno lint` and `steno steer lint` for every spec and steering file, open or not, updated as you type and when files change on disk.
+- **Outline:** requirements, criteria, design sections and tasks of the open document.
+- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task without subtasks and a *Done* marker above each checked one.
+- **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, and approving a stage. All of them read saved files; the last four refuse while a document they need has unsaved edits.
+
+The requests, their answers and the protocol version are described in the [JSON contract](json-contract.md).
+
+---
+
 ## Exit codes
 
 Useful when you run steno in scripts or CI:
@@ -349,4 +368,4 @@ Useful when you run steno in scripts or CI:
 |---|---|
 | `0` | Success. Lint warnings still count as success. |
 | `1` | The command failed, or was called incorrectly (for example, an unknown option or a missing spec). |
-| `2` | `steno lint` or `steno steer lint` found errors. |
+| `2` | `steno lint` or `steno steer lint` found errors, or `steno approve` was blocked by lint errors. |

@@ -12,6 +12,7 @@ packages/cli/bin/
 packages/cli/skills/
 packages/cli/README.md
 packages/cli/LICENSE
+packages/cli/JSON-CONTRACT.md
 
 # installed by `steno init` (canonical copies live in packages/skills)
 .agents/

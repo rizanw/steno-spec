@@ -1,11 +1,11 @@
 import type { Spec, LintIssue, RequirementsDoc, DesignDoc, TasksDoc } from './types.js';
 import { reqOf, CRIT_ID, REQ_ID } from './ids.js';
-import { findCriterion, findRequirement } from './parse/requirements.js';
-import { findSection } from './parse/design.js';
 import { isLeaf } from './parse/tasks.js';
 import { requirementsFile } from './spec.js';
 
 const VAGUE = ['fast', 'quick', 'quickly', 'easy', 'easily', 'user-friendly', 'intuitive', 'appropriate', 'robust', 'efficient', 'seamless', 'etc', 'as needed', 'properly'];
+/** True when some VAGUE word stands on its own, as the per-word check below reads it; one scan skips that check for most criteria. */
+const ANY_VAGUE = new RegExp(`(?<= )(?:${VAGUE.join('|')})(?=[ ,.])`);
 const EARS_START = /^(WHEN|IF|WHILE|WHERE|THE\b|THE SYSTEM)/i;
 const MAX_WORDS = 35;
 /** Above these a requirements document usually holds more than one deliverable, or cases that belong in design. */
@@ -15,6 +15,11 @@ const CODE_SPAN = /`([^`\n]+)`/g;
 const IMPL_SMELL = /\/|\.(?:tsx?|jsx?|css|py|go|rs|kt|java)\b|\(|<[A-Z]|[a-z]+[A-Z][A-Za-z]|^[.#][a-z-]+$/;
 /** The same patterns outside backticks: paths with a slash or source extension, calls like foo(), camelCase identifiers. Glossary Term_Names are excluded. */
 const BARE_IMPL = /(?:^|[\s("'])((?:[a-z0-9_.-]+\/)+[a-z0-9_.-]+\.[a-z]{1,4}\b|(?:[a-z0-9_-]+\/){2,}[a-z0-9_-]+|[\w-]+\.(?:tsx?|jsx?|css|py|go|rs|kt|java)\b|[a-z][A-Za-z0-9]*\(\)|\b[a-z]+(?:[A-Z][a-z0-9]+)+\b)/g;
+
+/** The requirement and criterion IDs of a requirements document, for lookups by ID. */
+function reqIds(doc: RequirementsDoc): { reqs: Set<string>; crits: Set<string> } {
+  return { reqs: new Set(doc.requirements.map(r => r.id)), crits: new Set(doc.requirements.flatMap(r => r.criteria.map(c => c.id))) };
+}
 
 export function lintRequirements(doc: RequirementsDoc, file = 'requirements.md'): LintIssue[] {
   const out: LintIssue[] = [];
@@ -44,7 +49,7 @@ export function lintRequirements(doc: RequirementsDoc, file = 'requirements.md')
       const impl = [...new Set([...[...c.text.matchAll(CODE_SPAN)].map(m => m[1]).filter(x => IMPL_SMELL.test(x)), ...bare])].slice(0, 3);
       if (impl.length) out.push({ level: 'warn', rule: 'ears/implementation', file, line: c.line, id: c.id, msg: `implementation detail in a requirement (${impl.join(', ')}) — say what the user sees; put the how in design.md` });
       const low = ` ${c.text.toLowerCase()} `;
-      const vague = VAGUE.filter(v => low.includes(` ${v} `) || low.includes(` ${v},`) || low.includes(` ${v}.`));
+      const vague = ANY_VAGUE.test(low) ? VAGUE.filter(v => low.includes(` ${v} `) || low.includes(` ${v},`) || low.includes(` ${v}.`)) : [];
       if (vague.length) out.push({ level: 'warn', rule: 'ears/vague', file, line: c.line, id: c.id, msg: `vague wording: ${vague.join(', ')} — make it testable` });
     }
   }
@@ -54,12 +59,12 @@ export function lintRequirements(doc: RequirementsDoc, file = 'requirements.md')
 export function lintDesign(doc: DesignDoc, reqs?: RequirementsDoc, file = 'design.md'): LintIssue[] {
   const out: LintIssue[] = [];
   if (doc.sections.length === 0) out.push({ level: 'error', rule: 'design/empty', file, msg: 'no sections found' });
-  const ids = new Set<string>();
+  const ids = new Set<string>(), known = reqs && reqIds(reqs);
   for (const s of doc.sections) {
     if (ids.has(s.id!)) out.push({ level: 'error', rule: 'design/dup-id', file, line: s.line, id: s.id, msg: `duplicate id ${s.id}` });
     ids.add(s.id!);
-    if (reqs) for (const ref of s.satisfies) {
-      const ok = CRIT_ID.test(ref) ? findCriterion(reqs, ref) : REQ_ID.test(ref) ? findRequirement(reqs, ref) : undefined;
+    if (known) for (const ref of s.satisfies) {
+      const ok = CRIT_ID.test(ref) ? known.crits.has(ref) : REQ_ID.test(ref) && known.reqs.has(ref);
       if (!ok) out.push({ level: 'error', rule: 'design/unknown-req', file, line: s.line, id: s.id, msg: `_Satisfies_ references unknown ${ref}` });
     }
   }
@@ -82,18 +87,19 @@ export function lintDesign(doc: DesignDoc, reqs?: RequirementsDoc, file = 'desig
 export function lintTasks(doc: TasksDoc, reqs?: RequirementsDoc, design?: DesignDoc, file = 'tasks.md'): LintIssue[] {
   const out: LintIssue[] = [];
   if (doc.tasks.length === 0) out.push({ level: 'error', rule: 'tasks/empty', file, msg: 'no tasks found (expected "- [ ] 1. Title")' });
-  const ids = new Set<string>();
+  const ids = new Set<string>(), all = new Set(doc.tasks.map(t => t.id));
+  const known = reqs && reqIds(reqs), sections = design && new Set(design.sections.map(s => s.id));
   for (const t of doc.tasks) {
     if (ids.has(t.id)) out.push({ level: 'error', rule: 'tasks/dup-id', file, line: t.line, id: t.id, msg: `duplicate task number ${t.num}` });
     ids.add(t.id);
-    if (t.parent && !doc.tasks.some(p => p.id === t.parent)) out.push({ level: 'error', rule: 'tasks/orphan', file, line: t.line, id: t.id, msg: `parent ${t.parent} does not exist` });
+    if (t.parent && !all.has(t.parent)) out.push({ level: 'error', rule: 'tasks/orphan', file, line: t.line, id: t.id, msg: `parent ${t.parent} does not exist` });
     if (isLeaf(t) && !t.checkpoint && t.requirements.length === 0) out.push({ level: 'warn', rule: 'tasks/no-req', file, line: t.line, id: t.id, msg: 'leaf task has no _Requirements: R?_ footer' });
-    if (reqs) for (const ref of t.requirements) {
-      const ok = CRIT_ID.test(ref) ? findCriterion(reqs, ref) : findRequirement(reqs, ref);
+    if (known) for (const ref of t.requirements) {
+      const ok = CRIT_ID.test(ref) ? known.crits.has(ref) : known.reqs.has(ref);
       if (!ok) out.push({ level: 'error', rule: 'tasks/unknown-req', file, line: t.line, id: t.id, msg: `references unknown ${ref}` });
     }
-    if (design) for (const ref of t.design) {
-      if (!findSection(design, ref)) out.push({ level: 'error', rule: 'tasks/unknown-design', file, line: t.line, id: t.id, msg: `references unknown design section ${ref}` });
+    if (sections) for (const ref of t.design) {
+      if (!sections.has(ref)) out.push({ level: 'error', rule: 'tasks/unknown-design', file, line: t.line, id: t.id, msg: `references unknown design section ${ref}` });
     }
   }
   if (reqs) {

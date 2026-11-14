@@ -12,7 +12,7 @@ How steno relates to the tools it borrows from, and where its token savings come
 
 ## Token budget, by design
 
-- Each skill is 20–50 lines; `pnpm lint:skills` fails any `SKILL.md` over 80 lines or 1200 tokens.
+- Each skill is 20–50 lines; CI fails any `SKILL.md` over 80 lines or 1200 tokens (`pnpm lint:skills`).
 - Templates, validation, traceability and task state live in the CLI, at zero tokens.
 - Agents fetch by stable id (`steno show R1.2`, `D-auth`, `T2.1`), never `cat` the whole spec.
 - Steering files enter a packet only when their `fileMatchPattern` matches the task's files, and

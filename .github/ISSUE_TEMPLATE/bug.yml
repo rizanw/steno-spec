@@ -1,0 +1,78 @@
+name: Bug report
+description: Something in steno does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. For a security problem, use the Security tab instead of a public issue.
+  - type: input
+    id: steno-version
+    attributes:
+      label: steno version
+      description: Output of `steno --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node version
+      description: Output of `node --version`.
+      placeholder: v22.11.0
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Coding agent
+      description: Which agent ran the steno skills, if any.
+      options:
+        - Claude Code
+        - OpenAI Codex CLI
+        - OpenCode
+        - Google Antigravity
+        - Cursor
+        - GitHub Copilot
+        - Gemini CLI
+        - Kiro
+        - None (CLI only)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Commands you ran, in order. A link to a small repo helps a lot.
+      placeholder: |
+        1. steno init --agent claude
+        2. steno new my-feature
+        3. steno lint requirements my-feature
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: Paste the full output or error. Add `--json` output if relevant.
+      render: shell
+    validations:
+      required: true

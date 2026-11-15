@@ -2,6 +2,12 @@
 
 Issues and pull requests are welcome.
 
+## How this project works
+
+PRs are welcome, at your own pace. Replies can take a while, so a quiet PR or issue isn't a rejection.
+
+For anything bigger than a small fix, open an issue first so we can agree on the approach before you write the code. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md). Report security problems privately, as described in [SECURITY.md](SECURITY.md).
+
 ## Build from source
 
 Needs Node ≥ 22 and pnpm.
@@ -11,7 +17,7 @@ git clone https://github.com/rizanw/steno-spec.git
 ```
 
 ```bash
-cd steno && pnpm install && pnpm build
+cd steno-spec && pnpm install && pnpm build
 ```
 
 To use your local build as the `steno` command:
@@ -46,6 +52,12 @@ Changes are easier to accept when they keep to these:
 4. **One canonical skills folder.** Skills live in `.agents/skills/`; `steno init` links or copies them into each agent's own path. No per-agent prompt forks.
 5. **Review never runs in the context that wrote the document.** Reviewers see only the `steno review` packet. If the harness cannot start a sub-agent, the skill stops instead.
 6. **Core is a library.** Anything that needs spec data calls core or `steno --json`; nothing re-implements parsing.
+
+## Code style
+
+The source is dense on purpose: short functions on one line, several fields of an interface on one line, chained expressions instead of temporary variables. More code fits on a screen, which keeps each module readable in one pass, by a person or by an agent reading it into context.
+
+Please match the style of the file you are editing, and don't reformat code you are not otherwise changing. Prefer clarity where the two pull apart: if a one-liner needs a second read to follow, split it. Comments explain why, not what.
 
 ## Trying a change end to end
 

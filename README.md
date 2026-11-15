@@ -57,6 +57,10 @@ agent > steno next                         → T2.1 Accept expiresAt in LinkServ
         steno done T2.1                    → next: T2.2
 ```
 
+Here is the same CLI run by hand on the finished spec in [examples/link-shortener](./examples/link-shortener):
+
+![steno status, show and ctx running on the link-shortener example](./assets/demo.gif)
+
 The packet is the point. For `T2.1` the agent reads this instead of the whole spec (shortened here;
 run `steno ctx T2.1` in the example for the full packet):
 

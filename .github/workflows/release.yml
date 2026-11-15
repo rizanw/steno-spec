@@ -1,13 +1,14 @@
 name: Release
 
 # Push a tag matching the CLI version (e.g. v0.1.0) to publish steno-spec to npm with provenance.
+# Auth is npm trusted publishing (OIDC): no token; npm trusts this repo + release.yml directly.
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  id-token: write # npm provenance
+  id-token: write # npm trusted publishing and provenance
 
 jobs:
   publish:
@@ -19,7 +20,6 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-          registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
@@ -31,5 +31,3 @@ jobs:
       # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is.
       - run: pnpm publish --provenance --access public --no-git-checks
         working-directory: packages/cli
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

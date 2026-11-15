@@ -7,7 +7,7 @@ Issues and pull requests are welcome.
 Needs Node ≥ 22 and pnpm.
 
 ```bash
-git clone https://github.com/rizanw/steno.git
+git clone https://github.com/rizanw/steno-spec.git
 ```
 
 ```bash

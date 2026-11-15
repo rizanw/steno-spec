@@ -5,6 +5,12 @@
 <h1 align="center">steno spec</h1>
 
 <p align="center">
+  <a href="https://www.npmjs.com/package/steno-spec"><img src="https://img.shields.io/npm/v/steno-spec" alt="npm version"></a>
+  <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
+</p>
+
+<p align="center">
   <strong>Shorthand specs for any coding agent.</strong><br>
   Spec-driven development with a gate at every stage: requirements → design → tasks → execute,
   each one linted and approved by you before the next begins, with a fresh-eyes review whenever you want one.
@@ -105,6 +111,9 @@ Then, in your own project:
 ```bash
 steno init --agent claude,codex,opencode
 ```
+
+Just trying it out? `npx steno-spec init --agent claude` sets up a project without installing anything.
+The skills call `steno` directly, though, so install the CLI before you hand the work to your agent.
 
 Pick your agents from `claude, codex, opencode, antigravity, cursor, copilot, gemini, kiro`
 ([details](docs/agents.md)). Now open your agent and ask:

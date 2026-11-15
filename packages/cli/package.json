@@ -20,6 +20,7 @@
     "cli"
   ],
   "license": "MIT",
+  "author": "rizanw",
   "homepage": "https://github.com/rizanw/steno-spec#readme",
   "bugs": "https://github.com/rizanw/steno-spec/issues",
   "repository": {

@@ -39,7 +39,7 @@
     "prepack": "node build.mjs --readme"
   },
   "dependencies": {
-    "commander": "^14.0.0",
+    "commander": "^15.1.0",
     "picomatch": "^4.0.2",
     "yaml": "^2.8.0"
   },

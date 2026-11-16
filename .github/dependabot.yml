@@ -13,6 +13,14 @@ updates:
       interval: "weekly"
     cooldown:
       default-days: 7
+    ignore:
+      # Stay on TypeScript 5.x until 7 matures; 5.x minor/patch bumps still come through.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      # Match the oldest Node we support (engines: node >=22), so code can't use APIs
+      # missing on Node 22. Raise this together with engines when dropping Node 22.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-and-patch:
         patterns: ['*']

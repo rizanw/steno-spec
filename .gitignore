@@ -26,6 +26,7 @@ packages/cli/LICENSE
 # local tool state
 .fallow/
 .claude/settings.local.json
+.codegraph/
 
 # secrets
 .env

@@ -323,6 +323,10 @@ Prepares a **review packet**: a single file a reviewer can judge on its own, wit
 
 The packet is saved as `.steno/specs/<slug>/reviews/<date>-<stage>-packet.md`. It contains the document under review, an outline of the requirements, the traceability table, and a list of source files the design mentions. Save the reviewer's findings next to it as `<date>-<stage>.md`.
 
+A review is counted in **rounds**, so that it ends. The first run for a stage is a full review. Each later run is a verify round: the packet lists the criteria, sections or tasks that were added, changed or removed since the previous round and tells reviewers to report only problems in or caused by those, plus anything high. The command prints the round and the size of the document, and warns when the document has grown by more than a quarter since round 1 or when you go past two rounds. If the document has not changed since the last round, no packet is written.
+
+Decisions you have already taken go in `reviews/<stage>-decisions.md`, one line each. The packet shows them to reviewers under "Decided (do not reopen)", marked as a record rather than instructions: reviewers only stop raising the ids listed there. The round history is kept in `reviews/<stage>-rounds.json`, and the document as each round reviewed it in `reviews/<stage>-round<N>.md`, so text that a review cut or moved to another spec can be recovered. The `drift` stage has no rounds.
+
 ```bash
 steno review --stage design
 steno review --stage drift      # after building: does the code still match the spec?
@@ -331,6 +335,7 @@ steno review --stage drift      # after building: does the code still match the 
 | Option | Default | What it does |
 |---|---|---|
 | `-s, --stage <stage>` | `requirements` | Which stage to review: `requirements`, `design`, `tasks`, or `drift`, which compares the finished code against the spec. |
+| `--full` | off | Forget the earlier rounds and start a new full review at round 1. |
 
 In practice the `steno-review` skill runs this for you and hands the packet to the reviewers.
 

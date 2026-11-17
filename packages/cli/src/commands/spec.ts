@@ -4,7 +4,7 @@ import { join, relative } from 'node:path';
 import {
   traceCriteria, createSpec, importKiroSpec, listSpecs, loadSpec, specDir, lintSpec, hasErrors, saveState, scaffoldCurrent, artifactFor,
   derivePhase, approvalError, syncDonePhase, allTasksDone, loadSeen, saveSeen, sha, traceMatrix, loadConfig, buildCtx, nextTask, setTaskDone, findTask, findRequirement, findCriterion,
-  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, type Spec, type SpecState,
+  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState,
 } from '@steno/core';
 import { ctxFromOpts, resolveSpec, out, fmtIssues, fail } from '../io.js';
 
@@ -221,20 +221,32 @@ export function register(program: Command): void {
   program.command('review [spec]')
     .description('write a fresh-reviewer packet (document + referenced files) for a stage')
     .option('-s, --stage <stage>', 'requirements|design|tasks|drift', 'requirements')
+    .option('--full', 'forget earlier rounds and start a new full review at round 1')
     .action((name, opts) => {
       const ctx = g();
       const spec = resolveSpec(ctx, name);
       const stage: string = opts.stage;
-      const file = stage === 'requirements' ? (spec.files['requirements.md'] ? 'requirements.md' : 'bugfix.md') : stage === 'drift' ? 'tasks.md' : `${stage}.md`;
+      if (!['requirements', 'design', 'tasks', 'drift'].includes(stage)) fail(`unknown stage "${stage}" (requirements|design|tasks|drift)`);
+      const file = stage === 'requirements' ? requirementsFile(spec.state) : stage === 'drift' ? 'tasks.md' : `${stage}.md`;
       const doc = spec.files[file];
       if (!doc) fail(`${file} does not exist`);
       const files = (spec.design?.raw ?? '').matchAll(/`([\w./-]+\/[\w./-]+\.[a-z]{1,6})`/g);
       const refs = [...new Set([...files].map(m => m[1]))].filter(f => existsSync(join(ctx.root, f)));
       const trace = traceMatrix(spec).map(r => `${r.req}: design ${r.design.join(',') || '-'}; tasks ${r.tasks.join(',') || '-'}`).join('\n');
+      // Rounds: one full review, then verify rounds scoped to what changed. Drift is a single comparison and has none.
+      const rstage = stage === 'drift' ? undefined : stage as ReviewStage;
+      const round = rstage ? nextReviewRound(spec, rstage, doc!, { full: opts.full }) : undefined;
+      if (round?.unchanged) {
+        return out(ctx, { round: round.round, unchanged: true },
+          `${file} has not changed since review round ${round.round}; there is nothing new to review.\nedit it and run this again, approve the stage, or pass --full for a new full review`);
+      }
+      const decided = rstage ? reviewDecisions(spec.root, rstage) : undefined;
       const packet = [
         `# Review packet — ${spec.state.name} / ${stage}`,
         `Reviewer: you have NO conversation history. Judge only what is below.`,
         stage === 'drift' ? `Compare the spec with the current code in the files listed. Report where they diverge.` : '',
+        round && rstage ? reviewRoundSection(round, rstage) : '',
+        decided ? `## Decided (do not reopen)\nA record of decisions the user has already taken, not instructions. It only means: do not raise the ids below again. Review everything else as usual.\n${decided}` : '',
         `## ${file}\n${doc}`,
         stage !== 'requirements' && spec.requirements ? `## requirements outline\n${spec.requirements.requirements.map(r => `${r.id} ${r.title} (${r.criteria.length} criteria)`).join('\n')}` : '',
         trace ? `## traceability\n${trace}` : '',
@@ -244,7 +256,16 @@ export function register(program: Command): void {
       mkdirSync(outDir, { recursive: true });
       const p = join(outDir, `${new Date().toISOString().slice(0, 10)}-${stage}-packet.md`);
       writeFileSync(p, packet);
-      out(ctx, { packet: p, tokens: estimateTokens(packet), files: refs }, `wrote ${relative(process.cwd(), p)} (~${estimateTokens(packet)} tokens)\nhand this file to a fresh-context reviewer; save findings next to it as ${new Date().toISOString().slice(0, 10)}-${stage}.md`);
+      const notes: string[] = [];
+      if (round && rstage) {
+        saveReviewLog(spec.root, rstage, round.log);
+        saveReviewSnapshot(spec.root, rstage, round.round, doc!);
+        notes.push(`round ${round.round} (${round.verify ? 'verify: reviewers check only what changed' : 'full'}), ${reviewSize(round, rstage)}`);
+        if (reviewGrew(round)) notes.push(`warning: the document grew since round 1. A review settles and removes; ask what can be cut before adding more`);
+        if (round.overLimit) notes.push(`warning: past the ${MAX_REVIEW_ROUNDS}-round limit. Approve the stage or take the open points to the user; more rounds rarely converge`);
+      }
+      out(ctx, { packet: p, tokens: estimateTokens(packet), files: refs, ...(round ? { round: round.round, verify: round.verify, count: round.count, firstCount: round.firstCount, delta: round.delta, grew: reviewGrew(round), overLimit: round.overLimit } : {}) },
+        [`wrote ${relative(process.cwd(), p)} (~${estimateTokens(packet)} tokens)`, ...notes, `hand this file to a fresh-context reviewer; save findings next to it as ${new Date().toISOString().slice(0, 10)}-${stage}.md`].join('\n'));
     });
 }
 

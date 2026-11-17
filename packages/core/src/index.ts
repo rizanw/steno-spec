@@ -13,6 +13,7 @@ export * from './trace.js';
 export * from './templates.js';
 export * from './importKiro.js';
 export * from './agents.js';
+export * from './review.js';
 export * from './parse/requirements.js';
 export * from './parse/design.js';
 export * from './parse/tasks.js';

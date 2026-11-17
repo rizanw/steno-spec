@@ -35,7 +35,7 @@ flowchart LR
 Every gated stage ends the same way. The first two steps loop back to the same document until it is right; only the third moves forward:
 
 1. **Lint.** `steno lint <stage>` checks the file mechanically: EARS form, undefined terms, criteria with no design or task, leftover template text. Errors block approval.
-2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo.
+2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo. A review is one full round and at most one verify round. Reviewers may rewrite or question what is there, but anything that would add to the spec or change its scope comes to you as a question first, and it has passed when no high finding is open and every question has an answer.
 3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. The agent never approves on its own outside quick mode.
 
 After the last task, a drift review compares the finished code with the spec.
@@ -146,6 +146,8 @@ Components are `Glossary_Terms`, defined once in the Glossary and used verbatim 
 | `req/no-criteria` | error | a requirement with no acceptance criteria |
 | `ears/shall` | error | a criterion with no SHALL |
 | `req/title`, `req/story` | warn | missing title or `**User Story:**` |
+| `req/too-many-criteria` | warn | a requirement with more than 12 criteria |
+| `req/too-large` | warn | more than 60 criteria in one spec: it probably holds more than one deliverable |
 | `ears/shall-case` | warn | `shall` in lower case |
 | `ears/pattern` | warn | criterion does not start with WHEN / IF / WHILE / WHERE / THE |
 | `ears/split` | warn | more than one SHALL in one criterion |
@@ -160,11 +162,11 @@ Components are `Glossary_Terms`, defined once in the Glossary and used verbatim 
 |---|---|---|
 | `design/empty`, `design/dup-id` | error | no sections, duplicate `{#D-id}` |
 | `design/unknown-req` | error | `_Satisfies:_` names a requirement or criterion that does not exist |
-| `design/empty-section` | warn | a `###` section with no body |
 | `design/over-tagged` | warn | one section claims more than 6 criteria |
 | `design/footer-on-overview` | warn | Overview, Testing Strategy or Open Questions carries a `_Satisfies:_` footer |
 | `design/overlap` | warn | one criterion is claimed by more than 3 sections |
 | `design/uncovered-req` | warn | a requirement no section satisfies |
+| `spec/empty-section` | warn | a heading with nothing under it (no text, no sub-heading), in the requirements, the design or the tasks; for example `## Open questions` after the last question is settled |
 
 **tasks.md**
 

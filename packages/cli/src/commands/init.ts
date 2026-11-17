@@ -92,7 +92,8 @@ export function register(program: Command): void {
       if (opts.agentsMd !== false) {
         const p = join(root, 'AGENTS.md');
         const cur = existsSync(p) ? readFileSync(p, 'utf8') : '';
-        if (!cur.includes('<!-- steno:start -->')) writeFileSync(p, (cur ? cur.trimEnd() + '\n' : '# Agent instructions\n') + AGENTS_MD_BLOCK);
+        // The heading counts too: a formatter or a hand edit may have dropped the comment markers.
+        if (!cur.includes('<!-- steno:start -->') && !/^## Spec-driven work \(steno\)\s*$/m.test(cur)) writeFileSync(p, (cur ? cur.trimEnd() + '\n' : '# Agent instructions\n') + AGENTS_MD_BLOCK);
       }
 
       saveConfig(root, { agents: [...new Set([...loadConfig(root).agents, ...keys])] });

@@ -8,6 +8,8 @@ import { requirementsFile } from './spec.js';
 const VAGUE = ['fast', 'quick', 'quickly', 'easy', 'easily', 'user-friendly', 'intuitive', 'appropriate', 'robust', 'efficient', 'seamless', 'etc', 'as needed', 'properly'];
 const EARS_START = /^(WHEN|IF|WHILE|WHERE|THE\b|THE SYSTEM)/i;
 const MAX_WORDS = 35;
+/** Above these a requirements document usually holds more than one deliverable, or cases that belong in design. */
+const MAX_CRITERIA = 60, MAX_CRITERIA_PER_REQ = 12;
 /** Backticked code spans that look like implementation details: paths, file extensions, calls, camelCase identifiers, JSX, CSS classes. */
 const CODE_SPAN = /`([^`\n]+)`/g;
 const IMPL_SMELL = /\/|\.(?:tsx?|jsx?|css|py|go|rs|kt|java)\b|\(|<[A-Z]|[a-z]+[A-Z][A-Za-z]|^[.#][a-z-]+$/;
@@ -17,6 +19,8 @@ const BARE_IMPL = /(?:^|[\s("'])((?:[a-z0-9_.-]+\/)+[a-z0-9_.-]+\.[a-z]{1,4}\b|(
 export function lintRequirements(doc: RequirementsDoc, file = 'requirements.md'): LintIssue[] {
   const out: LintIssue[] = [];
   if (doc.requirements.length === 0) out.push({ level: 'error', rule: 'req/empty', file, msg: 'no requirements found (expected "### Requirement 1: Title" headings)' });
+  const total = doc.requirements.reduce((n, r) => n + r.criteria.length, 0);
+  if (total > MAX_CRITERIA) out.push({ level: 'warn', rule: 'req/too-large', file, msg: `${total} criteria in one spec: it probably holds more than one deliverable; split it or cut what nothing needs yet (max ${MAX_CRITERIA})` });
   const terms = doc.glossary.map(g => g.term);
   const seen = new Set<string>();
   for (const r of doc.requirements) {
@@ -25,6 +29,7 @@ export function lintRequirements(doc: RequirementsDoc, file = 'requirements.md')
     if (!r.title) out.push({ level: 'warn', rule: 'req/title', file, line: r.line, id: r.id, msg: 'requirement has no title' });
     if (!r.story) out.push({ level: 'warn', rule: 'req/story', file, line: r.line, id: r.id, msg: 'missing **User Story:** line' });
     if (r.criteria.length === 0) out.push({ level: 'error', rule: 'req/no-criteria', file, line: r.line, id: r.id, msg: 'no acceptance criteria' });
+    if (r.criteria.length > MAX_CRITERIA_PER_REQ) out.push({ level: 'warn', rule: 'req/too-many-criteria', file, line: r.line, id: r.id, msg: `${r.criteria.length} criteria: split the requirement, or move cases to design or Non-goals (max ${MAX_CRITERIA_PER_REQ})` });
     for (const c of r.criteria) {
       if (!/\bSHALL\b/.test(c.text)) {
         if (/\bshall\b/.test(c.text)) out.push({ level: 'warn', rule: 'ears/shall-case', file, line: c.line, id: c.id, msg: 'write SHALL in capitals' });
@@ -53,7 +58,6 @@ export function lintDesign(doc: DesignDoc, reqs?: RequirementsDoc, file = 'desig
   for (const s of doc.sections) {
     if (ids.has(s.id!)) out.push({ level: 'error', rule: 'design/dup-id', file, line: s.line, id: s.id, msg: `duplicate id ${s.id}` });
     ids.add(s.id!);
-    if (!s.body && s.level >= 3) out.push({ level: 'warn', rule: 'design/empty-section', file, line: s.line, id: s.id, msg: `section "${s.heading}" is empty` });
     if (reqs) for (const ref of s.satisfies) {
       const ok = CRIT_ID.test(ref) ? findCriterion(reqs, ref) : REQ_ID.test(ref) ? findRequirement(reqs, ref) : undefined;
       if (!ok) out.push({ level: 'error', rule: 'design/unknown-req', file, line: s.line, id: s.id, msg: `_Satisfies_ references unknown ${ref}` });
@@ -119,6 +123,28 @@ export function lintPlaceholders(text: string, file: string): LintIssue[] {
   return [{ level: 'error', rule: 'spec/placeholder', file, line: lines[0], msg: `${lines.length} template placeholder line${lines.length > 1 ? 's' : ''} left (${shown}) — ${file} is still the skeleton; replace every <…>` }];
 }
 
+/**
+ * A `##`–`####` heading with nothing under it: no text and no deeper heading before the next heading of the same or a
+ * higher level. Usually a template section that was never filled, or a list whose entries were all settled and deleted.
+ */
+export function lintEmptySections(text: string, file: string): LintIssue[] {
+  const out: LintIssue[] = [];
+  let fenced = false, open: { level: number; heading: string; line: number } | undefined;
+  const close = (level: number) => {
+    if (open && level <= open.level) out.push({ level: 'warn', rule: 'spec/empty-section', file, line: open.line, msg: `section "${open.heading}" is empty; fill it or delete the heading` });
+    open = undefined;
+  };
+  text.split(/\r?\n/).forEach((ln, i) => {
+    if (/^\s*```/.test(ln)) fenced = !fenced;
+    const m = fenced ? null : /^(#{1,4})\s+(.*?)(?:\s*\{#[\w-]+\})?\s*$/.exec(ln);
+    if (!m) { if (ln.trim()) open = undefined; return; }
+    close(m[1].length);
+    if (m[1].length > 1) open = { level: m[1].length, heading: m[2], line: i + 1 };
+  });
+  close(0);
+  return out;
+}
+
 /** The `spec/missing` error for a stage; the requirements stage names the spec's own requirements file. */
 function missingIssue(spec: Spec, stage: 'requirements' | 'design' | 'tasks'): LintIssue {
   const file = stage === 'requirements' ? requirementsFile(spec.state) : `${stage}.md`;
@@ -128,8 +154,9 @@ function missingIssue(spec: Spec, stage: 'requirements' | 'design' | 'tasks'): L
 export function lintSpec(spec: Spec, only?: 'requirements' | 'design' | 'tasks'): LintIssue[] {
   const out: LintIssue[] = [];
   const reqFile = requirementsFile(spec.state);
-  const PLACEHOLDER_FILES: Record<string, string> = { requirements: reqFile, design: 'design.md', tasks: 'tasks.md' };
-  for (const [stage, f] of Object.entries(PLACEHOLDER_FILES)) if ((!only || only === stage) && spec.files[f]) out.push(...lintPlaceholders(spec.files[f], f));
+  const STAGE_FILES: Record<string, string> = { requirements: reqFile, design: 'design.md', tasks: 'tasks.md' };
+  for (const [stage, f] of Object.entries(STAGE_FILES)) if ((!only || only === stage) && spec.files[f]) out.push(...lintPlaceholders(spec.files[f], f));
+  for (const [stage, f] of Object.entries(STAGE_FILES)) if ((!only || only === stage) && spec.files[f]) out.push(...lintEmptySections(spec.files[f], f));
   if ((!only || only === 'requirements') && spec.requirements) out.push(...lintRequirements(spec.requirements, reqFile));
   if ((!only || only === 'design') && spec.design) out.push(...lintDesign(spec.design, spec.requirements));
   if ((!only || only === 'tasks') && spec.tasks) out.push(...lintTasks(spec.tasks, spec.requirements, spec.design));

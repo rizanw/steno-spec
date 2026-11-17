@@ -94,8 +94,6 @@ _Satisfies: <criteria about failures and fallbacks>_
 
 ## Testing Strategy
 <no footer; a table mapping criteria ranges → test type and file; property tests for the properties above>
-
-## Open questions
 `;
 }
 

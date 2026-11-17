@@ -33,7 +33,7 @@ skills (7): steno-brainstorm, steno-design, steno-review, steno-run, steno-spec,
   claude      .claude/skills
   codex       .agents/skills
   opencode    .agents/skills
-reviewers (5) for claude: .claude/agents/steno-reviewer-*.md
+reviewers (6) for claude: .claude/agents/steno-reviewer-*.md
 next: ask your agent to "generate steering" (steno-steer), then: steno new <feature-slug>
 ```
 

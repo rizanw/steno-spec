@@ -18,7 +18,7 @@ Hard rules: read code, never run it. No test, lint or build runs in this phase; 
    - **Files**: name real paths in backticks (`src/…`); `steno ctx` uses them to find the likely files per task.
    - **Correctness Properties**: for pure logic, write `### Property N: <invariant>` with `_Validates: 1.2_` and a *For any …* sentence. These become property-based tests.
    - **Testing Strategy**: a table mapping criteria ranges to test type and file. No commands to run now.
-   - Rejected alternatives in one line each. Decisions the user must make go under `## Open questions`.
+   - Rejected alternatives in one line each. Decisions the user must make go under a final `## Open questions`; leave the heading out when there are none.
 4. `steno lint design`. Fix `design/unknown-req`; cover every `design/uncovered-req`; split or retag on `design/over-tagged` and `design/overlap`.
-5. Ask for approval with `steno show design` (outline with ids and satisfied criteria) and `steno trace`. Offer a fresh-context review first for large designs (`steno-review`). If `## Open questions` is not empty, offer to interview the user one question at a time (recommended answer first), write each answer into its section and delete the question; they may skip and approve as is.
+5. Ask for approval with `steno show design` (outline with ids and satisfied criteria) and `steno trace`. Offer a fresh-context review first for large designs (`steno-review`). If `## Open questions` is not empty, offer to interview the user one question at a time (recommended answer first), write each answer into its section and delete the question, and the heading with the last one; they may skip and approve as is.
 6. On the user's yes run `steno approve design`, then continue with `steno-tasks`.

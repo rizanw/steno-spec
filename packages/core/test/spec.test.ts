@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { mkdtempSync, existsSync, writeFileSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createSpec, loadSpec, scaffoldCurrent, artifactFor, saveState } from '../src/index.js';
+import { createSpec, loadSpec, scaffoldCurrent, artifactFor, saveState, requirementsFile, lintSpec } from '../src/index.js';
+import type { Phase, LintIssue } from '../src/index.js';
 
 function root() { return mkdtempSync(join(tmpdir(), 'steno-spec-')); }
 
@@ -198,5 +199,110 @@ describe('setTaskDone cascades through every level', () => {
     expect(nextTask(after)?.id).toBe('T2');
     const undone = parseTasks(setTaskDone(after, 'T1', false));
     expect(undone.tasks.filter(t => t.id.startsWith('T1')).some(t => t.done)).toBe(false);
+  });
+});
+
+describe('requirementsFile names the kind\'s requirements file', () => {
+  it('is bugfix.md for a bugfix spec and requirements.md for a feature spec', () => {
+    expect(requirementsFile({ kind: 'bugfix' })).toBe('bugfix.md');
+    expect(requirementsFile({ kind: 'feature' })).toBe('requirements.md');
+  });
+
+  it('artifactFor uses it for the requirements phase', () => {
+    for (const kind of ['bugfix', 'feature'] as const) {
+      const { dir } = createSpec(root(), `art-${kind}`, { bugfix: kind === 'bugfix' });
+      const state = loadSpec(dir).state;
+      expect(artifactFor(state)).toBe(requirementsFile(state));
+    }
+  });
+});
+
+type Kind = 'feature' | 'bugfix';
+const FILE: Record<Kind, string> = { feature: 'requirements.md', bugfix: 'bugfix.md' };
+const OTHER: Record<Kind, string> = { feature: 'bugfix.md', bugfix: 'requirements.md' };
+const fixturesDir = join(import.meta.dirname, 'fixtures');
+
+/** A spec of the given kind and phase whose requirements file holds `text`; `undefined` deletes it, `other` writes the text under the other kind's name instead. */
+function specWith(kind: Kind, phase: Phase, text: string | undefined, opts: { other?: boolean } = {}) {
+  const { dir } = createSpec(root(), 'req', { bugfix: kind === 'bugfix' });
+  rmSync(join(dir, FILE[kind]));
+  if (text !== undefined) writeFileSync(join(dir, opts.other ? OTHER[kind] : FILE[kind]), text);
+  const state = loadSpec(dir).state;
+  state.phase = phase; saveState(dir, state);
+  return loadSpec(dir);
+}
+
+describe('loadSpec parses only the kind\'s requirements file', () => {
+  const text = readFileSync(join(fixturesDir, 'requirements.md'), 'utf8');
+  it('a bugfix spec with only requirements.md has no requirements', () => {
+    const spec = specWith('bugfix', 'requirements', text, { other: true });
+    expect(spec.files['requirements.md']).toBe(text);
+    expect(spec.requirements).toBeUndefined();
+  });
+  it('a feature spec with only bugfix.md has no requirements', () => {
+    const spec = specWith('feature', 'requirements', text, { other: true });
+    expect(spec.files['bugfix.md']).toBe(text);
+    expect(spec.requirements).toBeUndefined();
+  });
+  it('each kind parses its own file', () => {
+    for (const kind of ['feature', 'bugfix'] as const) expect(specWith(kind, 'requirements', text).requirements).toBeDefined();
+  });
+});
+
+describe('lint names the requirements file of the spec\'s kind', () => {
+  const fixtures = readdirSync(fixturesDir).filter(f => f.endsWith('.md')).map(f => readFileSync(join(fixturesDir, f), 'utf8'));
+  const texts = [
+    ...fixtures,
+    readFileSync(join(createSpec(root(), 'tpl-f').dir, 'requirements.md'), 'utf8'),
+    readFileSync(join(createSpec(root(), 'tpl-b', { bugfix: true }).dir, 'bugfix.md'), 'utf8'),
+    '# Requirements\n\n## Requirements\n\n### Requirement 1: Dup\n\n#### Acceptance Criteria\n\n1. the app shall open quickly in `src/app.ts`.\n\n### Requirement 1:\n',
+    '# Requirements\n\nnothing here\n',
+  ];
+
+  it('Property 1: bugfix findings equal feature findings except the file', () => {
+    let total = 0;
+    for (const text of texts) {
+      const feature = lintSpec(specWith('feature', 'requirements', text), 'requirements');
+      const bugfix = lintSpec(specWith('bugfix', 'requirements', text), 'requirements');
+      total += feature.length;
+      expect(bugfix).toEqual(feature.map(i => ({ ...i, file: 'bugfix.md', msg: i.msg.replaceAll('requirements.md', 'bugfix.md') })));
+      expect(bugfix.every(i => i.file === 'bugfix.md')).toBe(true);
+    }
+    expect(total).toBeGreaterThan(5); // the generated texts do exercise the requirements rules
+  });
+
+  it('Property 2: every requirements finding of a feature spec names requirements.md', () => {
+    for (const text of texts) {
+      const issues = lintSpec(specWith('feature', 'requirements', text), 'requirements');
+      expect(issues.every(i => i.file === 'requirements.md')).toBe(true);
+      expect(issues.some(i => i.msg.includes('bugfix.md'))).toBe(false);
+    }
+  });
+
+  it('Property 3: unstaged lint reports the same missing error as staged lint, outside the brief phase', () => {
+    const phases: Phase[] = ['requirements', 'design', 'tasks', 'execute', 'done'];
+    const cases: Array<[string, string | undefined, { other?: boolean }]> = [['absent', undefined, {}], ['empty', '', {}], ['other name', readFileSync(join(fixturesDir, 'requirements.md'), 'utf8'), { other: true }]];
+    const missing = (issues: LintIssue[]) => issues.filter(i => i.rule === 'spec/missing' && (i.file === 'requirements.md' || i.file === 'bugfix.md'));
+    for (const kind of ['feature', 'bugfix'] as const) for (const phase of phases) for (const [, text, opts] of cases) {
+      const spec = specWith(kind, phase, text, opts);
+      const staged = missing(lintSpec(spec, 'requirements'));
+      expect(staged).toEqual([{ level: 'error', rule: 'spec/missing', file: FILE[kind], msg: `${FILE[kind]} does not exist` }]);
+      expect(missing(lintSpec(spec))).toEqual(staged);
+      expect(lintSpec(spec).some(i => i.file === OTHER[kind])).toBe(false);
+    }
+  });
+
+  it('the brief phase reports no missing requirements file unless the stage is named', () => {
+    for (const kind of ['feature', 'bugfix'] as const) {
+      const spec = specWith(kind, 'brief', undefined);
+      expect(lintSpec(spec).some(i => i.rule === 'spec/missing')).toBe(false);
+      expect(lintSpec(spec, 'requirements')).toContainEqual({ level: 'error', rule: 'spec/missing', file: FILE[kind], msg: `${FILE[kind]} does not exist` });
+    }
+  });
+
+  it('design and tasks keep their own file names when missing', () => {
+    const spec = specWith('bugfix', 'design', readFileSync(join(fixturesDir, 'requirements.md'), 'utf8'));
+    expect(lintSpec(spec, 'design')).toContainEqual({ level: 'error', rule: 'spec/missing', file: 'design.md', msg: 'design.md does not exist' });
+    expect(lintSpec(spec, 'tasks')).toContainEqual({ level: 'error', rule: 'spec/missing', file: 'tasks.md', msg: 'tasks.md does not exist' });
   });
 });

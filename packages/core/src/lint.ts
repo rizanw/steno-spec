@@ -3,6 +3,7 @@ import { reqOf, CRIT_ID, REQ_ID } from './ids.js';
 import { findCriterion, findRequirement } from './parse/requirements.js';
 import { findSection } from './parse/design.js';
 import { isLeaf } from './parse/tasks.js';
+import { requirementsFile } from './spec.js';
 
 const VAGUE = ['fast', 'quick', 'quickly', 'easy', 'easily', 'user-friendly', 'intuitive', 'appropriate', 'robust', 'efficient', 'seamless', 'etc', 'as needed', 'properly'];
 const EARS_START = /^(WHEN|IF|WHILE|WHERE|THE\b|THE SYSTEM)/i;
@@ -118,14 +119,22 @@ export function lintPlaceholders(text: string, file: string): LintIssue[] {
   return [{ level: 'error', rule: 'spec/placeholder', file, line: lines[0], msg: `${lines.length} template placeholder line${lines.length > 1 ? 's' : ''} left (${shown}) — ${file} is still the skeleton; replace every <…>` }];
 }
 
+/** The `spec/missing` error for a stage; the requirements stage names the spec's own requirements file. */
+function missingIssue(spec: Spec, stage: 'requirements' | 'design' | 'tasks'): LintIssue {
+  const file = stage === 'requirements' ? requirementsFile(spec.state) : `${stage}.md`;
+  return { level: 'error', rule: 'spec/missing', file, msg: `${file} does not exist` };
+}
+
 export function lintSpec(spec: Spec, only?: 'requirements' | 'design' | 'tasks'): LintIssue[] {
   const out: LintIssue[] = [];
-  const PLACEHOLDER_FILES: Record<string, string[]> = { requirements: ['requirements.md', 'bugfix.md'], design: ['design.md'], tasks: ['tasks.md'] };
-  for (const [stage, files] of Object.entries(PLACEHOLDER_FILES)) if (!only || only === stage) for (const f of files) if (spec.files[f]) out.push(...lintPlaceholders(spec.files[f], f));
-  if ((!only || only === 'requirements') && spec.requirements) out.push(...lintRequirements(spec.requirements));
+  const reqFile = requirementsFile(spec.state);
+  const PLACEHOLDER_FILES: Record<string, string> = { requirements: reqFile, design: 'design.md', tasks: 'tasks.md' };
+  for (const [stage, f] of Object.entries(PLACEHOLDER_FILES)) if ((!only || only === stage) && spec.files[f]) out.push(...lintPlaceholders(spec.files[f], f));
+  if ((!only || only === 'requirements') && spec.requirements) out.push(...lintRequirements(spec.requirements, reqFile));
   if ((!only || only === 'design') && spec.design) out.push(...lintDesign(spec.design, spec.requirements));
   if ((!only || only === 'tasks') && spec.tasks) out.push(...lintTasks(spec.tasks, spec.requirements, spec.design));
-  if (only && !spec[only]) out.push({ level: 'error', rule: 'spec/missing', file: `${only}.md`, msg: `${only}.md does not exist` });
+  if (only && !spec[only]) out.push(missingIssue(spec, only));
+  if (!only && spec.state.phase !== 'brief' && !spec.requirements) out.push(missingIssue(spec, 'requirements'));
   return out;
 }
 

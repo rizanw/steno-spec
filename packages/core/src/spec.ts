@@ -51,7 +51,7 @@ export function loadSpec(dir: string): Spec {
   const state = loadState(dir);
   const files: Record<string, string> = {};
   for (const f of ARTIFACTS) { const p = join(dir, f); if (existsSync(p)) files[f] = readFileSync(p, 'utf8'); }
-  const reqRaw = files['requirements.md'] ?? files['bugfix.md'];
+  const reqRaw = files[requirementsFile(state)];
   return {
     root: dir, state, files,
     requirements: reqRaw ? parseRequirements(reqRaw) : undefined,
@@ -81,11 +81,16 @@ export function createSpec(projectRoot: string, name: string, opts: NewSpecOptio
   return { dir, state, written };
 }
 
+/** The file that holds a spec's requirements: `bugfix.md` for a bugfix spec, `requirements.md` otherwise. */
+export function requirementsFile(state: Pick<SpecState, 'kind'>): 'bugfix.md' | 'requirements.md' {
+  return state.kind === 'bugfix' ? 'bugfix.md' : 'requirements.md';
+}
+
 /** The artifact a phase is spent writing. */
 export function artifactFor(state: SpecState): string | undefined {
   switch (state.phase) {
     case 'brief': return 'brief.md';
-    case 'requirements': return state.kind === 'bugfix' ? 'bugfix.md' : 'requirements.md';
+    case 'requirements': return requirementsFile(state);
     case 'design': return 'design.md';
     case 'tasks': return 'tasks.md';
     default: return undefined;

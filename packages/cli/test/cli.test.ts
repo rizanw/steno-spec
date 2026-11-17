@@ -94,4 +94,32 @@ describe('steno CLI', () => {
     expect(lint.code).toBe(2);
     expect(lint.out).toMatch(/unknown inclusion "bogus"[\s\S]*\d+ errors?, \d+ warnings?/);
   });
+
+  it('next: names bugfix.md for a bugfix spec in the requirements phase (and requirements.md for a feature spec)', () => {
+    const { steno } = project();
+    steno('init');
+    const created = steno('new', 'crash', '--bugfix');
+    expect(created.out).toMatch(/^next: .*fills bugfix\.md/m);
+    expect(created.out).not.toMatch(/requirements\.md/);
+    expect(steno('status', 'crash').out).toMatch(/^next: .*fills bugfix\.md/m);
+    steno('new', 'idea', '--bugfix', '--brief');
+    const approved = steno('approve', 'brief', 'idea');
+    expect(approved.code).toBe(0);
+    expect(approved.out).toMatch(/^next: .*fills bugfix\.md/m);
+    expect(steno('new', 'feat').out).toMatch(/^next: .*fills requirements\.md/m);
+  });
+
+  it('lint and approve requirements on a bugfix spec name bugfix.md', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'crash', '--bugfix');
+    const json = JSON.parse(steno('lint', '--json').out);
+    expect(json.issues.length).toBeGreaterThan(0);
+    expect(json.issues.every((i: { file: string }) => i.file === 'bugfix.md')).toBe(true);
+    expect(steno('lint').out).toMatch(/bugfix\.md/);
+    const r = steno('approve', 'requirements');
+    expect(r.code).not.toBe(0);
+    expect(r.out).toMatch(/bugfix\.md/);
+    expect(r.out).not.toMatch(/requirements\.md/);
+    expect(readFileSync(join(dir, '.steno', 'specs', 'crash', 'spec.yaml'), 'utf8')).not.toMatch(/requirements: \d/);
+  });
 });

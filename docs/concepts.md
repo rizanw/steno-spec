@@ -35,7 +35,7 @@ flowchart LR
 Every gated stage ends the same way. The first two steps loop back to the same document until it is right; only the third moves forward:
 
 1. **Lint.** `steno lint <stage>` checks the file mechanically: EARS form, undefined terms, criteria with no design or task, leftover template text. Errors block approval.
-2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo.
+2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo. A review is one full round and at most one verify round. Reviewers may rewrite or question what is there, but anything that would add to the spec or change its scope comes to you as a question first, and it has passed when no high finding is open and every question has an answer.
 3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. The agent never approves on its own outside quick mode.
 
 After the last task, a drift review compares the finished code with the spec.

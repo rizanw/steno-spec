@@ -63,6 +63,19 @@ describe('spec/placeholder lint', () => {
   });
 });
 
+describe('spec/empty-section lint', () => {
+  it('flags a heading with nothing under it, but not a parent of sub-headings', async () => {
+    const { lintEmptySections } = await import('../src/index.js');
+    expect(lintEmptySections('# Design\n\n## Overview\ntext\n\n## Open questions\n', 'design.md')).toEqual([
+      { level: 'warn', rule: 'spec/empty-section', file: 'design.md', line: 6, msg: 'section "Open questions" is empty; fill it or delete the heading' },
+    ]);
+    expect(lintEmptySections('## Glossary\n\n## Non-goals\n- none\n', 'requirements.md').map(i => i.line)).toEqual([1]);
+    expect(lintEmptySections('## Components\n### Store {#D-store}\n\n### Api\n_Satisfies: 1.1_\n', 'design.md').map(i => i.msg)).toEqual(['section "Store" is empty; fill it or delete the heading']);
+    expect(lintEmptySections('## Components\n\n### Store\ntext\n', 'design.md')).toHaveLength(0);
+    expect(lintEmptySections('## Setup\n```sh\n# not a heading\n```\n', 'design.md')).toHaveLength(0);
+  });
+});
+
 describe('spec/placeholder lint: generic types', () => {
   it('ignores <…> glued to an identifier but still flags template placeholders', async () => {
     const { lintPlaceholders } = await import('../src/index.js');

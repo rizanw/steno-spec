@@ -139,5 +139,3 @@ _Satisfies: 2.4, 2.2, 1.3, 1.4_
 | 5.4 | unit, compare link before and after the clock passes `expiresAt` | `test/links.test.ts` |
 
 Properties are written as table-driven cases with `node:test`; no property-testing library is added, because the project allows no new dependencies.
-
-## Open questions

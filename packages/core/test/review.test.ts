@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   createSpec, loadSpec, nextReviewRound, saveReviewLog, loadReviewLog, reviewRoundSection, reviewGrew, reviewDecisions,
-  MAX_REVIEW_ROUNDS,
+  lintRequirements, parseRequirements, MAX_REVIEW_ROUNDS,
 } from '../src/index.js';
 
 const doc = (criteria: string[]) => `# Requirements Document\n\n## Requirements\n\n### Requirement 1: Links\n\n**User Story:** As a user, I want links, so that I can share.\n\n#### Acceptance Criteria\n\n${criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n`;
@@ -84,5 +84,22 @@ describe('review rounds', () => {
     expect(reviewDecisions(dir, 'requirements')).toBeUndefined();
     writeFileSync(join(dir, 'reviews', 'requirements-decisions.md'), '- R1.2: cut, no consumer yet\n');
     expect(reviewDecisions(dir, 'requirements')).toBe('- R1.2: cut, no consumer yet');
+  });
+});
+
+describe('requirements size lint', () => {
+  const many = (n: number) => Array.from({ length: n }, (_, i) => crit(i + 1));
+  const rules = (text: string) => lintRequirements(parseRequirements(text)).map(i => i.rule);
+
+  it('warns about a requirement with more than 12 criteria', () => {
+    expect(rules(doc(many(12)))).not.toContain('req/too-many-criteria');
+    expect(rules(doc(many(13)))).toContain('req/too-many-criteria');
+  });
+
+  it('warns about a spec with more than 60 criteria', () => {
+    const big = (perReq: number) => doc(many(perReq)) + Array.from({ length: 5 }, (_, r) => `\n### Requirement ${r + 2}: More\n\n**User Story:** As a user, I want more, so that I have it.\n\n#### Acceptance Criteria\n\n${many(10).map((c, i) => `${i + 1}. ${c}`).join('\n')}\n`).join('');
+    expect(rules(big(10))).not.toContain('req/too-large');   // 60
+    const issues = lintRequirements(parseRequirements(big(11)));   // 61
+    expect(issues.find(i => i.rule === 'req/too-large')).toMatchObject({ level: 'warn' });
   });
 });

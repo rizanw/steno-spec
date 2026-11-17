@@ -132,4 +132,47 @@ describe('steno CLI', () => {
     expect(r.out).not.toMatch(/requirements\.md/);
     expect(readFileSync(join(dir, '.steno', 'specs', 'crash', 'spec.yaml'), 'utf8')).not.toMatch(/requirements: \d/);
   });
+
+  it('review on a bugfix spec reviews bugfix.md, even next to a stray requirements.md', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'crash', '--bugfix');
+    const spec = join(dir, '.steno', 'specs', 'crash');
+    writeFileSync(join(spec, 'requirements.md'), '# Stray\n');
+    expect(steno('review').code).toBe(0);
+    const packet = readFileSync(join(spec, 'reviews', `${new Date().toISOString().slice(0, 10)}-requirements-packet.md`), 'utf8');
+    expect(packet).toMatch(/^## bugfix\.md$/m);
+    expect(packet).not.toMatch(/# Stray/);
+    expect(readFileSync(join(spec, 'reviews', 'requirements-round1.md'), 'utf8')).toBe(readFileSync(join(spec, 'bugfix.md'), 'utf8'));
+  });
+
+  it('review counts rounds: full first, then verify rounds scoped to the change, with the decisions in the packet', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('new', 'demo');
+    const spec = join(dir, '.steno', 'specs', 'demo');
+    const body = (criteria: string[]) => `# Requirements Document\n\n## Requirements\n\n### Requirement 1: Links\n\n**User Story:** As a user, I want links, so that I can share.\n\n#### Acceptance Criteria\n\n${criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}\n`;
+    const crit = (n: number) => `WHEN event ${n} happens, THE System SHALL do thing ${n}.`;
+    writeFileSync(join(spec, 'requirements.md'), body([crit(1), crit(2)]));
+
+    const r1 = steno('review');
+    expect(r1.out).toMatch(/round 1 \(full\), 2 criteria/);
+    const packet = join(spec, 'reviews', `${new Date().toISOString().slice(0, 10)}-requirements-packet.md`);
+    expect(readFileSync(packet, 'utf8')).toMatch(/## Review round 1 \(full\)/);
+    expect(steno('review').out).toMatch(/has not changed since review round 1/);
+
+    writeFileSync(join(spec, 'reviews', 'requirements-decisions.md'), '- R1.9: rejected, belongs in design\n');
+    writeFileSync(join(spec, 'requirements.md'), body([crit(1), crit(2), crit(3)]));
+    const r2 = JSON.parse(steno('review', '--json').out);
+    expect(r2).toMatchObject({ round: 2, verify: true, count: 3, firstCount: 2, grew: true, overLimit: false, delta: { added: ['R1.3'], changed: [], removed: [] } });
+    const text = readFileSync(packet, 'utf8');
+    expect(text).toMatch(/## Review round 2 \(verify\)\nSize: 3 criteria \(round 1: 2, \+1\)\.\nSince round 1: added: R1\.3\./);
+    expect(text).toMatch(/## Decided \(do not reopen\)\n- R1\.9: rejected, belongs in design/);
+
+    writeFileSync(join(spec, 'requirements.md'), body([crit(1), crit(3)]));
+    expect(steno('review').out).toMatch(/round 3 \(verify[^\n]*\n[^\n]*past the 2-round limit/);
+    // each round keeps the document it reviewed, so a criterion cut later is still on disk
+    expect(readFileSync(join(spec, 'reviews', 'requirements-round1.md'), 'utf8')).toBe(body([crit(1), crit(2)]));
+    expect(readFileSync(join(spec, 'reviews', 'requirements-round2.md'), 'utf8')).toBe(body([crit(1), crit(2), crit(3)]));
+    expect(steno('review', '--full').out).toMatch(/round 1 \(full\), 2 criteria/);
+    expect(steno('review', '--stage', 'bogus').code).toBe(1);
+  });
 });

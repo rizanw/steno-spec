@@ -34,6 +34,16 @@ describe('steno CLI', () => {
     expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).toMatch(/steno:start/);
   });
 
+  it('init does not add the AGENTS.md block twice, with or without its markers', () => {
+    const { dir, steno } = project();
+    const count = () => readFileSync(join(dir, 'AGENTS.md'), 'utf8').split('## Spec-driven work (steno)').length - 1;
+    steno('init'); steno('init');
+    expect(count()).toBe(1);
+    writeFileSync(join(dir, 'AGENTS.md'), readFileSync(join(dir, 'AGENTS.md'), 'utf8').replace(/<!-- steno:(start|end) -->\n/g, ''));
+    steno('init');
+    expect(count()).toBe(1);
+  });
+
   it('status --json reads the change cache without writing it; plain status records it', () => {
     const { dir, steno } = project();
     steno('init'); steno('new', 'demo');

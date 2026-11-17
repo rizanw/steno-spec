@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "build & link": {
+      "command": "pnpm install && pnpm build && (cd packages/cli && npm link)"
+    }
+  }
+}

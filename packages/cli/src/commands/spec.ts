@@ -4,7 +4,7 @@ import { join, relative } from 'node:path';
 import {
   traceCriteria, createSpec, importKiroSpec, listSpecs, loadSpec, specDir, lintSpec, hasErrors, saveState, scaffoldCurrent, artifactFor,
   derivePhase, approvalError, syncDonePhase, allTasksDone, loadSeen, saveSeen, sha, traceMatrix, loadConfig, buildCtx, nextTask, setTaskDone, findTask, findRequirement, findCriterion,
-  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, type Spec,
+  findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, type Spec, type SpecState,
 } from '@steno/core';
 import { ctxFromOpts, resolveSpec, out, fmtIssues, fail } from '../io.js';
 
@@ -16,6 +16,12 @@ const PHASE_HINT: Record<string, string> = {
   execute: 'steno next  →  steno ctx <task>  →  implement  →  steno done <task>',
   done: 'all tasks done. Consider: steno review --stage drift',
 };
+
+/** The `next:` hint for a spec's phase; in the requirements phase it names the kind's requirements file (bugfix.md for a bugfix spec). */
+function phaseHint(state: SpecState): string {
+  const hint = PHASE_HINT[state.phase];
+  return state.phase === 'requirements' ? hint.replaceAll('requirements.md', requirementsFile(state)) : hint;
+}
 
 export function register(program: Command): void {
   const g = () => ctxFromOpts(program.opts());
@@ -29,7 +35,7 @@ export function register(program: Command): void {
       const ctx = g();
       const r = createSpec(ctx.root, slug, { title: opts.title, bugfix: opts.bugfix, brief: opts.brief });
       const tip = loadSteering(ctx.root).length || isGreenfield(probe(ctx.root)) ? '' : '\ntip: no steering files yet; ask your agent to "generate steering" so specs start from project facts';
-      out(ctx, r, `created ${relative(process.cwd(), r.dir)}: ${r.written.join(', ')}\nnext: ${PHASE_HINT[r.state.phase]}${tip}`);
+      out(ctx, r, `created ${relative(process.cwd(), r.dir)}: ${r.written.join(', ')}\nnext: ${phaseHint(r.state)}${tip}`);
     });
 
   program.command('quick <slug>')
@@ -95,7 +101,7 @@ export function register(program: Command): void {
         ...(data.skeleton.length ? [`skeleton: ${data.skeleton.join(', ')} still ${data.skeleton.length > 1 ? 'have' : 'has'} template placeholders — not written yet`] : []),
         `changed since last status: ${changed.length ? changed.join(', ') : 'nothing'}`,
         ...(data.steering || isGreenfield(probe(ctx.root)) ? [] : ['steering: none (ask your agent to "generate steering")']),
-        data.next ? `next task: ${data.next}  → steno ctx ${data.next}` : `next: ${PHASE_HINT[data.phase]}`,
+        data.next ? `next task: ${data.next}  → steno ctx ${data.next}` : `next: ${phaseHint(spec.state)}`,
       ].join('\n'));
     });
 
@@ -128,7 +134,7 @@ export function register(program: Command): void {
       spec.state.phase = phase === 'brief' ? 'requirements' : derivePhase(spec.state, allDone);
       saveState(spec.root, spec.state);
       out(ctx, { spec: spec.state.name, approved: phase, phase: spec.state.phase },
-        `approved ${phase}. phase → ${spec.state.phase}\nnext: ${PHASE_HINT[spec.state.phase]}`);
+        `approved ${phase}. phase → ${spec.state.phase}\nnext: ${phaseHint(spec.state)}`);
     });
 
   program.command('scaffold [spec]')

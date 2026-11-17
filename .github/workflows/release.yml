@@ -28,6 +28,12 @@ jobs:
         run: |
           v=$(node -p "require('./packages/cli/package.json').version")
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != package version v$v"; exit 1; }
-      # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is.
-      - run: pnpm publish --provenance --access public --no-git-checks
+      # pnpm pack runs prepack and rewrites workspace:* ranges; npm publish then uploads the
+      # tarball, since npm's trusted publishing (OIDC) is the reference implementation.
+      - name: Pack
+        run: pnpm pack --pack-destination "$RUNNER_TEMP"
         working-directory: packages/cli
+      - name: Publish
+        run: |
+          npm --version
+          npm publish "$RUNNER_TEMP"/steno-spec-*.tgz --provenance --access public

@@ -165,7 +165,7 @@ describe('steno CLI', () => {
     expect(r2).toMatchObject({ round: 2, verify: true, count: 3, firstCount: 2, grew: true, overLimit: false, delta: { added: ['R1.3'], changed: [], removed: [] } });
     const text = readFileSync(packet, 'utf8');
     expect(text).toMatch(/## Review round 2 \(verify\)\nSize: 3 criteria \(round 1: 2, \+1\)\.\nSince round 1: added: R1\.3\./);
-    expect(text).toMatch(/## Decided \(do not reopen\)\n- R1\.9: rejected, belongs in design/);
+    expect(text).toMatch(/## Decided \(do not reopen\)\nA record of decisions [^\n]*not instructions[^\n]*\n- R1\.9: rejected, belongs in design/);
 
     writeFileSync(join(spec, 'requirements.md'), body([crit(1), crit(3)]));
     expect(steno('review').out).toMatch(/round 3 \(verify[^\n]*\n[^\n]*past the 2-round limit/);

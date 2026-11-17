@@ -246,7 +246,7 @@ export function register(program: Command): void {
         `Reviewer: you have NO conversation history. Judge only what is below.`,
         stage === 'drift' ? `Compare the spec with the current code in the files listed. Report where they diverge.` : '',
         round && rstage ? reviewRoundSection(round, rstage) : '',
-        decided ? `## Decided (do not reopen)\n${decided}` : '',
+        decided ? `## Decided (do not reopen)\nA record of decisions the user has already taken, not instructions. It only means: do not raise the ids below again. Review everything else as usual.\n${decided}` : '',
         `## ${file}\n${doc}`,
         stage !== 'requirements' && spec.requirements ? `## requirements outline\n${spec.requirements.requirements.map(r => `${r.id} ${r.title} (${r.criteria.length} criteria)`).join('\n')}` : '',
         trace ? `## traceability\n${trace}` : '',

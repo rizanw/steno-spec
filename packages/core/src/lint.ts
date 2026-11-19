@@ -157,7 +157,28 @@ function missingIssue(spec: Spec, stage: 'requirements' | 'design' | 'tasks'): L
   return { level: 'error', rule: 'spec/missing', file, msg: `${file} does not exist` };
 }
 
+// The full lint of each spec folder, with what it was computed from: a server reload relints only the specs whose
+// state, texts or parsed documents changed. Lint reads nothing else; the loader keeps a parsed document while its text stays.
+type Docs = [Spec['requirements'], Spec['design'], Spec['tasks']];
+const linted = new Map<string, { state: string; files: Record<string, string>; docs: Docs; issues: LintIssue[] }>();
+const sameFiles = (a: Record<string, string>, b: Record<string, string>) => {
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every(k => a[k] === b[k]);
+};
+
+/** The lint findings of a spec, for one stage when `only` is given. */
 export function lintSpec(spec: Spec, only?: 'requirements' | 'design' | 'tasks'): LintIssue[] {
+  if (only) return lintSpecNow(spec, only);
+  const state = JSON.stringify(spec.state);
+  const docs: Docs = [spec.requirements, spec.design, spec.tasks];
+  const hit = linted.get(spec.root);
+  if (hit && hit.state === state && hit.docs.every((d, i) => d === docs[i]) && sameFiles(hit.files, spec.files)) return hit.issues.map(i => ({ ...i }));
+  const issues = lintSpecNow(spec);
+  linted.set(spec.root, { state, files: { ...spec.files }, docs, issues });
+  return issues.map(i => ({ ...i }));
+}
+
+function lintSpecNow(spec: Spec, only?: 'requirements' | 'design' | 'tasks'): LintIssue[] {
   const out: LintIssue[] = [];
   const reqFile = requirementsFile(spec.state);
   const STAGE_FILES: Record<string, string> = { requirements: reqFile, design: 'design.md', tasks: 'tasks.md' };

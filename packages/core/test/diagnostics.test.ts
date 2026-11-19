@@ -58,6 +58,26 @@ describe('specDiagnostics', () => {
     expect(specDiagnostics(snap, 'a').map(x => x.rule)).toContain('ears/shall');
   });
 
+  it('relints a spec whenever its text or state changes between loads, and reuses nothing stale', () => {
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/requirements.md': REQS });
+    const req = join(root, '.steno/specs/a/requirements.md');
+    const rules = (snap: ReturnType<typeof loadProject>) => specDiagnostics(snap, 'a').map(x => x.rule);
+    const clean = rules(loadProject(root));
+    expect(clean).not.toContain('ears/shall');
+    // the editor's unsaved text, then the saved text again, then a saved change, then a state change
+    expect(rules(loadProject(root, overlaySource(new Map([[req, BAD_REQS]]), () => true)))).toContain('ears/shall');
+    expect(rules(loadProject(root))).toEqual(clean);
+    writeFileSync(req, BAD_REQS);
+    expect(rules(loadProject(root))).toContain('ears/shall');
+    writeFileSync(join(root, '.steno/specs/a/spec.yaml'), STATE('a', 'feature', 'brief'));
+    writeFileSync(req, REQS);
+    expect(rules(loadProject(root))).toEqual(clean);
+    // a caller that changes a finding does not change the next answer
+    const snap = loadProject(root);
+    specDiagnostics(snap, 'a').forEach(d => { d.rule = 'x'; });
+    expect(rules(snap)).toEqual(clean);
+  });
+
   it('returns nothing for an Unusable or unknown spec', () => {
     const snap = loadProject(project({ '.steno/specs/u/spec.yaml': 'name: u\nformatVersion: 9\n', '.steno/specs/u/requirements.md': BAD_REQS }));
     expect(specDiagnostics(snap, 'u')).toEqual([]);

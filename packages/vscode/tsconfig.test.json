@@ -13,5 +13,7 @@
     "declaration": false,
     "noEmit": true
   },
-  "include": ["test", "vitest.config.ts"]
+  "include": ["test", "vitest.config.ts"],
+  // the end-to-end files run against the real `vscode` module: tsconfig.e2e.json checks them
+  "exclude": ["test/e2e"]
 }

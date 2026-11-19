@@ -1,7 +1,8 @@
 // The node builders: one folder's spec tree as tree items (R1.4, R3.1, R3.2, R3.3, R3.5, R3.8).
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
-import { Uri, commands, folder, recorded, resetRecorded } from './vscode-stub.js';
+import { ExtensionMode, Uri, commands, folder, handlers, recorded, resetRecorded } from './vscode-stub.js';
+import { PROBE_COMMAND, registerProbe, type ProbeItem } from '../src/probe.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient, type FolderServer, type StenoClient } from '../src/servers.js';
 import {
@@ -325,5 +326,26 @@ describe('watchTree', () => {
     expect(recorded.context[HAS_PROJECT]).toBe(false);
     pool.setTree(pool.all()[0], setUp());
     expect(recorded.context[HAS_PROJECT]).toBe(true);
+  });
+});
+
+// --- the end-to-end probe ----------------------------------------------------------------------
+
+describe('the test-run tree probe', () => {
+  it('offers the whole tree as plain data, in a test run only (R5.3)', async () => {
+    const pool = await pooled({ path: '/work/a', tree: setUp() });
+    const provider = new SpecTreeProvider(pool);
+    expect(registerProbe(ExtensionMode.Production, provider)).toEqual([]);
+    expect(handlers.has(PROBE_COMMAND)).toBe(false);
+    registerProbe(ExtensionMode.Test, provider);
+    const items = (await commands.executeCommand(PROBE_COMMAND)) as ProbeItem[];
+    expect(items.map(i => i.label)).toEqual(['Auth', 'Steering']);
+    expect(items[0]).toMatchObject({ description: 'execute · gated · 1/4', contextValue: 'spec' });
+    const tasks = items[0].children.find(c => c.label === 'tasks.md')!.children;
+    expect(tasks.map(t => [t.label, t.contextValue])).toEqual([
+      ['task T1', 'task.done'], ['task T2', 'task.open'], ['task T3', 'task.open'],
+    ]);
+    // plain data: nothing in it can be called back into
+    expect(JSON.parse(JSON.stringify(items))).toEqual(items);
   });
 });

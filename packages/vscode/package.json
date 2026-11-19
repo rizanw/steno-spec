@@ -98,7 +98,7 @@
           "id": "steno.specs",
           "name": "specs",
           "icon": "media/steno.svg",
-          "contextualTitle": "steno specs"
+          "contextualTitle": "steno"
         }
       ]
     },
@@ -178,6 +178,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit && node build.mjs",
+    "test:e2e": "tsc -p tsconfig.e2e.json && node out/e2e/run.js",
     "package": "vsce package --no-dependencies"
   },
   "devDependencies": {

@@ -33,6 +33,8 @@ export class EventEmitter<T> {
   dispose(): void { this.listeners.clear(); }
 }
 
+export enum ExtensionMode { Production = 1, Development = 2, Test = 3 }
+
 export enum TreeItemCollapsibleState { None = 0, Collapsed = 1, Expanded = 2 }
 
 export class ThemeIcon {

@@ -2,6 +2,8 @@
 .vscode/**
 src/**
 test/**
+out/**
+.vscode-test/**
 node_modules/**
 **/*.ts
 **/*.map

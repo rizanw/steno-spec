@@ -1,7 +1,16 @@
 name: Release
 
-# Push a tag matching the CLI version (e.g. v0.1.0) to publish steno-spec to npm with provenance.
-# Auth is npm trusted publishing (OIDC): no token; npm trusts this repo + release.yml directly.
+# Push a tag matching both package versions (e.g. v0.2.0) to publish steno-spec to npm with provenance and the
+# VS Code extension to the VS Code Marketplace and Open VSX, all from the one tag.
+# npm auth is trusted publishing (OIDC): no token; npm trusts this repo + release.yml directly.
+# The two extension registries take tokens: repository secrets VSCE_PAT and OVSX_PAT.
+#
+# An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take
+# only major.minor.patch). A pre-release goes to npm under `next` and to both registries with --pre-release.
+#
+# Do not re-run after a partial publish: npm refuses a version it already has. Finish a failed registry step by
+# hand: download this run's `vsix` artifact and run `vsce publish --packagePath <file>` or `ovsx publish <file>`
+# (add --pre-release for an odd minor).
 on:
   push:
     tags: ['v*']
@@ -15,6 +24,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+      # before anything is built or published: a wrong tag or a missing token stops the release here
+      - name: Check the tag, both versions and the registry tokens
+        id: release
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          cli=$(node -p "require('./packages/cli/package.json').version")
+          ext=$(node -p "require('./packages/vscode/package.json').version")
+          fail() { echo "::error::$1"; exit 1; }
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $GITHUB_REF_NAME is not v<major>.<minor>.<patch>"
+          [ "$version" = "$cli" ] || fail "tag $GITHUB_REF_NAME != packages/cli version $cli"
+          [ "$version" = "$ext" ] || fail "tag $GITHUB_REF_NAME != packages/vscode version $ext"
+          [ -n "$VSCE_PAT" ] || fail "secret VSCE_PAT is empty: the VS Code Marketplace publish would fail"
+          [ -n "$OVSX_PAT" ] || fail "secret OVSX_PAT is empty: the Open VSX publish would fail"
+          minor=$(echo "$version" | cut -d. -f2)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          if (( minor % 2 == 1 )); then
+            echo "npm-tag=next" >> "$GITHUB_OUTPUT"
+            echo "pre-release=--pre-release" >> "$GITHUB_OUTPUT"
+          else
+            echo "npm-tag=latest" >> "$GITHUB_OUTPUT"
+            echo "pre-release=" >> "$GITHUB_OUTPUT"
+          fi
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -24,10 +58,26 @@ jobs:
       - run: pnpm build
       - run: pnpm test
       - run: pnpm lint:skills
-      - name: Check tag matches package version
-        run: |
-          v=$(node -p "require('./packages/cli/package.json').version")
-          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME != package version v$v"; exit 1; }
       # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is.
-      - run: pnpm publish --provenance --access public --no-git-checks
+      - run: pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
         working-directory: packages/cli
+      # one .vsix, packaged once: both registries get this exact file. vsce only publishes a file as a
+      # pre-release if it was packaged as one, so the flag goes on the package step too.
+      - name: Package the extension
+        working-directory: packages/vscode
+        run: pnpm exec vsce package --no-dependencies ${{ steps.release.outputs.pre-release }} --out steno-vscode-${{ steps.release.outputs.version }}.vsix
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vsix
+          path: packages/vscode/steno-vscode-${{ steps.release.outputs.version }}.vsix
+          if-no-files-found: error
+      - name: Publish to the VS Code Marketplace
+        working-directory: packages/vscode
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: pnpm exec vsce publish --packagePath steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+      - name: Publish to Open VSX
+        working-directory: packages/vscode
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+        run: pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}

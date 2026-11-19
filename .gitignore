@@ -19,6 +19,10 @@ packages/vscode/LICENSE
 packages/vscode/media/
 packages/vscode/*.vsix
 
+# the end-to-end tests: compiled files and the downloaded VS Code
+packages/vscode/out/
+packages/vscode/.vscode-test/
+
 # installed by `steno init` (canonical copies live in packages/skills)
 .agents/
 .claude/skills/

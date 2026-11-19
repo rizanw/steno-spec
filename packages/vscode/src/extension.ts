@@ -3,6 +3,7 @@ import type * as vscode from 'vscode';
 import { registerActions } from './actions.js';
 import { bundled } from './bundled.js';
 import { registerNewSpec } from './new-spec.js';
+import { registerProbe } from './probe.js';
 import { ServerPool, trackFolders } from './servers.js';
 import { registerSpecTree } from './tree.js';
 
@@ -12,8 +13,10 @@ let pool: ServerPool | undefined;
 export function activate(ctx: vscode.ExtensionContext): void {
   const { server, cli } = bundled(ctx);
   pool = new ServerPool(server);
+  const tree = registerSpecTree(pool);
   ctx.subscriptions.push(
-    ...registerSpecTree(pool).disposables, ...registerActions(pool), registerNewSpec(pool, cli), trackFolders(pool));
+    ...tree.disposables, ...registerActions(pool), registerNewSpec(pool, cli), trackFolders(pool),
+    ...registerProbe(ctx.extensionMode, tree.provider));
 }
 
 export function deactivate(): Promise<void> | undefined {

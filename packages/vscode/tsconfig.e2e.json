@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  // The end-to-end tests run inside VS Code under @vscode/test-electron, against the real `vscode` module,
+  // so they compile on their own to CommonJS in out/e2e/ (no "type" in package.json: NodeNext emits CommonJS).
+  "compilerOptions": {
+    "rootDir": "test/e2e",
+    "outDir": "out/e2e",
+    "lib": ["ES2022"],
+    "types": ["node", "vscode"],
+    "composite": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["test/e2e"]
+}

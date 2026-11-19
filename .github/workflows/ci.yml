@@ -27,3 +27,30 @@ jobs:
       - run: pnpm build
       - run: pnpm test
       - run: pnpm lint:skills
+
+  # The VS Code extension end to end: the oldest supported editor and the current one on every OS.
+  # One Node is enough here: the extension and its bundled server run on the editor's own runtime.
+  extension:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        vscode: ['1.125.0', stable]
+    env:
+      VSCODE_VERSION: ${{ matrix.vscode }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # Linux runners have no display: VS Code needs a virtual one
+      - if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm --filter steno-vscode test:e2e
+      - if: runner.os != 'Linux'
+        run: pnpm --filter steno-vscode test:e2e
+      - run: pnpm --filter steno-vscode run package # vsce package --no-dependencies

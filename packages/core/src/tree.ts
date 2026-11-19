@@ -42,11 +42,33 @@ function treeSteering(snap: ProjectSnapshot, e: ProjectSnapshot['steering'][numb
   return { path, inclusion: e.steering!.inclusion };
 }
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The `created` date a Spec sorts by, or undefined when it has none of its own: an Unusable Spec, a derived one (its
+ * date is just today's, made up on every load), or a `spec.yaml` whose `created` is missing or not a YYYY-MM-DD date.
+ */
+function createdOf(e: SpecEntry): string | undefined {
+  if (!('spec' in e) || e.derived) return undefined;
+  return DATE.test(e.spec.state.created) ? e.spec.state.created : undefined;
+}
+
+/** Newest `created` first, the same day by name; Specs with no date of their own last, by name. */
+function byCreated(a: SpecEntry, b: SpecEntry): number {
+  const ca = createdOf(a), cb = createdOf(b);
+  if (ca !== cb) {
+    if (ca === undefined) return 1;
+    if (cb === undefined) return -1;
+    return ca < cb ? 1 : -1;
+  }
+  return a.name < b.name ? -1 : a.name > b.name ? 1 : 0;
+}
+
 /** The spec tree of a snapshot; `notSetUp` is set when the snapshot is not set up, else the configured folders relative to the root. */
 export function buildTree(snap: ProjectSnapshot): SpecTree {
   const tree: SpecTree = {
     protocolVersion: PROTOCOL_VERSION,
-    specs: snap.specs.map(e => treeSpec(snap, e)),
+    specs: [...snap.specs].sort(byCreated).map(e => treeSpec(snap, e)),
     steering: snap.steering.map(e => treeSteering(snap, e)),
   };
   if (!snap.setUp) { tree.notSetUp = true; return tree; }

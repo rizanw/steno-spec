@@ -62,7 +62,7 @@ The result of `initialize`. Only the steno fields are part of the contract.
 |---|---|---|
 | `protocolVersion` | `number` | |
 | `notSetUp?` | `true` | Server only: the folder is not a set-up steno project; `specs` and `steering` are then empty. |
-| `specs` | `TreeSpec[]` | One entry per spec folder, in name order. |
+| `specs` | `TreeSpec[]` | One entry per spec folder, newest `created` date first and specs created the same day by name. Specs with no date of their own (an unreadable or unsupported spec, a spec folder with no `spec.yaml`, or a `created` that is not a `YYYY-MM-DD` date) come last, by name. |
 | `steering` | `TreeSteering[]` | One entry per steering file. |
 | `specsDir?` | `string` | The specs folder in use, relative to the root with `/` separators, such as `.steno/specs`. Absent when `notSetUp` is set. A spec's documents are at `<specsDir>/<name>/<document>`. |
 | `steeringDir?` | `string` | The steering folder in use, relative to the root with `/` separators. Absent when `notSetUp` is set. |

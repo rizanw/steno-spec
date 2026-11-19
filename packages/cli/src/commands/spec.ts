@@ -78,9 +78,12 @@ export function register(program: Command): void {
   program.command('list').description('list specs and their phase').action(() => {
     const ctx = g();
     const snap = project(ctx);
+    // the order comes from the specs as found, so a derived one still sorts last like on the server, not as made today
+    const order = new Map(buildTree(snap).specs.map((s, i) => [s.name, i]));
     // the CLI writes each derived spec.yaml, so the tree shows the dates it has just written
     for (const e of snap.specs) persistDerived(snap, e.name);
     const tree = buildTree(snap);
+    tree.specs.sort((a, b) => order.get(a.name)! - order.get(b.name)!);
     delete tree.notSetUp;   // the CLI never sets it: a missing .steno is an empty project here
     // a spec steno cannot read shows its flag instead of a phase, so the user sees why it is skipped elsewhere
     out(ctx, tree, () => tree.specs.length ? tree.specs.map(r => r.phase === undefined

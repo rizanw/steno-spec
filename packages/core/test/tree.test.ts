@@ -59,6 +59,21 @@ describe('buildTree', () => {
     expect(tree).toMatchObject({ specsDir: 'docs/specs', steeringDir: 'docs/steering' });
   });
 
+  it('lists specs newest created first, the same day by name, and specs with no date of their own last by name', () => {
+    const dated = (name: string, created: string) => STATE.replace('name: a', `name: ${name}`).replace('created: 2026-01-01', created);
+    const root = project({
+      '.steno/specs/old/spec.yaml': dated('old', 'created: 2026-01-01'),
+      '.steno/specs/new-b/spec.yaml': dated('new-b', 'created: 2026-03-01'),
+      '.steno/specs/new-a/spec.yaml': dated('new-a', 'created: 2026-03-01'),
+      '.steno/specs/mid/spec.yaml': dated('mid', 'created: 2026-02-01'),
+      '.steno/specs/no-date/spec.yaml': dated('no-date', ''),
+      '.steno/specs/derived/design.md': '# D\n',
+      '.steno/specs/broken/spec.yaml': 'name: broken\nformatVersion: 9\n',
+    });
+    expect(buildTree(loadProject(root)).specs.map(s => s.name))
+      .toEqual(['new-a', 'new-b', 'mid', 'old', 'broken', 'derived', 'no-date']);
+  });
+
   it('marks a snapshot that is not set up', () => {
     const tree = buildTree(loadProject(mkdtempSync(join(tmpdir(), 'steno-tree-'))));
     expect(tree).toEqual({ protocolVersion: PROTOCOL_VERSION, notSetUp: true, specs: [], steering: [] });

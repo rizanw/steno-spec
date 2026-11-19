@@ -1,6 +1,7 @@
 // The steno language server, built as bin/lsp.js and loaded only by `steno lsp`. stdio transport only: no network module here.
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConnection, TextDocuments, TextDocumentSyncKind, type InitializeParams, type InitializeResult } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -42,10 +43,20 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
   // reloaded and noticed, and are dropped until the file holds something else
   const own = new Map<string, string>();
   const read = (path: string) => { try { return readFileSync(path, 'latin1'); } catch { return undefined; } };
+  // the folders holding those files, with their entry names: Windows also reports the folder of a replaced file, an echo
+  // too while the folder lists the same entries
+  const ownDirs = new Map<string, string>();
+  const list = (dir: string) => { try { return readdirSync(dir).sort().join('\n'); } catch { return undefined; } };
   const TEMP = /\.steno-\d+\.tmp$/;
   const onWatch = (paths: string[]) => {
     const foreign = paths.filter(p => {
       if (TEMP.test(p)) return false;
+      const entries = ownDirs.get(p);
+      if (entries !== undefined) {
+        if (list(p) === entries) return false;
+        ownDirs.delete(p);
+        return true;
+      }
       const mine = own.get(p);
       if (mine === undefined) return true;
       if (read(p) === mine) return false;
@@ -110,6 +121,7 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
   // a state change the server applied: reload, publish and send the notice at once, with no wait
   const changed = (written: string[]) => {
     for (const path of written) { const bytes = read(path); if (bytes === undefined) own.delete(path); else own.set(path, bytes); }
+    for (const dir of new Set(written.map(p => dirname(p)))) { const entries = list(dir); if (entries === undefined) ownDirs.delete(dir); else ownDirs.set(dir, entries); }
     reload(session);
     publisher?.sync(projectDiagnostics(session.editor));
     rewatch();

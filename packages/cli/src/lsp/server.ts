@@ -66,23 +66,29 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
     if (foreign.length) timer.request('event');
   };
 
-  const rewatch = () => {
+  // replaces the watcher when its targets changed; says whether it did
+  const rewatch = (): boolean => {
     const key = watchKey(session, clientWatches);
-    if (watcher && key === watchedKey) return;
+    if (watcher && key === watchedKey) return false;
     watcher?.close();
     watchedKey = key;
     watcher = watchProject(conn, session, onWatch, clientWatches);
+    return true;
   };
+  // a new watcher misses what was written before it started, such as a spec created while the specs folder was not
+  // watched yet: reload once it runs, so later writes reach it as events and earlier ones are in the snapshot
+  const settle = () => { for (let i = 0; i < 3 && rewatch(); i++) reload(session); };
 
   // one reload serves every pending edit and watcher event; the notice follows any reload that served an event or flipped set-up
   const timer = createReloadTimer((served: Set<ReloadCause>) => {
     if (session.root === undefined) return;
     const flipped = reload(session);
-    publisher?.sync(projectDiagnostics(session.editor));
+    // the notice needs only the reloaded tree, so it goes before the Diagnostics, which take most of the time
     if (served.has('event') || flipped.becameSetUp || flipped.becameNotSetUp) {
-      rewatch();
+      settle();
       void conn.sendNotification(TREE_CHANGED);
     }
+    publisher?.sync(projectDiagnostics(session.editor));
   });
 
   conn.onInitialize((params): InitializeResult => {
@@ -99,12 +105,13 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
     };
   });
 
-  // serving begins: every file's Diagnostics, open or not, then the watcher. With no usable root there is neither.
+  // serving begins: the watcher, then every file's Diagnostics, open or not. With no usable root there is neither.
   conn.onInitialized(() => {
     if (session.root === undefined) return;
     publisher = createPublisher((uri, items) => void conn.sendDiagnostics({ uri, diagnostics: items.map(toLspDiagnostic) }), session.root);
+    // watch first, then load what the files hold now: nothing written after the handshake is missed
+    settle();
     publisher.sync(projectDiagnostics(session.editor));
-    rewatch();
   });
 
   // text sync (the library reports an open as a content change too): every open, edit and close updates the open texts
@@ -123,9 +130,9 @@ export function startServer(input: NodeJS.ReadableStream, output: NodeJS.Writabl
     for (const path of written) { const bytes = read(path); if (bytes === undefined) own.delete(path); else own.set(path, bytes); }
     for (const dir of new Set(written.map(p => dirname(p)))) { const entries = list(dir); if (entries === undefined) ownDirs.delete(dir); else ownDirs.set(dir, entries); }
     reload(session);
-    publisher?.sync(projectDiagnostics(session.editor));
-    rewatch();
+    settle();
     void conn.sendNotification(TREE_CHANGED);
+    publisher?.sync(projectDiagnostics(session.editor));
   };
   registerRequests(conn, () => session, changed);
   docs.listen(conn);

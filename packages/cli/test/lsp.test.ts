@@ -251,6 +251,16 @@ describe('steno lsp: watching', () => {
 });
 
 describe('steno lsp: set-up changes and removed files', () => {
+  it('sees a spec written before its watcher started', async () => {
+    // written after the handshake answer and before serving begins, when no watcher runs yet: no event will report it
+    const dir = project(true);
+    const c = client();
+    await c.request('initialize', { processId: null, capabilities: {}, rootUri: uri(dir) });
+    spawnSync(process.execPath, [BIN, 'new', 'late'], { cwd: dir });
+    c.notify('initialized');
+    expect((await c.request('steno/specTree')).specs.map((s: any) => s.name)).toEqual(['late']);
+  });
+
   it('serves a project that becomes set up after start', async () => {
     const dir = project(false);
     const c = client();

@@ -88,6 +88,39 @@ export function selectorFor(folder: vscode.WorkspaceFolder): vscode.DocumentFilt
   ];
 }
 
+/** The lens the server puts on an open task; it belongs to the `vscode-agent-handoff` spec, not this extension. */
+export const RUN_LENS = 'steno.task.run';
+
+/** The lens the server puts on a done task; choosing it reopens the task (R4.4). */
+export const DONE_LENS = 'steno.task.done';
+
+/** The part of a code lens the middleware reads and rewrites. */
+interface Lens { command?: { command: string; title: string; arguments?: unknown[] } }
+type Lenses<T extends Lens> = T[] | null | undefined;
+
+/**
+ * Keep only the lenses this extension handles: drop `steno.task.run`, and give `steno.task.done` the
+ * document's URI, so its handler can find the folder's server (R4.4). A lens with no command is kept as is.
+ */
+export function keepLenses<T extends Lens>(uri: vscode.Uri, lenses: Lenses<T>): Lenses<T> {
+  if (!lenses) return lenses;
+  return lenses.filter(lens => lens.command?.command !== RUN_LENS).map(lens => {
+    if (lens.command?.command !== DONE_LENS) return lens;
+    const [args] = lens.command.arguments ?? [];
+    lens.command = { ...lens.command, arguments: [{ ...(args as object), uri }] };
+    return lens;
+  });
+}
+
+/** The client middleware that runs every lens answer through `keepLenses`. */
+export async function provideCodeLenses<T extends Lens>(
+  document: { uri: vscode.Uri },
+  token: unknown,
+  next: (document: any, token: any) => Lenses<T> | PromiseLike<Lenses<T>>,
+): Promise<Lenses<T>> {
+  return keepLenses(document.uri, await next(document, token));
+}
+
 /** The production factory: a `module` server, which the library runs on the editor's own Node (R6.3). */
 export const createLanguageClient: CreateClient = (folder, serverPath, documentSelector, handlers) => {
   const server: ServerOptions = {
@@ -100,6 +133,8 @@ export const createLanguageClient: CreateClient = (folder, serverPath, documentS
     workspaceFolder: folder,
     errorHandler: handlers.errorHandler,
     initializationFailedHandler: handlers.initializationFailedHandler,
+    // typed loosely so the stubbed library in the unit tests accepts it too
+    middleware: { provideCodeLenses } as unknown as LanguageClientOptions['middleware'],
   };
   return new LanguageClient('steno', `steno: ${folder.name}`, server, options) as unknown as StenoClient;
 };

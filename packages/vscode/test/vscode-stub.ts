@@ -68,7 +68,15 @@ export const recorded: {
   opened: { uri: string; line: number }[];
   /** the tree data providers registered, by view id */
   views: Record<string, unknown>;
-} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {} };
+  /** the messages shown as modal dialogs, also recorded under their severity */
+  modal: string[];
+  /** each quick pick shown: its title and the labels it offered */
+  picks: { title?: string; labels: string[] }[];
+  /** each input box shown: its prompt and the validator it was given, so a test can run it */
+  inputs: { title?: string; prompt?: string; placeHolder?: string; validate?: InputValidator }[];
+  /** the documents `save()` was called on */
+  saved: string[];
+} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {}, modal: [], picks: [], saved: [], inputs: [] };
 
 /** The handlers `registerCommand` was given, so a test can invoke a command the way the host would. */
 export const handlers = new Map<string, (...args: any[]) => unknown>();
@@ -82,27 +90,67 @@ export function resetRecorded(): void {
   recorded.context = {};
   recorded.opened.length = 0;
   recorded.views = {};
+  recorded.modal.length = 0;
+  recorded.picks.length = 0;
+  recorded.saved.length = 0;
+  recorded.inputs.length = 0;
   handlers.clear();
   answers.message = undefined;
+  answers.pick = undefined;
+  answers.input = undefined;
+  window.activeTextEditor = undefined;
+  workspace.textDocuments = [];
 }
 
-/** Test hook: the item a `show*Message` call picks from the ones it was offered. Default: none, as Escape does. */
+/**
+ * Test hook: what the user answers. A single value answers every call; a list answers one call each, in
+ * order, and runs out into `undefined`. Unset means none, as Escape does.
+ */
 export const answers = {
   message: undefined as string | undefined,
+  /** the label a quick pick chooses */
+  pick: undefined as string | (string | undefined)[] | undefined,
+  /** the text an input box is given */
+  input: undefined as string | (string | undefined)[] | undefined,
 };
 
-const show = (into: string[]) => async <T extends string>(message: string, ...items: T[]): Promise<T | undefined> => {
+/** The next answer: one of a list, or the single value that answers every call. */
+function next(answer: string | (string | undefined)[] | undefined): string | undefined {
+  return Array.isArray(answer) ? answer.shift() : answer;
+}
+
+export interface MessageOptions { modal?: boolean; detail?: string }
+
+/** `show*Message(message, options?, ...items)`, as the real API accepts it. */
+const show = (into: string[]) => async <T extends string>(message: string, ...rest: (T | MessageOptions)[]): Promise<T | undefined> => {
   into.push(message);
-  return items.find(i => i === answers.message);
+  const [first] = rest;
+  if (typeof first === 'object' && first?.modal) recorded.modal.push(message);
+  return rest.find((i): i is T => typeof i === 'string' && i === answers.message);
 };
+
+export interface QuickPickItem { label: string; description?: string; detail?: string }
+
+/** `InputBoxOptions.validateInput`, as far as the extension uses it. */
+export type InputValidator = (value: string) => string | undefined | null | Promise<string | undefined | null>;
+export interface InputBoxOptions { title?: string; prompt?: string; placeHolder?: string; value?: string; validateInput?: InputValidator }
 
 export const window = {
   showInformationMessage: show(recorded.info),
   showWarningMessage: show(recorded.warning),
   showErrorMessage: show(recorded.error),
-  showInputBox: async () => undefined as string | undefined,
-  showQuickPick: async () => undefined as unknown,
-  activeTextEditor: undefined as unknown,
+  showInputBox: async (options?: InputBoxOptions): Promise<string | undefined> => {
+    const { title, prompt, placeHolder, validateInput } = options ?? {};
+    recorded.inputs.push({ title, prompt, placeHolder, validate: validateInput });
+    return next(answers.input);
+  },
+  showQuickPick: async <T extends QuickPickItem>(items: readonly T[] | Promise<readonly T[]>, options?: { title?: string; placeHolder?: string }): Promise<T | undefined> => {
+    const list = await items;
+    recorded.picks.push({ title: options?.title, labels: list.map(i => i.label) });
+    const want = next(answers.pick);
+    return list.find(i => i.label === want);
+  },
+  activeTextEditor: undefined as { document: TextDocument } | undefined,
   showTextDocument: async (document: { uri: Uri }, options?: { selection?: Range }) => {
     recorded.opened.push({ uri: document.uri.toString(), line: (options?.selection?.start.line ?? 0) + 1 });
     return { document };
@@ -131,8 +179,22 @@ export interface WorkspaceFoldersChangeEvent { added: readonly WorkspaceFolder[]
 
 const folderChanges = new EventEmitter<WorkspaceFoldersChangeEvent>();
 
+/** An open document, as far as the extension reads one. */
+export interface TextDocument { uri: Uri; isDirty: boolean; save(): Promise<boolean> }
+
+/** Test helper: an open document with unsaved edits, which records its save. */
+export function openDocument(uri: Uri, isDirty = true): TextDocument {
+  const doc: TextDocument = {
+    uri, isDirty,
+    save: async () => { recorded.saved.push(uri.toString()); doc.isDirty = false; return true; },
+  };
+  workspace.textDocuments.push(doc);
+  return doc;
+}
+
 export const workspace = {
   workspaceFolders: undefined as WorkspaceFolder[] | undefined,
+  textDocuments: [] as TextDocument[],
   onDidChangeWorkspaceFolders: folderChanges.event,
   getConfiguration: () => ({ get: () => undefined }),
   openTextDocument: async (uri: Uri) => ({ uri }),

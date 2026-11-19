@@ -64,6 +64,30 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(entry.text).toMatch(/export function activate\([^)]*\): void/);
   });
 
+  it('offers "New spec" on the view title, on a project folder and in the palette, each gated on a project (R5.7)', () => {
+    const menus = manifest.contributes.menus;
+    const of = (list: any[]) => list.filter((m: any) => m.command === 'steno.spec.new');
+    expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.spec.new');
+    expect(of(menus['view/title'])).toEqual([
+      { command: 'steno.spec.new', when: 'view == steno.specs && steno.hasProject', group: 'navigation' },
+    ]);
+    expect(of(menus['view/item/context'])).toEqual([
+      { command: 'steno.spec.new', when: 'view == steno.specs && viewItem == folder.project', group: 'inline' },
+    ]);
+    // the one command of this extension the palette offers, and only while a folder is a steno project
+    expect(of(menus.commandPalette)).toEqual([{ command: 'steno.spec.new', when: 'steno.hasProject' }]);
+    const shown = menus.commandPalette.filter((m: any) => m.when !== 'false').map((m: any) => m.command);
+    expect(shown).toEqual(['steno.spec.new']);
+  });
+
+  it('refuses a spec name by the same rule as core\'s assertSlug, which the CLI would apply (R5.6)', () => {
+    const core = readFileSync(join(HERE, '..', 'core', 'src', 'spec.ts'), 'utf8');
+    const rule = (text: string) => /^const SLUG = (.+);$/m.exec(text)?.[1];
+    const mine = sources().find(f => f.path === 'new-spec.ts')!.text;
+    expect(rule(core)).toBeDefined();
+    expect(rule(mine)).toBe(rule(core));
+  });
+
   it('makes no network request: no http, https, net or tls import and no fetch (R6.4)', () => {
     const net = /(?:from\s*['"]|require\(\s*['"])(?:node:)?(?:http|https|net|tls)['"]|\bfetch\s*\(/;
     const files = sources();

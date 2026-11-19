@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import type { OutlineItem, SpecTree, TreeSpec, TreeSteering } from './protocol.js';
 import type { FolderServer, ServerPool } from './servers.js';
+import { canApprove } from './actions.js';
 
 const { None, Collapsed } = vscode.TreeItemCollapsibleState;
 
@@ -17,7 +18,7 @@ export const RESTART_COMMAND = 'steno.server.restart';
 export const VIEW_ID = 'steno.specs';
 
 /** Where specs live when the server did not say; only a set-up folder reaches the builders below. */
-const DEFAULT_SPECS_DIR = '.steno/specs';
+export const DEFAULT_SPECS_DIR = '.steno/specs';
 
 /** `steno.open` with a file URI and a 1-based line (R3.8). */
 function open(uri: vscode.Uri, line: number): vscode.TreeItem['command'] {
@@ -77,7 +78,8 @@ export class SpecNode extends vscode.TreeItem {
     const counts = spec.tasks;
     this.description = [spec.phase, spec.mode, counts && `${counts.done}/${counts.total}`]
       .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' · ');
-    this.contextValue = 'spec';
+    // the inline "Approve" matches `spec.approvable` alone (R5.1)
+    this.contextValue = canApprove(spec) ? 'spec.approvable' : 'spec';
   }
 }
 

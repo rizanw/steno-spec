@@ -48,10 +48,39 @@
         "category": "steno"
       },
       {
+        "command": "steno.spec.new",
+        "title": "New Spec",
+        "category": "steno",
+        "icon": "$(add)"
+      },
+      {
         "command": "steno.server.restart",
         "title": "Restart Server",
         "category": "steno",
         "icon": "$(debug-restart)"
+      },
+      {
+        "command": "steno.spec.approve",
+        "title": "Approve",
+        "category": "steno",
+        "icon": "$(check)"
+      },
+      {
+        "command": "steno.task.markDone",
+        "title": "Mark Done",
+        "category": "steno",
+        "icon": "$(pass)"
+      },
+      {
+        "command": "steno.task.reopen",
+        "title": "Reopen",
+        "category": "steno",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "steno.task.done",
+        "title": "Reopen Task",
+        "category": "steno"
       }
     ],
     "viewsContainers": {
@@ -80,15 +109,62 @@
           "when": "false"
         },
         {
+          "command": "steno.spec.new",
+          "when": "steno.hasProject"
+        },
+        {
           "command": "steno.server.restart",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.approve",
+          "when": "false"
+        },
+        {
+          "command": "steno.task.markDone",
+          "when": "false"
+        },
+        {
+          "command": "steno.task.reopen",
+          "when": "false"
+        },
+        {
+          "command": "steno.task.done",
           "when": "false"
         }
       ],
       "view/item/context": [
         {
+          "command": "steno.spec.new",
+          "when": "view == steno.specs && viewItem == folder.project",
+          "group": "inline"
+        },
+        {
           "command": "steno.server.restart",
           "when": "view == steno.specs && viewItem == stopped",
           "group": "inline"
+        },
+        {
+          "command": "steno.spec.approve",
+          "when": "view == steno.specs && viewItem == spec.approvable",
+          "group": "inline"
+        },
+        {
+          "command": "steno.task.markDone",
+          "when": "view == steno.specs && viewItem == task.open",
+          "group": "inline"
+        },
+        {
+          "command": "steno.task.reopen",
+          "when": "view == steno.specs && viewItem == task.done",
+          "group": "inline"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "steno.spec.new",
+          "when": "view == steno.specs && steno.hasProject",
+          "group": "navigation"
         }
       ]
     },

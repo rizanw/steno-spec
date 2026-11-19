@@ -1,7 +1,9 @@
 // The pool: one server per `file` folder, started and stopped with the folder (R1.1, R1.2, R2.1, R6.3).
 import { describe, it, expect, beforeEach } from 'vitest';
 import { changeFolders, folder, resetRecorded, setFolders, Uri } from './vscode-stub.js';
-import { Refresher, ServerPool, selectorFor, trackFolders, type CreateClient, type StenoClient } from '../src/servers.js';
+import {
+  Refresher, ServerPool, keepLenses, provideCodeLenses, selectorFor, trackFolders, type CreateClient, type StenoClient,
+} from '../src/servers.js';
 import type { SpecTree } from '../src/protocol.js';
 
 const SERVER = '/ext/dist/steno-lsp.mjs';
@@ -227,5 +229,26 @@ describe('tree notices', () => {
     notify();
     await settle();
     expect(requests).toHaveLength(1);
+  });
+});
+
+describe('the lens middleware (R4.4)', () => {
+  const uri = Uri.file('/work/a/.steno/specs/auth/tasks.md') as unknown as import('vscode').Uri;
+  const lens = (command: string, args: unknown = { spec: 'auth', task: 'T1', optional: false }) =>
+    ({ range: 1, command: { command, title: command, arguments: [args] } });
+
+  it('drops the run lens and adds the document URI to the done lens', async () => {
+    const next = async () => [lens('steno.task.run'), lens('steno.task.done'), lens('steno.task.run')];
+    const out = await provideCodeLenses({ uri }, undefined, next);
+    expect(out).toHaveLength(1);
+    expect(out![0].command!.command).toBe('steno.task.done');
+    expect(out![0].command!.arguments).toEqual([{ spec: 'auth', task: 'T1', optional: false, uri }]);
+  });
+
+  it('keeps a lens with no command and passes no answer through', async () => {
+    const bare: { range: number; command?: undefined }[] = [{ range: 1 }];
+    expect(keepLenses(uri, bare)).toEqual([{ range: 1 }]);
+    expect(keepLenses(uri, null)).toBeNull();
+    expect(await provideCodeLenses({ uri }, undefined, () => undefined)).toBeUndefined();
   });
 });

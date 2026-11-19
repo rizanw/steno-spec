@@ -1,5 +1,5 @@
-// Builds the published `steno-spec` package: bin/steno.js and bin/lsp.js (core inlined), the self-contained server
-// bundle bin/steno-lsp.mjs, and a copy of the skills, so the tarball needs no workspace packages.
+// Builds the published `steno-spec` package: bin/steno.js and bin/lsp.js (core inlined), the self-contained
+// bundles bin/steno-lsp.mjs and bin/steno-cli.mjs, and a copy of the skills, so the tarball needs no workspace packages.
 import { build } from 'esbuild';
 import { cpSync, rmSync, chmodSync, copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
-// the release version, compiled into both server builds so the handshake reports it wherever the files are placed
+// the release version, compiled into every build so each one reports it wherever the files are placed
 const define = { __STENO_VERSION__: JSON.stringify(JSON.parse(readFileSync(join(here, 'package.json'), 'utf8')).version) };
 
 await build({
@@ -17,6 +17,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
+  define,
   // Third-party packages stay real dependencies; only @steno/core is inlined.
   external: ['commander', 'picomatch', 'yaml', 'vscode-languageserver', 'vscode-languageserver-textdocument'],
 });
@@ -40,6 +41,19 @@ await build({
 await build({
   entryPoints: [join(here, 'src', 'lsp', 'bundle.ts')],
   outfile: join(here, 'bin', 'steno-lsp.mjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  define,
+  banner: { js: "import { createRequire as __stenoCreateRequire } from 'node:module'; const require = __stenoCreateRequire(import.meta.url);" },
+});
+
+// The CLI bundle: the same CLI with every dependency inlined, for a Client to copy into its own package.
+// `.mjs` and the `require` banner for the same reasons as the server bundle.
+await build({
+  entryPoints: [join(here, 'src', 'main.ts')],
+  outfile: join(here, 'bin', 'steno-cli.mjs'),
   bundle: true,
   platform: 'node',
   format: 'esm',

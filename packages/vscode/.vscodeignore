@@ -1,0 +1,11 @@
+# everything the .vsix does not need: only dist/, README.md, LICENSE and the icon ship
+.vscode/**
+src/**
+test/**
+node_modules/**
+**/*.ts
+**/*.map
+tsconfig*.json
+build.mjs
+vitest.config.ts
+.vscodeignore

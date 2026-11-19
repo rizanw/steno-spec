@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    // module stays NodeNext from the base: no "type" here, so TypeScript models src as CommonJS,
+    // which is what esbuild emits for the extension host
+    "lib": ["ES2022"],
+    "types": ["node", "vscode"],
+    "composite": false,
+    "declaration": false,
+    "noEmit": true
+  },
+  "include": ["src"]
+}

@@ -2,3 +2,5 @@ packages:
   - packages/*
 allowBuilds:
   esbuild: true
+  # @vscode/vsce-sign ships the signing binary its postinstall unpacks; `vsce package` needs it
+  '@vscode/vsce-sign': true

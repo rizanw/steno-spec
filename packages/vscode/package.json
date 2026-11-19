@@ -1,0 +1,108 @@
+{
+  "name": "steno-vscode",
+  "displayName": "steno spec",
+  "description": "Spec-driven development in VS Code: a spec tree, diagnostics and one-click approvals, powered by the steno language server.",
+  "version": "0.1.1",
+  "private": true,
+  "license": "MIT",
+  "publisher": "rizanw",
+  "author": "rizanw",
+  "homepage": "https://github.com/rizanw/steno-spec#readme",
+  "bugs": "https://github.com/rizanw/steno-spec/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizanw/steno-spec.git",
+    "directory": "packages/vscode"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Other"
+  ],
+  "keywords": [
+    "spec-driven-development",
+    "specs",
+    "ears",
+    "requirements",
+    "coding-agent"
+  ],
+  "engines": {
+    "vscode": "^1.125.0"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "workspaceContains:.steno"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "steno.open",
+        "title": "Open Spec Document",
+        "category": "steno"
+      },
+      {
+        "command": "steno.server.restart",
+        "title": "Restart Server",
+        "category": "steno",
+        "icon": "$(debug-restart)"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "steno.specs",
+          "name": "steno specs",
+          "icon": "$(checklist)",
+          "contextualTitle": "steno specs"
+        }
+      ]
+    },
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "steno.open",
+          "when": "false"
+        },
+        {
+          "command": "steno.server.restart",
+          "when": "false"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "steno.server.restart",
+          "when": "view == steno.specs && viewItem == stopped",
+          "group": "inline"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "steno.specs",
+        "when": "!steno.hasProject",
+        "contents": "No workspace folder is a steno project. Run `steno init` in a terminal to set one up."
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json --noEmit && node build.mjs",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@steno/core": "workspace:*",
+    "@types/vscode": "1.125.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.1.1",
+    "esbuild": "^0.28.2",
+    "fast-check": "^4.10.2",
+    "ovsx": "^1.4.0",
+    "steno-spec": "workspace:*",
+    "vscode-languageclient": "^11.0.0"
+  }
+}

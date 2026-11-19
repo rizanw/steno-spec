@@ -64,6 +64,8 @@ The result of `initialize`. Only the steno fields are part of the contract.
 | `notSetUp?` | `true` | Server only: the folder is not a set-up steno project; `specs` and `steering` are then empty. |
 | `specs` | `TreeSpec[]` | One entry per spec folder, in name order. |
 | `steering` | `TreeSteering[]` | One entry per steering file. |
+| `specsDir?` | `string` | The specs folder in use, relative to the root with `/` separators, such as `.steno/specs`. Absent when `notSetUp` is set. A spec's documents are at `<specsDir>/<name>/<document>`. |
+| `steeringDir?` | `string` | The steering folder in use, relative to the root with `/` separators. Absent when `notSetUp` is set. |
 
 The server builds the tree from saved files only. `steno list --json` returns the same tree for the same files, with one difference: for a spec folder that has no `spec.yaml` yet, `steno list` writes one and shows today's date for each approval, where the server shows `null`.
 
@@ -82,6 +84,7 @@ A usable spec has every field except `unsupported`, `unreadable` and `files`. A 
 | `tasks?` | `TaskCounts` | |
 | `next?` | `{ id: string; title: string } \| null` | The task `steno next` would report; `null` when none is left. |
 | `documents?` | `string[]` | File names, such as `design.md`. |
+| `taskItems?` | `OutlineItem[]` | Every task of `tasks.md`, nested as in the [Outline](#outlineitem), each with `done` and `optional`; `[]` when the spec has no tasks. |
 | `unsupported?` | `true` | The spec's `spec.yaml` has a format this steno does not support. |
 | `unreadable?` | `true` | A file of the spec cannot be opened, is not UTF-8 text or cannot be parsed. |
 | `files?` | `{ file: string; reason: string }[]` | Each file that makes the spec unusable, with why. |
@@ -174,6 +177,8 @@ The server publishes the same findings as standard `textDocument/publishDiagnost
 | `title` | `string` | At most 80 characters. |
 | `line`, `endLine` | `number` | 1-based, inclusive. |
 | `children` | `OutlineItem[]` | Criteria under a requirement, subtasks under a task. |
+| `done?` | `boolean` | Tasks only: whether the task is checked. |
+| `optional?` | `boolean` | Tasks only: whether the task is marked optional (`*`). |
 
 ### StructuredError
 

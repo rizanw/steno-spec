@@ -1,6 +1,5 @@
 // The steno language server, built as bin/lsp.js and loaded only by `steno lsp`. stdio transport only: no network module here.
 import { readdirSync, readFileSync } from 'node:fs';
-import { createRequire } from 'node:module';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createConnection, TextDocuments, TextDocumentSyncKind, type InitializeParams, type InitializeResult } from 'vscode-languageserver/node';
@@ -11,8 +10,9 @@ import { registerRequests } from './requests.js';
 import { createPublisher, toLspDiagnostic, type Publisher } from './publish.js';
 import { watchKey, watchProject, type Watcher } from './watch.js';
 
-const require = createRequire(import.meta.url);
-const { version } = require('../package.json') as { version: string };
+// the steno release this server was built from; build.mjs defines it, so the files can be placed anywhere
+declare const __STENO_VERSION__: string;
+const version = __STENO_VERSION__;
 
 export const TREE_CHANGED = 'steno/treeChanged';
 

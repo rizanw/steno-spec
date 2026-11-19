@@ -1,5 +1,5 @@
-// Builds the published `steno-spec` package: two bundled entry points, bin/steno.js and bin/lsp.js (core inlined)
-// plus a copy of the skills, so the tarball needs no workspace packages.
+// Builds the published `steno-spec` package: bin/steno.js and bin/lsp.js (core inlined), the self-contained server
+// bundle bin/steno-lsp.mjs, and a copy of the skills, so the tarball needs no workspace packages.
 import { build } from 'esbuild';
 import { cpSync, rmSync, chmodSync, copyFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,6 +7,8 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..', '..');
+// the release version, compiled into both server builds so the handshake reports it wherever the files are placed
+const define = { __STENO_VERSION__: JSON.stringify(JSON.parse(readFileSync(join(here, 'package.json'), 'utf8')).version) };
 
 await build({
   entryPoints: [join(here, 'src', 'main.ts')],
@@ -28,7 +30,22 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
+  define,
   external: ['commander', 'picomatch', 'yaml', 'vscode-languageserver', 'vscode-languageserver-textdocument'],
+});
+
+// The server bundle: the same server with every dependency inlined, for a Client to copy into its own package.
+// `.mjs` so Node runs it as an ES module whatever package.json sits near it; the protocol library is CommonJS
+// and requires Node built-ins, so the banner gives the module a `require`.
+await build({
+  entryPoints: [join(here, 'src', 'lsp', 'bundle.ts')],
+  outfile: join(here, 'bin', 'steno-lsp.mjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  define,
+  banner: { js: "import { createRequire as __stenoCreateRequire } from 'node:module'; const require = __stenoCreateRequire(import.meta.url);" },
 });
 
 rmSync(join(here, 'skills'), { recursive: true, force: true });

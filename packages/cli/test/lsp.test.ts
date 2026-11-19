@@ -1,6 +1,7 @@
 // The language server end to end: spawns the built `steno lsp` and talks LSP to it. Needs `pnpm build` first.
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { builtinModules } from 'node:module';
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -57,6 +58,32 @@ describe('steno lsp: stopping', () => {
     const files = readdirSync(LSP_SRC, { recursive: true }).map(String).filter(f => f.endsWith('.ts'));
     expect(files.length).toBeGreaterThan(0);
     for (const f of files) expect(readFileSync(join(LSP_SRC, f), 'utf8'), f).not.toMatch(net);
+  });
+});
+
+describe('the Server_Bundle', () => {
+  const BUNDLE = fileURLToPath(new URL('../bin/steno-lsp.mjs', import.meta.url));
+
+  it('runs alone from a CommonJS package folder and answers as steno lsp does (R12.2, R12.3, R12.4)', async () => {
+    // a folder with nothing but the bundle and a package.json that makes .js files CommonJS
+    const alone = mkdtempSync(join(tmpdir(), 'steno-bundle-'));
+    cpSync(BUNDLE, join(alone, 'server.mjs'));
+    writeFileSync(join(alone, 'package.json'), '{ "type": "commonjs" }\n');
+    const dir = project(true, 'demo');
+    const answers = async (c: Client) => {
+      const init = await c.initialize({ rootUri: uri(dir) });
+      return { init, tree: await c.request('steno/specTree'), packet: await c.request('steno/taskPacket', { spec: 'demo', task: 'T1' }).catch(e => e) };
+    };
+    const bundled = await answers(client([join(alone, 'server.mjs')], alone));
+    expect(bundled.init.serverInfo).toEqual({ name: 'steno', version });
+    expect(bundled.tree.specs.map((s: any) => s.name)).toEqual(['demo']);
+    expect(bundled).toEqual(await answers(client()));
+  });
+
+  it('inlines every dependency: it loads Node built-ins only (R12.2)', () => {
+    const specifiers = [...readFileSync(BUNDLE, 'utf8').matchAll(/(?:from |require\()['"]([^'"]+)['"]/g)].map(m => m[1]);
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const s of specifiers) expect(builtinModules, s).toContain(s.replace(/^node:/, ''));
   });
 });
 

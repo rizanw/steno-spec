@@ -69,6 +69,8 @@ describe('CLI and server parity', () => {
     const today = new Date().toISOString().slice(0, 10);
     for (const phase of Object.keys(k.approvals)) k.approvals[phase] = today;
     expect(tree).toEqual(listed);
+    expect(tree.specsDir).toBe('.steno/specs');
+    expect(tree.specs.find((s: any) => s.name === 'demo').taskItems.length).toBeGreaterThan(0);
 
     // the Diagnostics: `steno lint` for every Spec plus `steno steer lint`, without the no-match warning
     const cli = [

@@ -30,8 +30,9 @@ export class Client {
   /** every notification and request the server sent, with the time it arrived */
   received: { method: string; params: any; id?: number; at: number }[] = [];
 
-  constructor() {
-    this.proc = spawn(process.execPath, [BIN, 'lsp'], { stdio: 'pipe' });
+  /** `args` and `cwd` start another server, such as the Server_Bundle; the default is `steno lsp`. */
+  constructor(args: string[] = [BIN, 'lsp'], cwd?: string) {
+    this.proc = spawn(process.execPath, args, { stdio: 'pipe', cwd });
     this.exited = new Promise(r => this.proc.on('exit', code => r(code)));
     this.proc.stdout.on('data', (d: Buffer) => { this.buf = Buffer.concat([this.buf, d]); this.drain(); });
   }
@@ -94,11 +95,11 @@ export class Client {
 }
 
 /** Registers the hooks that check for the bundle and kill every client a test started; returns the client factory. */
-export function useClients(): () => Client {
+export function useClients(): (args?: string[], cwd?: string) => Client {
   const clients: Client[] = [];
   beforeAll(() => {
     if (!existsSync(BIN)) throw new Error(`${BIN} is missing; run pnpm build before the server tests`);
   });
   afterEach(() => { for (const c of clients.splice(0)) c.proc.kill(); });
-  return () => { const c = new Client(); clients.push(c); return c; };
+  return (args, cwd) => { const c = new Client(args, cwd); clients.push(c); return c; };
 }

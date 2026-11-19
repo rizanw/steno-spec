@@ -3,6 +3,7 @@ import type { OutlineItem } from './contract.js';
 import { parseRequirements } from './parse/requirements.js';
 import { parseDesign } from './parse/design.js';
 import { parseTasks } from './parse/tasks.js';
+import type { TasksDoc } from './types.js';
 
 export type DocKind = 'requirements' | 'bugfix' | 'design' | 'tasks' | 'brief' | 'steering';
 
@@ -69,18 +70,19 @@ function designItems(text: string): OutlineItem[] {
 }
 
 /**
- * Tasks nested under their parent only when the parent comes first and every task between them is nested under it too;
+ * The tasks of `doc`, parsed from `text`, each with its checked state and optional mark.
+ * Tasks nest under their parent only when the parent comes first and every task between them is nested under it too;
  * any other task is top-level. A task runs to the line before the next task not nested under it, or the end.
  */
-function taskItems(text: string): OutlineItem[] {
+export function taskOutline(doc: TasksDoc, text: string): OutlineItem[] {
   const lines = text.split(/\r?\n/);
   const roots: OutlineItem[] = [];
   const path: { id: string; item: OutlineItem }[] = [];   // the chain from a root to the last task
-  for (const t of parseTasks(text).tasks) {
+  for (const t of doc.tasks) {
     let at = -1;
     if (t.parent) for (let i = path.length - 1; i >= 0; i--) if (path[i].id === t.parent) { at = i; break; }
     while (path.length > at + 1) path.pop()!.item.endLine = t.line - 1;
-    const item: OutlineItem = { kind: 'task', id: t.id, title: itemTitle(t.title, lines[t.line - 1].trim()), line: t.line, endLine: t.line, children: [] };
+    const item: OutlineItem = { kind: 'task', id: t.id, title: itemTitle(t.title, lines[t.line - 1].trim()), line: t.line, endLine: t.line, children: [], done: t.done, optional: t.optional };
     (at >= 0 ? path[at].item.children : roots).push(item);
     path.push({ id: t.id, item });
   }
@@ -94,7 +96,7 @@ export function outlineOf(kind: DocKind, text: string): OutlineItem[] {
     case 'requirements': return requirementItems(text);
     case 'bugfix': return bugfixItems(text);
     case 'design': return designItems(text);
-    case 'tasks': return taskItems(text);
+    case 'tasks': return taskOutline(parseTasks(text), text);
     case 'brief': case 'steering': return headingItems(text, 2, 3);
   }
 }

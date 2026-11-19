@@ -3,7 +3,7 @@ import fc from 'fast-check';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { buildTree, taskCounts, loadProject, parseTasks, PROTOCOL_VERSION } from '../src/index.js';
+import { buildTree, taskCounts, loadProject, parseTasks, outlineOf, PROTOCOL_VERSION } from '../src/index.js';
 
 const STATE = 'name: a\ntitle: Alpha\nkind: feature\nmode: gated\nphase: execute\ncreated: 2026-01-01\napprovals:\n  requirements: 2026-01-02\n  design: 2026-01-03\n';
 const TASKS = '# T\n\n- [ ] 1. Group\n  - [x] 1.1 One\n  - [ ] 1.2 Two\n- [x]* 2. Opt\n- [ ]* 3. Opt2\n';
@@ -35,15 +35,28 @@ describe('buildTree', () => {
       name: 'a', title: 'Alpha', kind: 'feature', mode: 'gated', phase: 'execute',
       approvals: { requirements: '2026-01-02', design: '2026-01-03' },
       tasks: { total: 2, done: 1, optionalTotal: 2, optionalDone: 1 }, next: { id: 'T1.2', title: 'Two' },
-      documents: ['requirements.md', 'tasks.md'],
+      documents: ['requirements.md', 'tasks.md'], taskItems: outlineOf('tasks', TASKS),
     });
-    expect(k).toMatchObject({ name: 'k', title: 'k', approvals: { design: null }, next: null, documents: ['design.md'] });
+    expect(a.taskItems![0].children[0]).toMatchObject({ id: 'T1.1', done: true, optional: false });
+    expect(k).toMatchObject({ name: 'k', title: 'k', approvals: { design: null }, next: null, documents: ['design.md'], taskItems: [] });
+    expect(u).not.toHaveProperty('taskItems');
+    expect(tree).toMatchObject({ specsDir: '.steno/specs', steeringDir: '.steno/steering' });
     expect(Object.keys(k.approvals!)).toEqual(['design']);
     expect(u).toEqual({ name: 'u', unsupported: true, files: [{ file: '.steno/specs/u/spec.yaml', reason: expect.any(String) }] });
     expect(tree.steering).toEqual([
       { path: '.steno/steering/bad.md', unreadable: true, reason: 'bad.md is not UTF-8 text' },
       { path: '.steno/steering/ok.md', inclusion: 'manual' },
     ]);
+  });
+
+  it('gives an empty tasks.md an empty list and names configured folders relative to the root (R11.2, R11.3)', () => {
+    const root = project({
+      '.steno/config.yaml': 'specsDir: docs/specs\nsteeringDir: ./docs/steering/\n',
+      'docs/specs/e/spec.yaml': STATE.replace('name: a', 'name: e'), 'docs/specs/e/tasks.md': '',
+    });
+    const tree = buildTree(loadProject(root));
+    expect(tree.specs[0]).toMatchObject({ name: 'e', taskItems: [] });
+    expect(tree).toMatchObject({ specsDir: 'docs/specs', steeringDir: 'docs/steering' });
   });
 
   it('marks a snapshot that is not set up', () => {

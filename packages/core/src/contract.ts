@@ -41,6 +41,7 @@ export const CONTRACT = {
     SpecTree: {
       protocolVersion: V, notSetUp: opt('true'),
       specs: req({ array: { ref: 'TreeSpec' } }), steering: req({ array: { ref: 'TreeSteering' } }),
+      specsDir: opt('string'), steeringDir: opt('string'),
     },
     TreeSpec: {
       name: req('string'),
@@ -49,6 +50,7 @@ export const CONTRACT = {
       tasks: opt({ ref: 'TaskCounts' }),
       next: opt({ nullable: { object: { id: req('string'), title: req('string') } } }),
       documents: opt({ array: 'string' }),
+      taskItems: opt({ array: { ref: 'OutlineItem' } }),
       unsupported: opt('true'), unreadable: opt('true'),
       files: opt({ array: { object: { file: req('string'), reason: req('string') } } }),
     },
@@ -75,6 +77,7 @@ export const CONTRACT = {
       kind: req({ enum: ['requirement', 'criterion', 'section', 'task', 'heading'] }),
       id: opt('string'), title: req('string'), line: req('number'), endLine: req('number'),
       children: req({ array: { ref: 'OutlineItem' } }),
+      done: opt('boolean'), optional: opt('boolean'),
     },
     StructuredError: {
       protocolVersion: V, code: req({ enum: ERROR_CODES }), message: req('string'),

@@ -30,6 +30,21 @@ Never read a whole spec: run `steno status`, `steno next`, `steno ctx <task>`, `
 If your agent reads neither skills nor `AGENTS.md`, point it at `.agents/skills/steno-spec/SKILL.md`
 when you start.
 
+### Handing a task to the agent
+
+To start one task from an editor or a script, name the task first and the spec second, the order
+`steno ctx` takes them in. With Claude Code:
+
+```text
+/steno-run T3.1 my-spec     # task T3.1 of my-spec
+/steno-run my-spec          # the next open task of my-spec
+/steno-run                  # with one spec, or one not done: its next task
+```
+
+The `steno-run` skill then passes the spec name to every `steno next`, `steno ctx` and `steno done`
+it runs. How the skill is invoked differs by agent (a slash command, a mention or plain text), so
+an editor plugin chooses the form for the agent it targets.
+
 ### Adding an agent
 
 One line in [`packages/core/src/agents.ts`](../packages/core/src/agents.ts): a key, a label, and the

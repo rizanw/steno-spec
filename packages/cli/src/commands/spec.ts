@@ -51,9 +51,10 @@ export function register(program: Command): void {
     .option('-t, --title <title>')
     .option('--bugfix', 'bugfix spec: bugfix.md instead of requirements.md')
     .option('--brief', 'also create brief.md for a brainstorm phase')
+    .option('-d, --description <text>', 'what the spec is about, in your own words; written into the first document for the agent to start from')
     .action((slug, opts) => {
       const ctx = g();
-      const r = createSpec(ctx.root, slug, { title: opts.title, bugfix: opts.bugfix, brief: opts.brief });
+      const r = createSpec(ctx.root, slug, { title: opts.title, bugfix: opts.bugfix, brief: opts.brief, description: opts.description });
       const tip = loadSteering(ctx.root).length || isGreenfield(probe(ctx.root)) ? '' : '\ntip: no steering files yet; ask your agent to "generate steering" so specs start from project facts';
       out(ctx, created(r.dir, r.written, r.state.phase), `created ${relative(process.cwd(), r.dir)}: ${r.written.join(', ')}\nnext: ${phaseHint(r.state)}${tip}`, { versioned: true });
     });
@@ -61,9 +62,10 @@ export function register(program: Command): void {
   program.command('quick <slug>')
     .description('scaffold all three artifacts at once, no approval gates (small, well-understood work)')
     .option('-t, --title <title>')
+    .option('-d, --description <text>', 'what the spec is about, in your own words; written into requirements.md for the agent to start from')
     .action((slug, opts) => {
       const ctx = g();
-      const r = createSpec(ctx.root, slug, { title: opts.title, quick: true });
+      const r = createSpec(ctx.root, slug, { title: opts.title, quick: true, description: opts.description });
       out(ctx, created(r.dir, r.written, r.state.phase), `created ${relative(process.cwd(), r.dir)} (quick): ${r.written.join(', ')}\nfill all three, then: steno lint && steno next`, { versioned: true });
     });
 

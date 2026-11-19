@@ -188,10 +188,11 @@ The slug must be kebab-case: lowercase words joined by hyphens.
 | `-t, --title <title>` | A readable title. Defaults to the slug with spaces instead of hyphens. |
 | `--bugfix` | Writes `bugfix.md` instead, with sections for Current, Expected and Unchanged Behavior. |
 | `--brief` | Starts with a `brief.md` for brainstorming the idea first. `requirements.md` is written later, once you approve the brief. |
+| `-d, --description <text>` | What the spec is about, in your own words. It is written as a `> Request: …` line at the top of the first document, so your agent starts from it instead of asking. |
 
 ### `steno quick <slug>`
 
-Starts a **quick** spec: requirements, design and tasks are all written at once, with no approval steps, and the spec goes straight to the execute phase. Use it for small changes you already understand well. Takes `-t, --title` like `steno new`.
+Starts a **quick** spec: requirements, design and tasks are all written at once, with no approval steps, and the spec goes straight to the execute phase. Use it for small changes you already understand well. Takes `-t, --title` and `-d, --description` like `steno new`; the description goes into `requirements.md`.
 
 ### `steno import <dir> [slug]`
 

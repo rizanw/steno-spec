@@ -39,6 +39,7 @@ pnpm test && pnpm lint:skills
 | `packages/core` | parsers, EARS lint, traceability, context packets, state |
 | `packages/cli` | the `steno` command, a thin wrapper over core; every command takes `--json` |
 | `packages/skills` | the seven `steno-*` skills and the reviewer personas |
+| `packages/vscode` | the VS Code extension; it bundles its own copy of the CLI and language server |
 
 Adding an agent is one line in [`packages/core/src/agents.ts`](packages/core/src/agents.ts).
 
@@ -63,3 +64,25 @@ Please match the style of the file you are editing, and don't reformat code you 
 
 [examples/link-shortener](examples/link-shortener) is a small project with a finished spec. After `pnpm build`, run
 `steno status`, `steno lint` and `steno ctx T2.2` inside it to see the effect of a change on real spec files.
+
+### The VS Code extension
+
+To debug, open the repository in VS Code and press F5 to start an Extension Development Host. After a change,
+run `pnpm build`, then **Developer: Reload Window** in the host window.
+
+To try the packaged extension in your own editor, build the `.vsix` and install it over the old one:
+
+```bash
+pnpm build
+cd packages/vscode
+rm -f steno-vscode-*.vsix
+pnpm package
+code --uninstall-extension rizanw.steno-vscode
+code --install-extension steno-vscode-*.vsix --force
+```
+
+Then run **Developer: Reload Window**. A rebuild keeps the same version number, so if the old behaviour is
+still there, quit VS Code fully and open it again.
+
+The end-to-end tests run the extension inside a real VS Code: `pnpm build`, then `pnpm --filter steno-vscode test:e2e`.
+Set `VSCODE_VERSION=1.125.0` to run them against the oldest supported release.

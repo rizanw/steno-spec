@@ -55,6 +55,11 @@
         "icon": "$(add)"
       },
       {
+        "command": "steno.setUp",
+        "title": "Set Up steno in a Folder",
+        "category": "steno"
+      },
+      {
         "command": "steno.agent.choose",
         "title": "Choose Coding Agent",
         "category": "steno"
@@ -147,6 +152,10 @@
         {
           "command": "steno.spec.new",
           "when": "steno.hasProject"
+        },
+        {
+          "command": "steno.setUp",
+          "when": "!steno.hasProject || steno.canSetUp"
         },
         {
           "command": "steno.agent.choose",
@@ -257,7 +266,7 @@
       {
         "view": "steno.specs",
         "when": "!steno.hasProject",
-        "contents": "No folder in this window is a steno project.\nsteno keeps specs as plain Markdown under `.steno/`, and this view follows them. Run `steno init` in a terminal to start one, then ask your coding agent for a spec.\n[Getting started](https://github.com/rizanw/steno-spec/blob/main/docs/getting-started.md)"
+        "contents": "No folder in this window is a steno project.\nSet one up to write specs with your coding agent.\n[Set up steno](command:steno.setUp)"
       }
     ]
   },

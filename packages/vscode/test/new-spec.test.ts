@@ -5,18 +5,44 @@ import fc from 'fast-check';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Uri, answers, commands, folder, openDocument, recorded, resetRecorded, window } from './vscode-stub.js';
+import { Uri, answers, commands, folder, memento, openDocument, recorded, resetRecorded, window, workspace } from './vscode-stub.js';
+import type { Probe } from '../src/agents.js';
+import { AGENT_KEY, Chooser } from '../src/chooser.js';
+import type { Deps } from '../src/handoff.js';
 import type { SpecTree } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import { FolderNode, registerOpen } from '../src/tree.js';
 import { pickProject } from '../src/pick.js';
 import {
-  NEW_SPEC_COMMAND, cliArgs, refused, registerNewSpec, runCli, validateName, type Kind,
+  NEW_SPEC_COMMAND, cliArgs, cliKind, refused, registerNewSpec, runCli, validateName, writeChoices, type Kind,
 } from '../src/new-spec.js';
 
 beforeEach(() => resetRecorded());
 
 const KINDS = ['feature', 'bugfix', 'brief'] as const;
+
+describe('writeChoices and cliKind', () => {
+  it('Property 1: the brainstorm choice is a Feature\'s alone', () => {
+    fc.assert(fc.property(fc.constantFrom('feature', 'bugfix') as fc.Arbitrary<'feature' | 'bugfix'>, kind => {
+      const choices = writeChoices(kind);
+      expect(choices[0]).toBe('agent');
+      expect(choices[choices.length - 1]).toBe('self');
+      expect(choices.includes('brainstorm')).toBe(kind === 'feature');
+      for (const choice of choices) {
+        expect(cliKind(kind, choice) === 'brief').toBe(kind === 'feature' && choice === 'brainstorm');
+      }
+    }));
+  });
+
+  it('offers three choices for a feature and two for a bugfix, and maps them to what the CLI creates', () => {
+    expect(writeChoices('feature')).toEqual(['agent', 'brainstorm', 'self']);
+    expect(writeChoices('bugfix')).toEqual(['agent', 'self']);
+    expect(cliKind('feature', 'agent')).toBe('feature');
+    expect(cliKind('feature', 'brainstorm')).toBe('brief');
+    expect(cliKind('feature', 'self')).toBe('feature');
+    expect(cliKind('bugfix', 'agent')).toBe('bugfix');
+  });
+});
 
 describe('pickProject (R5.8)', () => {
   it('Property 4: the chosen project follows the hints in order', () => {
@@ -46,15 +72,17 @@ describe('cliArgs (R5.7)', () => {
   it('Property 5: fixed flags plus the user text as single values', () => {
     fc.assert(fc.property(
       fc.string(), fc.string(), fc.constantFrom(...KINDS), fc.option(fc.string(), { nil: undefined }),
-      (root, slug, kind, title) => {
-        const args = cliArgs(root, slug, kind, title);
+      fc.option(fc.string(), { nil: undefined }),
+      (root, slug, kind, title, description) => {
+        const args = cliArgs(root, slug, kind, title, description);
         // the call always ends the same way, so no user text can be read as the root or turn off --json
         expect(args.slice(-3)).toEqual(['--root', root, '--json']);
         // and always starts with the command and the slug, each one entry of its own
         expect(args.slice(0, 2)).toEqual(['new', slug]);
-        // between them, only this kind's flag and the title, again as single entries
+        // between them, only this kind's flag, the title and the description, again as single entries
         const flag: Record<Kind, string[]> = { feature: [], bugfix: ['--bugfix'], brief: ['--brief'] };
-        expect(args.slice(2, -3)).toEqual([...flag[kind], ...(title ? ['-t', title] : [])]);
+        const about = description?.trim();
+        expect(args.slice(2, -3)).toEqual([...flag[kind], ...(title ? ['-t', title] : []), ...(about ? ['-d', about] : [])]);
       },
     ));
   });
@@ -189,25 +217,40 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
 
   const app = [{ path: '/work/app', tree: { specs: [{ name: 'auth' }] } as Partial<SpecTree> }];
 
-  it('asks for a name, a title and a kind, then creates and opens the Spec', async () => {
+  const KIND_LABELS = ['Feature', 'Bugfix'];
+  const DRAFT = 'Draft with coding agent';
+  const BRAINSTORM = 'Brainstorm with coding agent';
+  const MYSELF = 'Write it myself';
+
+  /** The handoff deps, with the clipboard saved as the agent so a handoff shows up in `recorded.clipboard`. */
+  function deps(): Deps {
+    const probe: Probe = { hasExtension: () => false, env: { path: '', windows: false }, exists: () => false };
+    const none = { all: () => [], onDidChange: () => ({ dispose() {} }) } as unknown as ServerPool;
+    return { chooser: new Chooser(memento({ [AGENT_KEY]: 'clipboard' }), probe, none), probe };
+  }
+
+  it('asks for the kind, a name, a title and who writes it, then creates and opens the Spec', async () => {
     const pool = await pooled(app);
     const cli = recordingCli('flow', ok('billing', 'requirements', ['requirements.md', 'spec.yaml']));
     registerOpen();
-    registerNewSpec(pool, cli.path);
+    registerNewSpec(pool, cli.path, deps());
     answers.input = ['billing', 'Billing'];
-    answers.pick = ['feature'];
+    answers.pick = ['Feature', MYSELF];
     await commands.executeCommand(NEW_SPEC_COMMAND);
 
     expect(recorded.inputs.map(i => i.prompt)).toEqual(['Spec name, as a kebab-case slug', 'Title (optional): the one line the tree shows']);
-    expect(recorded.picks.map(p => p.labels)).toEqual([['feature', 'bugfix', 'brief first']]);
+    expect(recorded.picks.map(p => p.labels)).toEqual([KIND_LABELS, [DRAFT, BRAINSTORM, MYSELF]]);
+    // writing it yourself hands nothing to the agent
+    expect(recorded.clipboard).toEqual([]);
     expect(cli.calls()).toEqual([['new', 'billing', '-t', 'Billing', '--root', '/work/app', '--json']]);
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/billing/requirements.md', line: 1 }]);
   });
 
   it('gives the name box a validator that knows the folder\'s existing Specs (R3.3)', async () => {
     const pool = await pooled(app);
-    registerNewSpec(pool, recordingCli('validator', ok('x', 'requirements', [])).path);
+    registerNewSpec(pool, recordingCli('validator', ok('x', 'requirements', [])).path, deps());
     answers.input = [undefined];
+    answers.pick = ['Feature'];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     const validate = recorded.inputs[0].validate!;
     expect(await validate('auth')).toBe('spec already exists: auth');
@@ -218,33 +261,103 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
   it('adds the kind\'s flag and drops an empty title', async () => {
     const pool = await pooled(app);
     const cli = recordingCli('kinds', ok('bug', 'requirements', ['bugfix.md']));
-    registerNewSpec(pool, cli.path);
+    registerNewSpec(pool, cli.path, deps());
     answers.input = ['bug', '   '];
-    answers.pick = ['bugfix'];
+    answers.pick = ['Bugfix', MYSELF];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     expect(cli.calls()).toEqual([['new', 'bug', '--bugfix', '--root', '/work/app', '--json']]);
+    // no brainstorm for a bugfix
+    expect(recorded.picks[1].labels).toEqual([DRAFT, MYSELF]);
   });
 
-  it('opens brief.md when the Spec starts from a brief', async () => {
+  it('starts a brainstorm at brief.md and hands it to the agent', async () => {
     const pool = await pooled([{ path: '/work/app', tree: { specs: [], specsDir: 'specs' } }]);
     registerOpen();
-    registerNewSpec(pool, recordingCli('brief', ok('idea', 'brief', ['brief.md', 'spec.yaml'])).path);
-    answers.input = ['idea', ''];
-    answers.pick = ['brief first'];
+    registerNewSpec(pool, recordingCli('brief', ok('idea', 'brief', ['brief.md', 'spec.yaml'])).path, deps());
+    answers.input = ['idea', '', ''];
+    answers.pick = ['Feature', BRAINSTORM];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     // the folder's own specs directory, not the default
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/specs/idea/brief.md', line: 1 }]);
+    expect(recorded.clipboard).toEqual(['/steno-brainstorm idea']);
+  });
+
+  it('creates the Spec with the kind\'s flag and hands the agent its requirements', async () => {
+    for (const [kind, flag, created] of [['Feature', [], 'requirements.md'], ['Bugfix', ['--bugfix'], 'bugfix.md']] as const) {
+      resetRecorded();
+      const pool = await pooled(app);
+      const cli = recordingCli(`draft-${kind}`, ok('billing', 'requirements', [created, 'spec.yaml']));
+      registerOpen();
+      registerNewSpec(pool, cli.path, deps());
+      answers.input = ['billing', '', ''];
+      answers.pick = [kind, DRAFT];
+      await commands.executeCommand(NEW_SPEC_COMMAND);
+      expect(cli.calls()).toEqual([['new', 'billing', ...flag, '--root', '/work/app', '--json']]);
+      expect(recorded.opened).toEqual([{ uri: `file:///work/app/.steno/specs/billing/${created}`, line: 1 }]);
+      expect(recorded.clipboard).toEqual(['/steno-spec billing']);
+    }
+  });
+
+  it('keeps the created Spec open when the handoff is refused in Restricted Mode', async () => {
+    workspace.isTrusted = false;
+    const pool = await pooled(app);
+    const cli = recordingCli('restricted', ok('billing', 'requirements', ['requirements.md']));
+    registerOpen();
+    registerNewSpec(pool, cli.path, deps());
+    answers.input = ['billing', '', ''];
+    answers.pick = ['Feature', DRAFT];
+    await commands.executeCommand(NEW_SPEC_COMMAND);
+    expect(cli.calls()).toHaveLength(1);
+    expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/billing/requirements.md', line: 1 }]);
+    expect(recorded.warning).toEqual(['Handing work to an agent needs a trusted workspace']);
+    expect(recorded.clipboard).toEqual([]);
+  });
+
+  it('asks the agent choices for a description, names the bug or the feature, and passes it as -d', async () => {
+    for (const [kind, write, noun] of [['Feature', DRAFT, 'feature'], ['Feature', BRAINSTORM, 'feature'], ['Bugfix', DRAFT, 'bug']] as const) {
+      resetRecorded();
+      const pool = await pooled(app);
+      const cli = recordingCli(`describe-${kind}-${write.length}`, ok('billing', 'requirements', ['requirements.md']));
+      registerNewSpec(pool, cli.path, deps());
+      answers.input = ['billing', '', '  export invoices  '];
+      answers.pick = [kind, write];
+      await commands.executeCommand(NEW_SPEC_COMMAND);
+      expect(recorded.inputs[2].prompt).toBe(`Describe the ${noun} in a few words (optional)`);
+      expect(cli.calls()[0]).toEqual(expect.arrayContaining(['-d', 'export invoices']));
+      expect(cli.calls()[0].indexOf('-d')).toBeLessThan(cli.calls()[0].indexOf('--root'));
+    }
+  });
+
+  it('adds no -d for a blank description, and asks nothing more when the user writes it', async () => {
+    const pool = await pooled(app);
+    const blank = recordingCli('describe-blank', ok('billing', 'requirements', ['requirements.md']));
+    registerNewSpec(pool, blank.path, deps());
+    answers.input = ['billing', '', '   '];
+    answers.pick = ['Feature', DRAFT];
+    await commands.executeCommand(NEW_SPEC_COMMAND);
+    expect(blank.calls()).toEqual([['new', 'billing', '--root', '/work/app', '--json']]);
+
+    resetRecorded();
+    const self = recordingCli('describe-self', ok('billing', 'requirements', ['requirements.md']));
+    registerNewSpec(pool, self.path, deps());
+    answers.input = ['billing', ''];
+    answers.pick = ['Feature', MYSELF];
+    await commands.executeCommand(NEW_SPEC_COMMAND);
+    expect(recorded.inputs.map(i => i.prompt)).toHaveLength(2);
+    expect(self.calls()).toHaveLength(1);
   });
 
   for (const [step, input, pick] of [
-    ['the name box', [undefined], []],
-    ['the title box', ['billing', undefined], []],
-    ['the kind pick', ['billing', 'Billing'], [undefined]],
+    ['the kind pick', [], [undefined]],
+    ['the name box', [undefined], ['Feature']],
+    ['the title box', ['billing', undefined], ['Feature']],
+    ['the write pick', ['billing', 'Billing'], ['Feature', undefined]],
+    ['the description box', ['billing', 'Billing', undefined], ['Feature', DRAFT]],
   ] as [string, (string | undefined)[], (string | undefined)[]][]) {
     it(`creates nothing when the user escapes ${step}`, async () => {
       const pool = await pooled(app);
       const cli = recordingCli(`escape-${step.replace(/\W+/g, '-')}`, ok('billing', 'requirements', ['requirements.md']));
-      registerNewSpec(pool, cli.path);
+      registerNewSpec(pool, cli.path, deps());
       answers.input = input;
       answers.pick = pick;
       await commands.executeCommand(NEW_SPEC_COMMAND);
@@ -259,9 +372,9 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
       `process.stdout.write(JSON.stringify({ protocolVersion: 1, code: 'failed', message: 'spec already exists: billing' }));`,
       'process.exitCode = 1;',
     ].join('\n'));
-    registerNewSpec(pool, cli.path);
-    answers.input = ['billing', ''];
-    answers.pick = ['feature'];
+    registerNewSpec(pool, cli.path, deps());
+    answers.input = ['billing', '', ''];
+    answers.pick = ['Feature', DRAFT];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     expect(recorded.error).toEqual(['spec already exists: billing']);
     expect(recorded.opened).toEqual([]);
@@ -270,9 +383,9 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
   it('shows a CLI that ended without JSON as an error naming the exit code (R5.6)', async () => {
     const pool = await pooled(app);
     const cli = recordingCli('crashes', 'process.stderr.write("steno: boom\\n"); process.exitCode = 1;');
-    registerNewSpec(pool, cli.path);
-    answers.input = ['billing', ''];
-    answers.pick = ['feature'];
+    registerNewSpec(pool, cli.path, deps());
+    answers.input = ['billing', '', ''];
+    answers.pick = ['Feature', DRAFT];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     expect(recorded.error).toEqual(['steno exited with code 1: steno: boom']);
   });
@@ -286,9 +399,9 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     /** The whole flow, answering each quick pick in turn: the project one only when it is shown. */
     async function run(name: string, pool: ServerPool, picks: string[], node?: unknown) {
       const cli = recordingCli(name, ok('billing', 'requirements', ['requirements.md']));
-      registerNewSpec(pool, cli.path);
+      registerNewSpec(pool, cli.path, deps());
       answers.input = ['billing', ''];
-      answers.pick = picks;
+      answers.pick = [...picks, MYSELF];
       await commands.executeCommand(NEW_SPEC_COMMAND, node);
       return cli;
     }
@@ -296,22 +409,22 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     it('takes the folder of the tree item the command came from', async () => {
       const pool = await pooled(two);
       const node = new FolderNode(folder('/work/site') as unknown as import('vscode').WorkspaceFolder, true);
-      const cli = await run('from-item', pool, ['feature'], node);
+      const cli = await run('from-item', pool, ['Feature'], node);
       expect(cli.calls()[0]).toContain('/work/site');
-      expect(recorded.picks.map(p => p.labels)).toEqual([['feature', 'bugfix', 'brief first']]);
+      expect(recorded.picks.map(p => p.labels)).toEqual([KIND_LABELS, [DRAFT, BRAINSTORM, MYSELF]]);
     });
 
     it('falls back to the project the active editor is in', async () => {
       const pool = await pooled(two);
       window.activeTextEditor = { document: openDocument(Uri.file('/work/site/README.md'), false) };
-      const cli = await run('from-editor', pool, ['feature']);
+      const cli = await run('from-editor', pool, ['Feature']);
       expect(cli.calls()[0]).toContain('/work/site');
-      expect(recorded.picks.length).toBe(1);
+      expect(recorded.picks.length).toBe(2);
     });
 
     it('asks in a quick pick when the window has several projects and no hint', async () => {
       const pool = await pooled(two);
-      const cli = await run('from-pick', pool, ['site', 'feature']);
+      const cli = await run('from-pick', pool, ['site', 'Feature']);
       expect(recorded.picks[0].labels).toEqual(['app', 'site']);
       expect(cli.calls()[0]).toContain('/work/site');
     });
@@ -319,7 +432,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     it('creates nothing when the user escapes that pick', async () => {
       const pool = await pooled(two);
       const cli = recordingCli('escape-project', ok('billing', 'requirements', ['requirements.md']));
-      registerNewSpec(pool, cli.path);
+      registerNewSpec(pool, cli.path, deps());
       answers.input = ['billing', ''];
       await commands.executeCommand(NEW_SPEC_COMMAND);
       expect(cli.calls()).toEqual([]);
@@ -328,16 +441,16 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
 
     it('uses the only project without asking, and skips a folder that is not one', async () => {
       const pool = await pooled([{ path: '/work/app', tree: { specs: [] } }, { path: '/work/plain', tree: { notSetUp: true } }]);
-      const cli = await run('only-project', pool, ['feature']);
+      const cli = await run('only-project', pool, ['Feature']);
       expect(cli.calls()[0]).toContain('/work/app');
-      // only the kind was picked: the one project needed no asking
-      expect(recorded.picks.map(p => p.labels)).toEqual([['feature', 'bugfix', 'brief first']]);
+      // only the kind and the writer were picked: the one project needed no asking
+      expect(recorded.picks.map(p => p.labels)).toEqual([KIND_LABELS, [DRAFT, BRAINSTORM, MYSELF]]);
     });
 
     it('does nothing at all when no folder is a steno project', async () => {
       const pool = await pooled([{ path: '/work/plain', tree: { notSetUp: true } }]);
       const cli = recordingCli('no-project', ok('billing', 'requirements', ['requirements.md']));
-      registerNewSpec(pool, cli.path);
+      registerNewSpec(pool, cli.path, deps());
       answers.input = ['billing', ''];
       answers.pick = ['feature'];
       await commands.executeCommand(NEW_SPEC_COMMAND);

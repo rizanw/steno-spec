@@ -2,10 +2,48 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, existsSync, writeFileSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createSpec, loadSpec, scaffoldCurrent, artifactFor, saveState, requirementsFile, lintSpec } from '../src/index.js';
+import fc from 'fast-check';
+import {
+  createSpec, loadSpec, scaffoldCurrent, artifactFor, saveState, requirementsFile, lintSpec, requestLine,
+  requirementsTemplate, bugfixTemplate, briefTemplate,
+} from '../src/index.js';
 import type { Phase, LintIssue } from '../src/index.js';
 
 function root() { return mkdtempSync(join(tmpdir(), 'steno-spec-')); }
+
+describe('the request line', () => {
+  it('Property 2: a request line is the description on one line', () => {
+    fc.assert(fc.property(fc.string(), text => {
+      const line = requestLine(text);
+      if (text.trim() === '') { expect(line).toBeUndefined(); return; }
+      expect(line).toBeDefined();
+      expect(line!.startsWith('> Request: ')).toBe(true);
+      const body = line!.slice('> Request: '.length);
+      expect(body).toBe(body.trim());
+      expect(line).not.toMatch(/\n|\r|\s\s/);
+    }));
+  });
+
+  it('lands under the first heading of each first document', () => {
+    const at = (file: string, opts: object) => readFileSync(join(createSpec(root(), 'x', { ...opts, description: ' export\n  invoices ' }).dir, file), 'utf8');
+    expect(at('requirements.md', {})).toContain('## Introduction\n\n> Request: export invoices\n\n<2 short paragraphs');
+    expect(at('bugfix.md', { bugfix: true })).toContain('## Introduction\n\n> Request: export invoices\n\n<what is broken');
+    expect(at('brief.md', { brief: true })).toContain('## Problem\n\n> Request: export invoices\n\n## Proposed direction');
+    // quick mode puts it in requirements.md only
+    const { dir } = createSpec(root(), 'q', { quick: true, description: 'export invoices' });
+    expect(readFileSync(join(dir, 'requirements.md'), 'utf8')).toContain('> Request: export invoices');
+    expect(readFileSync(join(dir, 'design.md'), 'utf8')).not.toContain('> Request:');
+  });
+
+  it('leaves the templates as they are without a description, or with a blank one', () => {
+    for (const description of [undefined, '', '  \n ']) {
+      const read = (file: string, opts: object) => readFileSync(join(createSpec(root(), 'x', { ...opts, description }).dir, file), 'utf8');
+      expect(read('requirements.md', {})).toBe(requirementsTemplate('x'));
+      expect(read('bugfix.md', { bugfix: true })).toBe(bugfixTemplate('x'));
+      expect(read('brief.md', { brief: true })).toBe(briefTemplate('x'));
+    }
+  });
+});
 
 describe('createSpec --brief and lazy scaffolding', () => {
   it('writes only brief.md; requirements.md appears via scaffoldCurrent once the phase moves on', () => {

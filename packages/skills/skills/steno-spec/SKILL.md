@@ -23,6 +23,7 @@ Ask once, in one message: (a) feature or bugfix? (b) mode: **requirements-first*
 Then `steno new <kebab-slug> --title "<Title>"` (add `--bugfix`), or `steno quick <slug>`.
 
 ## 2. Explore (one bounded pass)
+- A `> Request:` line in the document is the user's description: start from it, don't ask what the feature is; its gaps go to step 5's open questions. Delete the line once the Introduction is written.
 - If the spec has a brief: `steno show brief`. It is the primary input: its Decision sets scope, its Open questions carry into step 5.
 - Steering: read `product.md` and the topic file for the area (`steno show steering/<f>`). If `steno status` printed `steering: none`, offer `steno-steer` first; if it printed nothing, the repo is greenfield: skip steering.
 - Find what the feature touches: pages, queries, data fields, i18n, existing filters or modes.

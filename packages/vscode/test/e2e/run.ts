@@ -66,6 +66,9 @@ async function main(): Promise<void> {
     const beta = join(root, 'beta');
     project(alpha, 'demo', 'Login', { 'requirements.md': REQUIREMENTS, 'design.md': DESIGN, 'tasks.md': TASKS });
     project(beta, 'billing', 'Billing');
+    // a plain folder with no .steno, for set-up to turn into a project
+    const gamma = join(root, 'gamma');
+    mkdirSync(gamma);
     // a workspace file, not a bare folder: adding a second folder to a single-folder window
     // turns it into a workspace and restarts the extension host, which would end the run
     const workspace = join(root, 'e2e.code-workspace');
@@ -75,7 +78,7 @@ async function main(): Promise<void> {
       extensionDevelopmentPath: PACKAGE,
       extensionTestsPath: join(__dirname, 'index.js'),
       launchArgs: [workspace, '--disable-extensions', '--disable-workspace-trust', '--skip-welcome', '--skip-release-notes'],
-      extensionTestsEnv: { STENO_E2E_ALPHA: alpha, STENO_E2E_BETA: beta },
+      extensionTestsEnv: { STENO_E2E_ALPHA: alpha, STENO_E2E_BETA: beta, STENO_E2E_GAMMA: gamma },
     });
   } finally {
     rmSync(root, { recursive: true, force: true });

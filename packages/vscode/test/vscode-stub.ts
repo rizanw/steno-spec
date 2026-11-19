@@ -72,8 +72,8 @@ export const recorded: {
   views: Record<string, unknown>;
   /** the messages shown as modal dialogs, also recorded under their severity */
   modal: string[];
-  /** each quick pick shown: its title and the labels it offered */
-  picks: { title?: string; labels: string[] }[];
+  /** each quick pick shown: its title, the labels it offered and whether it allowed several */
+  picks: { title?: string; labels: string[]; many?: boolean }[];
   /** each input box shown: its prompt and the validator it was given, so a test can run it */
   inputs: { title?: string; prompt?: string; placeHolder?: string; validate?: InputValidator }[];
   /** the documents `save()` was called on */
@@ -116,6 +116,7 @@ export function resetRecorded(): void {
   answers.message = undefined;
   answers.pick = undefined;
   answers.input = undefined;
+  answers.many = undefined;
   window.activeTextEditor = undefined;
   workspace.textDocuments = [];
   workspace.isTrusted = true;
@@ -131,6 +132,8 @@ export const answers = {
   pick: undefined as string | (string | undefined)[] | undefined,
   /** the text an input box is given */
   input: undefined as string | (string | undefined)[] | undefined,
+  /** the labels each multi-select quick pick accepts, one entry per pick; `undefined` dismisses it */
+  many: undefined as (string[] | undefined)[] | undefined,
 };
 
 /** Test hook: make a host call fail. `openExternal` either throws or answers `false`. */
@@ -160,6 +163,13 @@ const show = (into: string[]): ShowMessage => async (message: string, ...rest: (
 };
 
 export interface QuickPickItem { label: string; description?: string; detail?: string }
+export interface QuickPickOptions { title?: string; placeHolder?: string; canPickMany?: boolean }
+
+/** `showQuickPick`, as the real API types it: a list back when several may be picked. */
+interface ShowQuickPick {
+  <T extends QuickPickItem>(items: readonly T[] | Promise<readonly T[]>, options: QuickPickOptions & { canPickMany: true }): Promise<T[] | undefined>;
+  <T extends QuickPickItem>(items: readonly T[] | Promise<readonly T[]>, options?: QuickPickOptions): Promise<T | undefined>;
+}
 
 /** `InputBoxOptions.validateInput`, as far as the extension uses it. */
 export type InputValidator = (value: string) => string | undefined | null | Promise<string | undefined | null>;
@@ -174,12 +184,17 @@ export const window = {
     recorded.inputs.push({ title, prompt, placeHolder, validate: validateInput });
     return next(answers.input);
   },
-  showQuickPick: async <T extends QuickPickItem>(items: readonly T[] | Promise<readonly T[]>, options?: { title?: string; placeHolder?: string }): Promise<T | undefined> => {
+  showQuickPick: (async <T extends QuickPickItem>(items: readonly T[] | Promise<readonly T[]>, options?: QuickPickOptions): Promise<T | T[] | undefined> => {
     const list = await items;
+    if (options?.canPickMany) {
+      recorded.picks.push({ title: options.title, labels: list.map(i => i.label), many: true });
+      const want = answers.many?.shift();
+      return want && list.filter(i => want.includes(i.label));
+    }
     recorded.picks.push({ title: options?.title, labels: list.map(i => i.label) });
     const want = next(answers.pick);
     return list.find(i => i.label === want);
-  },
+  }) as ShowQuickPick,
   activeTextEditor: undefined as { document: TextDocument } | undefined,
   showTextDocument: async (document: { uri: Uri }, options?: { selection?: Range }) => {
     recorded.opened.push({ uri: document.uri.toString(), line: (options?.selection?.start.line ?? 0) + 1 });

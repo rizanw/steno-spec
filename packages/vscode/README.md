@@ -45,8 +45,9 @@ Install from the Marketplace, or:
 code --install-extension rizanw.steno-vscode
 ```
 
-Open a folder that already has a `.steno/` directory, or run `steno init` in one you want to track.
-A folder that is not a steno project says so in the view, and names the command that makes it one.
+Open a folder that already has a `.steno/` directory. For one that has none, choose **Set up steno**
+in the view, or run **steno: Set Up steno in a Folder** from the command palette: pick the coding
+agents you use, and the extension creates `.steno/` and installs the steno skills for them.
 
 The extension carries its own copy of steno, so there is nothing else to install to *read* your
 specs. Writing them is the agent's half of the job, and the skills call `steno` directly, so install

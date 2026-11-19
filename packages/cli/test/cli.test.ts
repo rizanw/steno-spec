@@ -137,6 +137,16 @@ describe('steno CLI', () => {
     expect(steno('new', 'feat').out).toMatch(/^next: .*fills requirements\.md/m);
   });
 
+  it('new -d writes the description as a request line in the first document', () => {
+    const { dir, steno } = project();
+    steno('init');
+    const r = steno('new', 'export', '-d', 'export  invoices\nas CSV', '--json');
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.out).created).toContain('requirements.md');
+    const text = readFileSync(join(dir, '.steno', 'specs', 'export', 'requirements.md'), 'utf8');
+    expect(text).toContain('## Introduction\n\n> Request: export invoices as CSV\n');
+  });
+
   it('lint and approve requirements on a bugfix spec name bugfix.md', () => {
     const { dir, steno } = project();
     steno('init'); steno('new', 'crash', '--bugfix');

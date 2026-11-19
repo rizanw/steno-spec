@@ -65,7 +65,7 @@ export function find(items: ProbeItem[], label: string): ProbeItem | undefined {
 }
 
 /** A path the launcher passed in. */
-export function env(name: 'STENO_E2E_ALPHA' | 'STENO_E2E_BETA'): string {
+export function env(name: 'STENO_E2E_ALPHA' | 'STENO_E2E_BETA' | 'STENO_E2E_GAMMA'): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set: run the e2e tests with \`pnpm test:e2e\``);
   return value;

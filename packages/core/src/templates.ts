@@ -110,6 +110,26 @@ export function tasksTemplate(title: string): string {
 `;
 }
 
+/**
+ * The line that carries the user's own description of a new spec, so the agent that writes the first document starts
+ * from it. Whitespace of any kind, line breaks included, becomes single spaces. A blank description gives no line.
+ */
+export function requestLine(description: string | undefined): string | undefined {
+  const text = (description ?? '').replace(/\s+/g, ' ').trim();
+  return text ? `> Request: ${text}` : undefined;
+}
+
+/** A template with the request line right under its first `## ` heading, set off by blank lines. */
+export function withRequest(template: string, line: string | undefined): string {
+  if (!line) return template;
+  const at = template.search(/^## .*$/m);
+  if (at < 0) return template;
+  const end = template.indexOf('\n', at);
+  const head = end < 0 ? template : template.slice(0, end);
+  const rest = end < 0 ? '' : template.slice(end + 1).replace(/^\n+/, '');
+  return `${head}\n\n${line}\n\n${rest}`;
+}
+
 export function briefTemplate(title: string): string {
   return `# Concept Brief — ${title}
 

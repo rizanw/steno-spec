@@ -80,7 +80,23 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     // the commands of this extension the palette offers, each only while a folder is a steno project
     expect(of(menus.commandPalette)).toEqual([{ command: 'steno.spec.new', when: 'steno.hasProject' }]);
     const shown = menus.commandPalette.filter((m: any) => m.when !== 'false').map((m: any) => m.command);
-    expect(shown).toEqual(['steno.spec.new', 'steno.agent.choose']);
+    expect(shown).toEqual(['steno.spec.new', 'steno.setUp', 'steno.agent.choose']);
+  });
+
+  it('offers "Set up steno" in the palette while no folder is a project or some folder is not one (R3.2)', () => {
+    expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.setUp');
+    expect(manifest.contributes.menus.commandPalette.filter((m: any) => m.command === 'steno.setUp'))
+      .toEqual([{ command: 'steno.setUp', when: '!steno.hasProject || steno.canSetUp' }]);
+  });
+
+  it('ends the empty view\'s message with the "Set up steno" button (R3.1)', () => {
+    const welcome = manifest.contributes.viewsWelcome;
+    expect(welcome).toHaveLength(1);
+    expect(welcome[0]).toMatchObject({ view: 'steno.specs', when: '!steno.hasProject' });
+    const lines = welcome[0].contents.split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toBe('No folder in this window is a steno project.');
+    expect(lines[2]).toBe('[Set up steno](command:steno.setUp)');
   });
 
   it('offers "Choose Coding Agent" in the palette while a folder is a steno project (R2.5)', () => {

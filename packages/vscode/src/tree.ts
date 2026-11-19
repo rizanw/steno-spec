@@ -54,7 +54,7 @@ export class StoppedNode extends vscode.TreeItem {
   }
 }
 
-/** Whether the server could read this Spec at all (R3.5). */
+/** Whether the server could read this Spec at all. */
 export function unusable(spec: TreeSpec): boolean {
   return spec.unsupported === true || spec.unreadable === true;
 }
@@ -112,7 +112,7 @@ export class SpecNode extends vscode.TreeItem {
       this.description = spec.unsupported ? 'unsupported' : 'unreadable';
       this.iconPath = new vscode.ThemeIcon('warning');
       this.tooltip = spec.files?.[0]?.reason;
-      // no contextValue on purpose: an Unusable Spec offers nothing but opening its files (R3.5)
+      // no contextValue on purpose: an Unusable Spec offers nothing but opening its files
       return;
     }
     const counts = spec.tasks;
@@ -239,13 +239,13 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
   });
 }
 
-/** The folders the view shows: one that is stopped, or one whose tree says it is set up (R3.4). */
+/** The folders the view shows: one that is stopped, or one whose tree says it is set up. */
 export function shown(servers: readonly FolderServer[]): FolderServer[] {
   // a folder with no tree yet is not shown: its server has not said whether it is a steno project
   return servers.filter(s => s.state === 'stopped' || (s.tree !== undefined && s.tree.notSetUp !== true));
 }
 
-/** The items of one folder: its Specs then the steering group, or the stopped item (R1.4, R3.3). */
+/** The items of one folder: its Specs then the steering group, or the stopped item. */
 export function folderItems(server: FolderServer): Node[] {
   if (server.state === 'stopped') return [new StoppedNode(server.folder)];
   const tree = server.tree;
@@ -335,9 +335,23 @@ export function hasProject(servers: readonly FolderServer[]): boolean {
   return servers.some(s => s.tree !== undefined && s.tree.notSetUp !== true);
 }
 
+/** The context key that offers "Set up steno" in the palette while some folder is not a steno project. */
+export const CAN_SET_UP = 'steno.canSetUp';
+
+/** Whether any folder has answered with a tree that says it is not a steno project yet. */
+export function canSetUp(servers: readonly FolderServer[]): boolean {
+  return servers.some(s => s.tree?.notSetUp === true);
+}
+
+/** Set both context keys from what the folders have answered so far. */
+function setKeys(servers: readonly FolderServer[]): void {
+  void vscode.commands.executeCommand('setContext', HAS_PROJECT, hasProject(servers));
+  void vscode.commands.executeCommand('setContext', CAN_SET_UP, canSetUp(servers));
+}
+
 /**
  * Keep the view current: every change a pool reports redraws as little of the tree as it can, and
- * refreshes the empty-state key with it.
+ * refreshes the empty-state and set-up keys with it.
  */
 export function watchTree(pool: ServerPool, provider: SpecTreeProvider): vscode.Disposable {
   let was = provider.shownServers().map(s => s.folder.uri.toString()).join('\n');
@@ -349,9 +363,9 @@ export function watchTree(pool: ServerPool, provider: SpecTreeProvider): vscode.
     // with one shown folder its items sit at the root, so only the whole tree can be redrawn
     if (setChanged || servers.length <= 1) provider.refresh();
     else provider.refresh(provider.folderNode(server));
-    void vscode.commands.executeCommand('setContext', HAS_PROJECT, hasProject(pool.all()));
+    setKeys(pool.all());
   };
-  void vscode.commands.executeCommand('setContext', HAS_PROJECT, hasProject(pool.all()));
+  setKeys(pool.all());
   return pool.onDidChange(sync);
 }
 

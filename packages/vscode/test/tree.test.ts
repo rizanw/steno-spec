@@ -8,7 +8,7 @@ import { PROBE_COMMAND, registerProbe, type ProbeItem } from '../src/probe.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient, type FolderServer, type StenoClient } from '../src/servers.js';
 import {
-  DocNode, FileNode, HAS_PROJECT, RESTART_COMMAND, SpecNode, SpecTreeProvider, StoppedNode,
+  CAN_SET_UP, DocNode, FileNode, HAS_PROJECT, RESTART_COMMAND, SpecNode, SpecTreeProvider, StoppedNode,
   SteeringGroupNode, TaskNode, VIEW_ID, folderItems, registerSpecTree, runnable, shown, specChildren, specContext,
   taskContext, taskNodes, unusable, watchTree, type Node,
 } from '../src/tree.js';
@@ -338,6 +338,18 @@ describe('watchTree', () => {
     expect(recorded.context[HAS_PROJECT]).toBe(false);
     pool.setTree(pool.all()[0], setUp());
     expect(recorded.context[HAS_PROJECT]).toBe(true);
+  });
+
+  it('sets steno.canSetUp exactly while some folder\'s tree has notSetUp (R3.2)', async () => {
+    const pool = await pooled({ path: '/work/a' }, { path: '/work/b', tree: setUp() });
+    watching(pool);
+    // a folder that has not answered says nothing yet
+    expect(recorded.context[CAN_SET_UP]).toBe(false);
+    pool.setTree(pool.all()[0], tree({ notSetUp: true }));
+    expect(recorded.context[CAN_SET_UP]).toBe(true);
+    expect(recorded.context[HAS_PROJECT]).toBe(true);
+    pool.setTree(pool.all()[0], setUp());
+    expect(recorded.context[CAN_SET_UP]).toBe(false);
   });
 });
 

@@ -7,6 +7,9 @@ description: Break an approved steno design into an ordered, traceable task list
 
 Goal: `tasks.md` where every leaf task is one sitting of work, references the criteria it satisfies, and the list is ordered so each task leaves the code working.
 
+## Spec name
+When the request ends with a spec name (`my-spec`), append the spec name to every steno command that takes `[spec]` (`status`, `scaffold`, `show`, `lint`, `trace`, `approve`), never to `steno new` or `steno quick`. With none named, run the commands as written.
+
 ## Steps
 1. Run `steno status`; confirm phase is `tasks`, then `steno scaffold` (writes `tasks.md` if missing; harmless otherwise). Use `steno show design` and `steno show requirements` (outlines) to see the ids.
 2. Write `tasks.md`. Rules:

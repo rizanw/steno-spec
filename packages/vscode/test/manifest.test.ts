@@ -46,9 +46,12 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(manifest.capabilities.virtualWorkspaces).toBe(false);
   });
 
-  it('works the same in a Restricted Mode workspace (R2.1, R2.2)', () => {
-    expect(manifest.capabilities.untrustedWorkspaces).toEqual({ supported: true });
-    for (const { path, text } of sources()) expect(text, path).not.toMatch(/isTrusted/);
+  it('limits Restricted Mode to the handoffs, set-up and the chooser, read in src/trust.ts alone (R2.1, R2.2, R4.1)', () => {
+    const { supported, description } = manifest.capabilities.untrustedWorkspaces;
+    expect(supported).toBe('limited');
+    expect(description).toMatch(/Restricted Mode/);
+    const reading = sources().filter(({ text }) => /isTrusted/.test(text)).map(({ path }) => path);
+    expect(reading).toEqual(['trust.ts']);
   });
 
   it('offers no when clause that a Restricted Mode workspace would turn off (R2.2)', () => {
@@ -74,10 +77,16 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(of(menus['view/item/context'])).toEqual([
       { command: 'steno.spec.new', when: 'view == steno.specs && viewItem == folder.project', group: 'inline' },
     ]);
-    // the one command of this extension the palette offers, and only while a folder is a steno project
+    // the commands of this extension the palette offers, each only while a folder is a steno project
     expect(of(menus.commandPalette)).toEqual([{ command: 'steno.spec.new', when: 'steno.hasProject' }]);
     const shown = menus.commandPalette.filter((m: any) => m.when !== 'false').map((m: any) => m.command);
-    expect(shown).toEqual(['steno.spec.new']);
+    expect(shown).toEqual(['steno.spec.new', 'steno.agent.choose']);
+  });
+
+  it('offers "Choose Coding Agent" in the palette while a folder is a steno project (R2.5)', () => {
+    expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.agent.choose');
+    expect(manifest.contributes.menus.commandPalette.filter((m: any) => m.command === 'steno.agent.choose'))
+      .toEqual([{ command: 'steno.agent.choose', when: 'steno.hasProject' }]);
   });
 
   it('refuses a spec name by the same rule as core\'s assertSlug, which the CLI would apply (R5.6)', () => {

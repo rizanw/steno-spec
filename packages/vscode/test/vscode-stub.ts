@@ -78,7 +78,9 @@ export const recorded: {
   inputs: { title?: string; prompt?: string; placeHolder?: string; validate?: InputValidator }[];
   /** the documents `save()` was called on */
   saved: string[];
-} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {}, modal: [], picks: [], saved: [], inputs: [] };
+  /** the status bar items created */
+  statusItems: StatusBarItem[];
+} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {}, modal: [], picks: [], saved: [], inputs: [], statusItems: [] };
 
 /** The handlers `registerCommand` was given, so a test can invoke a command the way the host would. */
 export const handlers = new Map<string, (...args: any[]) => unknown>();
@@ -96,12 +98,15 @@ export function resetRecorded(): void {
   recorded.picks.length = 0;
   recorded.saved.length = 0;
   recorded.inputs.length = 0;
+  recorded.statusItems.length = 0;
+  installed.clear();
   handlers.clear();
   answers.message = undefined;
   answers.pick = undefined;
   answers.input = undefined;
   window.activeTextEditor = undefined;
   workspace.textDocuments = [];
+  workspace.isTrusted = true;
 }
 
 /**
@@ -157,6 +162,11 @@ export const window = {
     recorded.opened.push({ uri: document.uri.toString(), line: (options?.selection?.start.line ?? 0) + 1 });
     return { document };
   },
+  createStatusBarItem: (_alignment?: StatusBarAlignment, _priority?: number): StatusBarItem => {
+    const item = new StatusBarItem();
+    recorded.statusItems.push(item);
+    return item;
+  },
   registerTreeDataProvider: (viewId: string, provider: unknown) => {
     recorded.views[viewId] = provider;
     return { dispose: () => { delete recorded.views[viewId]; } };
@@ -197,6 +207,8 @@ export function openDocument(uri: Uri, isDirty = true): TextDocument {
 export const workspace = {
   workspaceFolders: undefined as WorkspaceFolder[] | undefined,
   textDocuments: [] as TextDocument[],
+  /** false in Restricted Mode; tests flip it */
+  isTrusted: true,
   onDidChangeWorkspaceFolders: folderChanges.event,
   getConfiguration: () => ({ get: () => undefined }),
   openTextDocument: async (uri: Uri) => ({ uri }),
@@ -227,7 +239,40 @@ export class RelativePattern {
   }
 }
 
-export interface ExtensionContext { extensionUri: Uri; subscriptions: { dispose(): unknown }[] }
+export interface ExtensionContext { extensionUri: Uri; subscriptions: { dispose(): unknown }[]; workspaceState: Memento }
+
+/** `vscode.Memento`, kept in a map; `memento()` makes one for a test. */
+export interface Memento { get<T>(key: string): T | undefined; update(key: string, value: unknown): Promise<void>; keys(): readonly string[] }
+export function memento(initial: Record<string, unknown> = {}): Memento & { values: Map<string, unknown> } {
+  const values = new Map(Object.entries(initial));
+  return {
+    values,
+    get: <T>(key: string) => values.get(key) as T | undefined,
+    update: async (key: string, value: unknown) => { if (value === undefined) values.delete(key); else values.set(key, value); },
+    keys: () => [...values.keys()],
+  };
+}
+
+export enum StatusBarAlignment { Left = 1, Right = 2 }
+
+/** A status bar item that records what the extension set on it. */
+export class StatusBarItem {
+  text = '';
+  tooltip: string | undefined;
+  command: string | undefined;
+  name: string | undefined;
+  visible = false;
+  disposed = false;
+  show(): void { this.visible = true; }
+  hide(): void { this.visible = false; }
+  dispose(): void { this.disposed = true; this.visible = false; }
+}
+
+/** Test hook: the extension ids `extensions.getExtension` finds. */
+export const installed = new Set<string>();
+export const extensions = {
+  getExtension: (id: string) => (installed.has(id) ? { id } : undefined),
+};
 
 /** vscode.Disposable is structural: anything with `dispose()` satisfies it. */
 export interface Disposable { dispose(): unknown }

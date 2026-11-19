@@ -7,6 +7,9 @@ description: Stress-test a rough idea before writing requirements and save the a
 
 Goal: `brief.md` in the spec folder with the problem, the chosen direction, rejected alternatives, open questions and a decision. Short: under 80 lines.
 
+## Spec name
+When the request ends with a spec name (`my-spec`), append the spec name to every steno command that takes `[spec]` (`approve`), never to `steno new` or `steno quick`. With none named, run the commands as written.
+
 ## Steps
 1. If the spec does not exist: `steno new <slug> --brief` (writes only `brief.md`). Note the folder it prints.
 2. **EGM, only on request.** If the user asked for EGM in this request and it is installed (an `egm-brainstorm` skill or `/egm:egm-brainstorm` command is available): invoke it with the user's idea and this instruction: "Save the concept brief to `<spec folder>/brief.md` using headings Problem, Proposed direction, Alternatives considered, Open questions, Decision." EGM runs fresh-context reviewers against the idea; let it finish, then go to step 5.

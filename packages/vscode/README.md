@@ -101,7 +101,8 @@ not ready to approve says so before you ask.
 
 VS Code 1.125 or later, on macOS, Linux or Windows. The bundled server and CLI are the `steno-spec`
 release that matches the extension's version and run on the editor's own Node; the extension never looks for a `steno` on
-your PATH or in your `node_modules`, so a Restricted Mode workspace behaves exactly like a trusted one.
+your PATH or in your `node_modules`. In a Restricted Mode workspace the tree, diagnostics and task actions work as
+usual; handing work to a coding agent, choosing the agent and setting up steno wait until you trust the folder.
 
 ## Docs
 

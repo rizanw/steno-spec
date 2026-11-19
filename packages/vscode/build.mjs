@@ -1,7 +1,7 @@
 // Builds the `.vsix` payload: dist/extension.js (CommonJS, `vscode` external), the release's server and CLI
-// bundles copied from packages/cli/bin, and the repo LICENSE beside the manifest.
+// bundles copied from packages/cli/bin, the skills `init` installs, and the repo LICENSE beside the manifest.
 import { build } from 'esbuild';
-import { copyFileSync, mkdirSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,6 +26,12 @@ for (const file of ['steno-lsp.mjs', 'steno-cli.mjs']) {
   copyFileSync(join(root, 'packages', 'cli', 'bin', file), join(dist, file));
 }
 copyFileSync(join(root, 'LICENSE'), join(here, 'LICENSE'));
+
+// Ship the skills that `steno init` installs. The bundled CLI looks for a `skills/` folder next to `dist/` first,
+// so setting up a project from inside VS Code works without the @steno/skills package.
+const skills = join(here, 'skills');
+rmSync(skills, { recursive: true, force: true });
+cpSync(join(root, 'packages', 'skills', 'skills'), skills, { recursive: true });
 
 // The artwork the manifest points at: brand art lives in assets/, so it is copied in rather than kept
 // twice. `icon.png` is the marketplace listing icon, `steno.svg` the activity bar and view glyph.

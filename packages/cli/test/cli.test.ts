@@ -1,7 +1,7 @@
 // End-to-end wiring: runs the built bin/steno.js in a temp project. Needs `pnpm build` first (CI builds before testing).
 import { describe, it, expect, beforeAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,23 @@ describe('steno CLI', () => {
     expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
     expect(existsSync(join(dir, '.claude', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
     expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).toMatch(/steno:start/);
+  });
+
+  it('init --list-agents --json prints the keys and labels of the agents and touches nothing (R3.6)', () => {
+    const { dir, steno } = project();
+    const r = steno('init', '--list-agents', '--json');
+    expect(r.code).toBe(0);
+    const { agents } = JSON.parse(r.out) as { agents: { key: string; label: string }[] };
+    expect(agents.length).toBeGreaterThan(0);
+    for (const a of agents) expect(Object.keys(a).sort()).toEqual(['key', 'label']);
+    expect(agents.map(a => a.key)).toContain('claude');
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('init makes no network request: no http, https, net or tls import and no fetch (R3.7)', () => {
+    const text = readFileSync(fileURLToPath(new URL('../src/commands/init.ts', import.meta.url)), 'utf8');
+    expect(text).toMatch(/from 'node:fs'/);
+    expect(text).not.toMatch(/(?:from\s*['"]|require\(\s*['"]|import\(\s*['"])(?:node:)?(?:http|https|net|tls)['"]|\bfetch\s*\(/);
   });
 
   it('init does not add the AGENTS.md block twice, with or without its markers', () => {

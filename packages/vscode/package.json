@@ -36,7 +36,8 @@
   ],
   "capabilities": {
     "untrustedWorkspaces": {
-      "supported": true
+      "supported": "limited",
+      "description": "In Restricted Mode the spec tree, diagnostics and task actions work as usual; handing work to a coding agent, choosing the agent and setting up steno are off until you trust the folder."
     },
     "virtualWorkspaces": false
   },
@@ -52,6 +53,11 @@
         "title": "New Spec",
         "category": "steno",
         "icon": "$(add)"
+      },
+      {
+        "command": "steno.agent.choose",
+        "title": "Choose Coding Agent",
+        "category": "steno"
       },
       {
         "command": "steno.server.restart",
@@ -110,6 +116,10 @@
         },
         {
           "command": "steno.spec.new",
+          "when": "steno.hasProject"
+        },
+        {
+          "command": "steno.agent.choose",
           "when": "steno.hasProject"
         },
         {

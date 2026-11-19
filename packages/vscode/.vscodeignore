@@ -1,4 +1,4 @@
-# everything the .vsix does not need: only dist/, README.md, LICENSE and the icon ship
+# everything the .vsix does not need: only dist/, skills/ (for steno init), README.md, LICENSE and the media ship
 .vscode/**
 src/**
 test/**

@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+    "paths": {
+      "vscode": ["./test/vscode-stub.ts"],
+      "vscode-languageclient/node": ["./test/languageclient-stub.ts"]
+    },
+    "composite": false,
+    "declaration": false,
+    "noEmit": true
+  },
+  "include": ["test", "vitest.config.ts"]
+}

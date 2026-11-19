@@ -87,6 +87,40 @@ describe('the Server_Bundle', () => {
   });
 });
 
+describe('the CLI bundle', () => {
+  const BUNDLE = fileURLToPath(new URL('../bin/steno-cli.mjs', import.meta.url));
+
+  it('runs alone from a CommonJS package folder and answers as steno does (R6.2)', () => {
+    // a folder with nothing but the bundle and a package.json that makes .js files CommonJS
+    const alone = mkdtempSync(join(tmpdir(), 'steno-cli-bundle-'));
+    cpSync(BUNDLE, join(alone, 'cli.mjs'));
+    writeFileSync(join(alone, 'package.json'), '{ "type": "commonjs" }\n');
+    const dir = project(true);
+    const run = (...args: string[]) =>
+      JSON.parse(spawnSync(process.execPath, [join(alone, 'cli.mjs'), ...args, '--json'], { cwd: dir, encoding: 'utf8' }).stdout);
+    expect(run('new', 'demo')).toEqual(cliJson(project(true), 'new', 'demo'));
+    expect(existsSync(join(dir, '.steno', 'specs', 'demo', 'requirements.md'))).toBe(true);
+  });
+
+  it('reports the package version, with no package.json beside it (R6.2)', () => {
+    const alone = mkdtempSync(join(tmpdir(), 'steno-cli-version-'));
+    cpSync(BUNDLE, join(alone, 'cli.mjs'));
+    const out = spawnSync(process.execPath, [join(alone, 'cli.mjs'), '--version'], { encoding: 'utf8' });
+    expect(out.stdout.trim()).toBe(`${version} (protocol ${PROTOCOL_VERSION})`);
+  });
+
+  it('inlines every dependency: it loads Node built-ins only (R6.2)', () => {
+    // the CLI's help text quotes module-like strings, so only whole import statements and `require()` calls count
+    const source = readFileSync(BUNDLE, 'utf8');
+    const specifiers = [
+      ...[...source.matchAll(/^import\b[^\n]*?from\s*['"]([^'"]+)['"]/gm)].map(m => m[1]),
+      ...[...source.matchAll(/\brequire\(['"]([^'"]+)['"]\)/g)].map(m => m[1]),
+    ];
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const s of specifiers) expect(builtinModules, s).toContain(s.replace(/^node:/, ''));
+  });
+});
+
 describe('steno lsp: spec tree', () => {
   it('returns the tree of a set-up project', async () => {
     const dir = project(true, 'demo');

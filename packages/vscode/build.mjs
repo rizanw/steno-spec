@@ -26,3 +26,10 @@ for (const file of ['steno-lsp.mjs', 'steno-cli.mjs']) {
   copyFileSync(join(root, 'packages', 'cli', 'bin', file), join(dist, file));
 }
 copyFileSync(join(root, 'LICENSE'), join(here, 'LICENSE'));
+
+// The artwork the manifest points at: brand art lives in assets/, so it is copied in rather than kept
+// twice. `icon.png` is the marketplace listing icon, `steno.svg` the activity bar and view glyph.
+const media = join(here, 'media');
+mkdirSync(media, { recursive: true });
+copyFileSync(join(root, 'assets', 'steno.png'), join(media, 'icon.png'));
+copyFileSync(join(root, 'assets', 'steno-mono.svg'), join(media, 'steno.svg'));

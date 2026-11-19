@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 48 48" shape-rendering="crispEdges" role="img" aria-label="steno">
+  <!--
+    The activity bar glyph: the steno mark in one colour. VS Code renders an activity bar icon as a
+    CSS mask, so only the alpha matters: the theme supplies the colour and the dimmed and highlighted
+    states. One path, `evenodd`, so the paper, the screen and the keys read as holes, and the line on
+    the paper and the prompt on the screen read as marks inside them.
+    Every coordinate is even: at 24px one unit is half a pixel, so an odd edge blurs. Keep shapes at
+    least 2 units wide, or they vanish at that size.
+  -->
+  <path fill="currentColor" fill-rule="evenodd" d="M18 2h14v6h-2v4H16V4h2z M18 4h12v2h-2v6H18z M20 6h6v2h-6z M14 12h20v2h2v2h2v2h2v2h2v2h2v18h-2v4h-2v2H8v-2H6v-4H4V22h2v-2h2v-2h2v-2h2v-2h2z M14 16h20v10H14z M16 18h2v2h-2z M18 20h2v2h-2z M16 22h2v2h-2z M22 22h6v2h-6z M10 28h4v4h-4z M16 28h4v4h-4z M22 28h4v4h-4z M28 28h4v4h-4z M34 28h4v4h-4z M10 34h4v4h-4z M16 34h16v4H16z M34 34h4v4h-4z"/>
+</svg>

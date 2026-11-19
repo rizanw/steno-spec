@@ -29,6 +29,7 @@
   "engines": {
     "vscode": "^1.125.0"
   },
+  "icon": "media/icon.png",
   "main": "./dist/extension.js",
   "activationEvents": [
     "workspaceContains:.steno"
@@ -53,12 +54,21 @@
         "icon": "$(debug-restart)"
       }
     ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "steno",
+          "title": "steno",
+          "icon": "media/steno.svg"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "steno": [
         {
           "id": "steno.specs",
-          "name": "steno specs",
-          "icon": "$(checklist)",
+          "name": "specs",
+          "icon": "media/steno.svg",
           "contextualTitle": "steno specs"
         }
       ]

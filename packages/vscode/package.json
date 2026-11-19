@@ -87,6 +87,36 @@
         "command": "steno.task.done",
         "title": "Reopen Task",
         "category": "steno"
+      },
+      {
+        "command": "steno.task.run",
+        "title": "Run Task with Coding Agent",
+        "category": "steno",
+        "icon": "$(play)"
+      },
+      {
+        "command": "steno.spec.runNext",
+        "title": "Run Next Task with Coding Agent",
+        "category": "steno",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "steno.spec.write",
+        "title": "Write This Phase with Coding Agent",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.review",
+        "title": "Review This Phase with Coding Agent",
+        "category": "steno",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "steno.steering.generate",
+        "title": "Generate Steering with Coding Agent",
+        "category": "steno",
+        "icon": "$(sparkle)"
       }
     ],
     "viewsContainers": {
@@ -141,6 +171,26 @@
         {
           "command": "steno.task.done",
           "when": "false"
+        },
+        {
+          "command": "steno.task.run",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.runNext",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.write",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.review",
+          "when": "false"
+        },
+        {
+          "command": "steno.steering.generate",
+          "when": "false"
         }
       ],
       "view/item/context": [
@@ -156,17 +206,42 @@
         },
         {
           "command": "steno.spec.approve",
-          "when": "view == steno.specs && viewItem == spec.approvable",
+          "when": "view == steno.specs && viewItem =~ /^spec\\..*\\.approvable$/",
           "group": "inline"
         },
         {
           "command": "steno.task.markDone",
-          "when": "view == steno.specs && viewItem == task.open",
+          "when": "view == steno.specs && viewItem =~ /^task\\.open/",
           "group": "inline"
         },
         {
           "command": "steno.task.reopen",
           "when": "view == steno.specs && viewItem == task.done",
+          "group": "inline"
+        },
+        {
+          "command": "steno.task.run",
+          "when": "view == steno.specs && viewItem == task.open.run",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.runNext",
+          "when": "view == steno.specs && viewItem == spec.execute",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.write",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.(brief|requirements|design|tasks)/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.review",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.(requirements|design|tasks|done)/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.steering.generate",
+          "when": "view == steno.specs && viewItem == steering",
           "group": "inline"
         }
       ],

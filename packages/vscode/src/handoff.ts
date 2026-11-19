@@ -1,0 +1,235 @@
+// Handing work to a coding agent. Every handoff takes the same path: check workspace trust, build the skill call,
+// find the chosen agent, offer to save unsaved spec and steering edits, then deliver the call through the agent's
+// extension or a new terminal. Anything that can't be delivered ends up on the clipboard with a message saying so.
+import { posix, win32 } from 'node:path';
+import * as vscode from 'vscode';
+import { findOnPath, type AgentAdapter, type Probe } from './agents.js';
+import { render, skillCall, type Handoff } from './calls.js';
+import type { Chooser } from './chooser.js';
+import type { FolderServer, ServerPool } from './servers.js';
+import { DEFAULT_SPECS_DIR, SpecNode, SteeringGroupNode, TaskNode, unusable } from './tree.js';
+import { guard } from './trust.js';
+
+export interface Deps { chooser: Chooser; probe: Probe }
+
+export const RUN_TASK_COMMAND = 'steno.task.run';
+export const RUN_NEXT_COMMAND = 'steno.spec.runNext';
+export const WRITE_COMMAND = 'steno.spec.write';
+export const REVIEW_COMMAND = 'steno.spec.review';
+export const STEER_COMMAND = 'steno.steering.generate';
+
+/** Where steering lives when the server did not say. */
+export const DEFAULT_STEERING_DIR = '.steno/steering';
+
+const SAVE = 'Save and hand off';
+const DONT_SAVE = 'Hand off without saving';
+const PASTE = 'Skill call copied; paste it into your agent';
+
+/** Whether `path` is `dir` itself or sits somewhere under it. Accepts either slash, so it works on Windows too. */
+function under(path: string, dir: string): boolean {
+  const root = dir.replace(/[\\/]+$/, '');
+  return path === root || path.startsWith(root + '/') || path.startsWith(root + '\\');
+}
+
+/**
+ * The open documents with unsaved edits that the agent is about to read: anything under the Spec's folder and the
+ * project's steering folder. Generating steering has no Spec, so `specDir` is `undefined` then.
+ */
+export function dirtyFor(open: { path: string; dirty: boolean }[], specDir: string | undefined, steeringDir: string): string[] {
+  return open
+    .filter(doc => doc.dirty && ((specDir !== undefined && under(doc.path, specDir)) || under(doc.path, steeringDir)))
+    .map(doc => doc.path);
+}
+
+/** A Windows batch file, which only `cmd.exe` can start. */
+function isBatch(program: string): boolean {
+  return /\.(cmd|bat)$/i.test(program);
+}
+
+/** A `.cmd` or `.bat` path that `cmd.exe` would misread inside our quoted command line. */
+function unsafeBatch(program: string, windows: boolean): boolean {
+  return windows && isBatch(program) && /["%]/.test(program);
+}
+
+/**
+ * How the terminal starts the agent's program. Normally it runs the program directly with the arguments as a list,
+ * so no shell ever parses the call. A Windows `.cmd` or `.bat` shim (how npm installs CLIs) can only be started by
+ * `cmd.exe`, so we hand it one command line, quoting each argument that holds a space.
+ */
+export function terminalOptions(program: string, args: string[], windows: boolean): { shellPath: string; shellArgs: string[] | string } {
+  if (!windows || !isBatch(program)) return { shellPath: program, shellArgs: args };
+  const line = [`"${program}"`, ...args.map(a => (a.includes(' ') ? `"${a}"` : a))].join(' ');
+  return { shellPath: 'cmd.exe', shellArgs: `/d /s /c "${line}"` };
+}
+
+/** Human wording for what's being handed off, for the error when no skill call fits. */
+function describe(h: Handoff): string {
+  if (h.kind === 'steer') return 'steering';
+  if (h.kind === 'run' && h.task !== undefined) return `task ${h.task} of ${h.spec}`;
+  return h.spec;
+}
+
+/** The Steno_Projects open in this window: folders on disk that hold a `.steno` folder. */
+function projectFolders(probe: Probe): vscode.WorkspaceFolder[] {
+  return (vscode.workspace.workspaceFolders ?? []).filter(f =>
+    f.uri.scheme === 'file' && probe.exists((probe.env.windows ? win32 : posix).join(f.uri.fsPath, '.steno')));
+}
+
+/** Copies the call and says why. The saved agent stays as it is. */
+async function toClipboard(text: string, message: string): Promise<void> {
+  await vscode.env.clipboard.writeText(text);
+  void vscode.window.showInformationMessage(message);
+}
+
+/** Why a delivery fell back to the clipboard, or `undefined` when it went through. */
+type Fallback = 'missing' | 'unreachable' | { otherFolder: string } | undefined;
+
+/** Sends the call through the agent's VS Code extension. Only works when this is the window's only steno project. */
+async function viaExtension(
+  via: { extension: string; deliver: 'chatCommand' | 'uri' },
+  text: string,
+  server: FolderServer,
+  probe: Probe,
+): Promise<Fallback> {
+  if (!probe.hasExtension(via.extension)) return 'missing';
+  // the agent's chat belongs to the whole window, so it can't tell which project we mean when there are several
+  const projects = projectFolders(probe);
+  if (projects.length > 1 || (projects.length === 1 && projects[0].uri.toString() !== server.folder.uri.toString())) {
+    return { otherFolder: server.folder.name };
+  }
+  try {
+    if (via.deliver === 'chatCommand') {
+      await vscode.commands.executeCommand('workbench.action.chat.open', { query: text, isPartialQuery: true });
+      return undefined;
+    }
+    const uri = vscode.Uri.parse(`${vscode.env.uriScheme}://${via.extension}/open?prompt=${encodeURIComponent(text)}`);
+    return (await vscode.env.openExternal(uri)) ? undefined : 'unreachable';
+  } catch {
+    return 'unreachable';
+  }
+}
+
+/** Starts the agent's program in a new terminal in the handoff's folder, with the call as its first prompt. */
+function viaTerminal(
+  agent: AgentAdapter,
+  via: { program: string; args: (call: string) => string[] },
+  text: string,
+  server: FolderServer,
+  probe: Probe,
+): Fallback {
+  const program = findOnPath(via.program, probe.env, probe.exists);
+  if (!program) return 'missing';
+  if (unsafeBatch(program, probe.env.windows)) return 'unreachable';
+  try {
+    const terminal = vscode.window.createTerminal({
+      name: agent.label,
+      cwd: server.folder.uri,
+      ...terminalOptions(program, via.args(text), probe.env.windows),
+    });
+    terminal.show();
+    return undefined;
+  } catch {
+    return 'unreachable';
+  }
+}
+
+/**
+ * Hands one piece of work to the chosen agent. Dismissing any prompt along the way cancels the whole handoff and
+ * leaves everything as it was: no agent saved, no document saved, nothing sent.
+ */
+export async function handOff(deps: Deps, server: FolderServer, h: Handoff): Promise<void> {
+  if (!(await guard('Handing work to an agent'))) return;
+
+  const call = skillCall(h);
+  if (!call) {
+    void vscode.window.showErrorMessage(
+      `Cannot hand off ${describe(h)}: no steno skill fits its phase, or its name holds characters a skill call cannot carry`);
+    return;
+  }
+
+  const saved = deps.chooser.current();
+  const agent = saved ?? (await deps.chooser.pick());
+  if (!agent) return;
+
+  const tree = server.tree;
+  const sep = deps.probe.env.windows ? win32 : posix;
+  const root = server.folder.uri.fsPath;
+  const specDir = h.kind === 'steer' ? undefined : sep.join(root, ...(tree?.specsDir ?? DEFAULT_SPECS_DIR).split('/'), h.spec);
+  const steeringDir = sep.join(root, ...(tree?.steeringDir ?? DEFAULT_STEERING_DIR).split('/'));
+  const documents = vscode.workspace.textDocuments;
+  const dirty = new Set(dirtyFor(documents.map(d => ({ path: d.uri.fsPath, dirty: d.isDirty })), specDir, steeringDir));
+  let save = false;
+  if (dirty.size > 0) {
+    const choice = await vscode.window.showWarningMessage(
+      dirty.size === 1 ? 'A spec or steering file has unsaved edits' : `${dirty.size} spec or steering files have unsaved edits`,
+      { modal: true, detail: 'The agent reads the files on disk, so it will not see edits that are not saved.' },
+      SAVE, DONT_SAVE);
+    if (choice === undefined) return;
+    save = choice === SAVE;
+  }
+
+  // every prompt is answered: from here on the handoff goes ahead
+  if (!saved) await deps.chooser.save(agent);
+  if (save) await Promise.all(documents.filter(d => dirty.has(d.uri.fsPath)).map(d => d.save()));
+
+  const text = render(call, agent.form);
+  const { via } = agent;
+  if (via === 'clipboard') {
+    await toClipboard(text, PASTE);
+    return;
+  }
+  const fallback = 'extension' in via
+    ? await viaExtension(via, text, server, deps.probe)
+    : viaTerminal(agent, via, text, server, deps.probe);
+  if (fallback === 'missing') await toClipboard(text, `${agent.label} was not found. ${PASTE}`);
+  else if (fallback === 'unreachable') await toClipboard(text, `${agent.label} could not be reached. ${PASTE}`);
+  else if (fallback) await toClipboard(text, `${PASTE} in ${fallback.otherFolder}`);
+  else if (agent.fillOnly) void vscode.window.showInformationMessage(`Press Enter in ${agent.label} to send it`);
+}
+
+/** What the run lens passes once the middleware has added the document's URI. */
+interface RunLensArgs { spec?: unknown; task?: unknown; uri?: unknown }
+
+/**
+ * The five handoff commands. None is in the command palette: each one acts only on the tree node it hangs off
+ * (or, for "Run", the run lens), and ignores a node of the wrong kind or a Spec steno can't read.
+ */
+export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposable[] {
+  /** The server of a usable Spec's folder, or `undefined` when the node can't be handed off. */
+  const specServer = (node: unknown): { node: SpecNode; server: FolderServer } | undefined => {
+    if (!(node instanceof SpecNode) || node.unusable || !node.spec.phase) return undefined;
+    const server = pool.get(node.folder);
+    return server && { node, server };
+  };
+  return [
+    vscode.commands.registerCommand(RUN_TASK_COMMAND, async (arg: unknown) => {
+      if (arg instanceof TaskNode) {
+        if (arg.done || !arg.taskId || unusable(arg.spec) || arg.children.length > 0 || !arg.resourceUri) return;
+        const server = pool.get(arg.resourceUri);
+        if (server) await handOff(deps, server, { kind: 'run', spec: arg.spec.name, task: arg.taskId });
+        return;
+      }
+      const args = arg as RunLensArgs | undefined;
+      if (!args || typeof args.spec !== 'string' || typeof args.task !== 'string' || !(args.uri instanceof vscode.Uri)) return;
+      const server = pool.get(args.uri);
+      if (server) await handOff(deps, server, { kind: 'run', spec: args.spec, task: args.task });
+    }),
+    vscode.commands.registerCommand(RUN_NEXT_COMMAND, async (arg: unknown) => {
+      const found = specServer(arg);
+      if (found) await handOff(deps, found.server, { kind: 'run', spec: found.node.spec.name });
+    }),
+    vscode.commands.registerCommand(WRITE_COMMAND, async (arg: unknown) => {
+      const found = specServer(arg);
+      if (found) await handOff(deps, found.server, { kind: 'write', spec: found.node.spec.name, phase: found.node.spec.phase! });
+    }),
+    vscode.commands.registerCommand(REVIEW_COMMAND, async (arg: unknown) => {
+      const found = specServer(arg);
+      if (found) await handOff(deps, found.server, { kind: 'review', spec: found.node.spec.name, phase: found.node.spec.phase! });
+    }),
+    vscode.commands.registerCommand(STEER_COMMAND, async (arg: unknown) => {
+      if (!(arg instanceof SteeringGroupNode)) return;
+      const server = pool.get(arg.folder);
+      if (server) await handOff(deps, server, { kind: 'steer' });
+    }),
+  ];
+}

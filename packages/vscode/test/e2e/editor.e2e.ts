@@ -1,4 +1,4 @@
-// The editor features, served by the real bundled server on the editor's own runtime (R4.1–R4.4, R6.3).
+// The editor features, served by the real bundled server on the editor's own runtime.
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { demoDoc, replace, samePath, test, waitFor } from './harness.js';
@@ -25,7 +25,7 @@ test('an unsaved edit shows its Diagnostic, and reverting it clears it (R4.1, R4
   await waitFor('the diagnostic to clear after the revert', () => withCode(uri, 'design/unknown-req').length === 0);
 });
 
-test('a done task carries the done lens with the document URI, and no run lens shows (R4.4)', async () => {
+test('a done task carries the done lens and only an open leaf task the run lens, each with the document URI (R4.4, R1.1)', async () => {
   const uri = demoDoc('tasks.md');
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
   const lenses = await waitFor('the done lens on T1.1', async () => {
@@ -36,7 +36,10 @@ test('a done task carries the done lens with the document URI, and no run lens s
   assert.deepEqual(done.map(l => l.range.start.line), [3], 'one done lens, above "- [x] 1.1" (line 4)');
   const [args] = done[0].command!.arguments as [{ uri: vscode.Uri | string }];
   assert.ok(samePath(vscode.Uri.parse(String(args.uri)), uri), 'the middleware adds the document URI');
-  assert.equal(lenses.some(l => l.command?.command === RUN_LENS), false, 'the run lens belongs to another spec');
+  const run = lenses.filter(l => l.command?.command === RUN_LENS);
+  assert.deepEqual(run.map(l => l.range.start.line), [5], 'one run lens, above "- [ ] 1.2" (line 6); none on the parent task');
+  const [runArgs] = run[0].command!.arguments as [{ uri: vscode.Uri | string; task: string }];
+  assert.ok(samePath(vscode.Uri.parse(String(runArgs.uri)), uri), 'the middleware adds the document URI to the run lens too');
 });
 
 test('the outline of tasks.md lists its tasks (R4.2)', async () => {

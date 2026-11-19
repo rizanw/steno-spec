@@ -8,10 +8,10 @@ import { canApprove } from './actions.js';
 
 const { None, Collapsed } = vscode.TreeItemCollapsibleState;
 
-/** The command every openable node carries; `steno.open` is registered by the tree view (R3.8). */
+/** The command every openable node carries; `steno.open` is registered by the tree view. */
 export const OPEN_COMMAND = 'steno.open';
 
-/** The stopped folder's inline action (R1.4). */
+/** The stopped folder's inline action. */
 export const RESTART_COMMAND = 'steno.server.restart';
 
 /** The view this provider feeds, as contributed in package.json. */
@@ -20,7 +20,7 @@ export const VIEW_ID = 'steno.specs';
 /** Where specs live when the server did not say; only a set-up folder reaches the builders below. */
 export const DEFAULT_SPECS_DIR = '.steno/specs';
 
-/** `steno.open` with a file URI and a 1-based line (R3.8). */
+/** `steno.open` with a file URI and a 1-based line. */
 function open(uri: vscode.Uri, line: number): vscode.TreeItem['command'] {
   return { command: OPEN_COMMAND, title: 'Open', arguments: [uri, line] };
 }
@@ -28,19 +28,19 @@ function open(uri: vscode.Uri, line: number): vscode.TreeItem['command'] {
 export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode
   | SteeringGroupNode | SteeringNode | FileNode;
 
-/** One Workspace_Folder, shown only when the window has two or more shown folders (R3.4). */
+/** One Workspace_Folder, shown only when the window has two or more shown folders. */
 export class FolderNode extends vscode.TreeItem {
   readonly kind = 'folder' as const;
 
   constructor(readonly folder: vscode.WorkspaceFolder, readonly project: boolean) {
     super(folder.name, Collapsed);
     this.iconPath = new vscode.ThemeIcon('folder');
-    // `folder.project` is what the "new spec" menu item asks for (R4), a stopped folder is not one
+    // `folder.project` is what the "new spec" menu item asks for, a stopped folder is not one
     this.contextValue = project ? 'folder.project' : 'folder';
   }
 }
 
-/** A folder whose server gave up after five exits: no Specs, just the way back (R1.4). */
+/** A folder whose server gave up after five exits: no Specs, just the way back. */
 export class StoppedNode extends vscode.TreeItem {
   readonly kind = 'stopped' as const;
 
@@ -59,7 +59,47 @@ export function unusable(spec: TreeSpec): boolean {
   return spec.unsupported === true || spec.unreadable === true;
 }
 
-/** One Spec: title, `phase · mode · done/total`, or the reason it is Unusable (R3.1, R3.5). */
+/**
+ * A usable Spec's context value: `spec.{phase}`, plus `.approvable` when it can be approved, such as
+ * `spec.design.approvable` or `spec.execute`. The menus in package.json match on these patterns, so each
+ * handoff shows only in the phases it makes sense in.
+ */
+export function specContext(spec: TreeSpec): string {
+  const base = spec.phase ? `spec.${spec.phase}` : 'spec';
+  return canApprove(spec) ? `${base}.approvable` : base;
+}
+
+/**
+ * A task's context value. Only an open task without subtasks of a usable Spec in `execute` can be run; a parent
+ * task is finished through its subtasks, so it gets plain `task.open`.
+ */
+export function taskContext(spec: TreeSpec, done: boolean, leaf: boolean): 'task.done' | 'task.open' | 'task.open.run' {
+  if (done) return 'task.done';
+  return leaf && !unusable(spec) && spec.phase === 'execute' ? 'task.open.run' : 'task.open';
+}
+
+/** Find a task by id anywhere in the outline. */
+function findTask(items: readonly OutlineItem[], id: string): OutlineItem | undefined {
+  for (const item of items) {
+    if (item.id === id) return item;
+    const inner = findTask(item.children, id);
+    if (inner) return inner;
+  }
+  return undefined;
+}
+
+/**
+ * Whether a folder's tree offers "Run" on this task: the same rule as `task.open.run`, so the run lens and the
+ * tree always agree. A Spec or task the tree doesn't know is not runnable.
+ */
+export function runnable(tree: SpecTree | undefined, specName: string, taskId: string): boolean {
+  const spec = tree?.specs.find(s => s.name === specName);
+  if (!spec || unusable(spec)) return false;
+  const item = findTask(spec.taskItems ?? [], taskId);
+  return item !== undefined && taskContext(spec, item.done === true, item.children.length === 0) === 'task.open.run';
+}
+
+/** One Spec: title, `phase · mode · done/total`, or the reason it is Unusable. */
 export class SpecNode extends vscode.TreeItem {
   readonly kind = 'spec' as const;
   readonly unusable: boolean;
@@ -78,12 +118,12 @@ export class SpecNode extends vscode.TreeItem {
     const counts = spec.tasks;
     this.description = [spec.phase, spec.mode, counts && `${counts.done}/${counts.total}`]
       .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' · ');
-    // the inline "Approve" matches `spec.approvable` alone (R5.1)
-    this.contextValue = canApprove(spec) ? 'spec.approvable' : 'spec';
+    // "Approve", "Write", "Review" and "Run next task" each match the phase part of this value
+    this.contextValue = specContext(spec);
   }
 }
 
-/** One Spec_Document. `tasks.md` holds the Spec's tasks (R3.1). */
+/** One Spec_Document. `tasks.md` holds the Spec's tasks. */
 export class DocNode extends vscode.TreeItem {
   readonly kind = 'doc' as const;
 
@@ -96,7 +136,7 @@ export class DocNode extends vscode.TreeItem {
   }
 }
 
-/** One task, nested as it is in `tasks.md` (R3.1, R3.2). */
+/** One task, nested as it is in `tasks.md`. */
 export class TaskNode extends vscode.TreeItem {
   readonly kind = 'task' as const;
   readonly taskId: string;
@@ -111,7 +151,7 @@ export class TaskNode extends vscode.TreeItem {
     this.optional = item.optional === true;
     this.iconPath = new vscode.ThemeIcon(next ? 'arrow-right' : this.done ? 'pass' : 'circle-large-outline');
     this.description = [this.optional && 'optional', next && 'next'].filter(Boolean).join(' · ');
-    this.contextValue = this.done ? 'task.done' : 'task.open';
+    this.contextValue = taskContext(spec, this.done, children.length === 0);
     if (uri) {
       this.resourceUri = uri;
       this.command = open(uri, item.line);
@@ -121,7 +161,7 @@ export class TaskNode extends vscode.TreeItem {
 
 /**
  * The Spec's tasks as nodes, keeping the ids, order and nesting of `items`. At most one node is
- * marked `next`: the one whose id is the Spec's `next.id` (R3.2). `uri` is `tasks.md`, so a node can
+ * marked `next`: the one whose id is the Spec's `next.id`. `uri` is `tasks.md`, so a node can
  * open at its own line; the builders that only care about the shape leave it out.
  */
 export function taskNodes(spec: TreeSpec, items: OutlineItem[], uri?: vscode.Uri): TaskNode[] {
@@ -136,7 +176,7 @@ export function taskNodes(spec: TreeSpec, items: OutlineItem[], uri?: vscode.Uri
   return items.map(build);
 }
 
-/** A file of an Unusable Spec, or of any other thing the server could only name (R3.5). */
+/** A file of an Unusable Spec, or of any other thing the server could only name. */
 export class FileNode extends vscode.TreeItem {
   readonly kind = 'file' as const;
 
@@ -149,7 +189,7 @@ export class FileNode extends vscode.TreeItem {
   }
 }
 
-/** The steering group, the last item of its level (R3.3). */
+/** The steering group, the last item of its level, and where "Generate steering" hangs. */
 export class SteeringGroupNode extends vscode.TreeItem {
   readonly kind = 'steering-group' as const;
   readonly children: SteeringNode[];
@@ -162,7 +202,7 @@ export class SteeringGroupNode extends vscode.TreeItem {
   }
 }
 
-/** One Steering_File, by path, with its inclusion mode, or the reason it could not be read (R3.3, R3.5). */
+/** One Steering_File, by path, with its inclusion mode, or the reason it could not be read. */
 export class SteeringNode extends vscode.TreeItem {
   readonly kind = 'steering-file' as const;
   readonly uri: vscode.Uri;
@@ -184,8 +224,8 @@ export class SteeringNode extends vscode.TreeItem {
 }
 
 /**
- * What hangs under one Spec: its Spec_Documents in the server's order, with the Spec's tasks under
- * `tasks.md` (R3.1). An Unusable Spec has only its files, so it offers nothing but opening them (R3.5).
+ * What hangs under one Spec: its Spec_Documents in the server's order, with the Spec's tasks under tasks.md`. 
+ * An Unusable Spec has only its files, so it offers nothing but opening them.
  */
 export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec): Node[] {
   if (unusable(spec)) {
@@ -212,12 +252,13 @@ export function folderItems(server: FolderServer): Node[] {
   if (!tree) return [];
   const uri = server.folder.uri;
   const items: Node[] = tree.specs.map(spec => new SpecNode(uri, tree, spec));
-  // "Steering" is the last item of the folder's level, and only when the folder has steering files
-  if (tree.steering.length > 0) items.push(new SteeringGroupNode(uri, tree));
+  // "Steering" is the last item of the folder's level. It shows even with no steering files yet, because that
+  // is exactly when the user wants "Generate steering"
+  items.push(new SteeringGroupNode(uri, tree));
   return items;
 }
 
-/** The sidebar tree (view `steno.specs`): every shown folder's Spec_Tree (R3.1–R3.5). */
+/** The sidebar tree (view `steno.specs`): every shown folder's Spec_Tree. */
 export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
   private readonly changed = new vscode.EventEmitter<Node | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
@@ -248,7 +289,7 @@ export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
   getChildren(node?: Node): Node[] {
     if (!node) {
       const servers = this.shownServers();
-      // one shown folder puts its items at the root; several group them per folder (R3.4)
+      // one shown folder puts its items at the root; several group them per folder
       if (servers.length === 1) return folderItems(servers[0]);
       return servers.map(server => this.folderNode(server));
     }
@@ -268,7 +309,7 @@ export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
   dispose(): void { this.changed.dispose(); }
 }
 
-/** `steno.open`: open a document and put the cursor on a 1-based line (R3.8). */
+/** `steno.open`: open a document and put the cursor on a 1-based line. */
 export function registerOpen(): vscode.Disposable {
   return vscode.commands.registerCommand(OPEN_COMMAND, async (uri: vscode.Uri, line = 1) => {
     const document = await vscode.workspace.openTextDocument(uri);
@@ -277,7 +318,7 @@ export function registerOpen(): vscode.Disposable {
   });
 }
 
-/** `steno.server.restart`: the stopped folder's inline action, which resets the count too (R1.4). */
+/** `steno.server.restart`: the stopped folder's inline action, which resets the count too. */
 export function registerRestart(pool: ServerPool): vscode.Disposable {
   return vscode.commands.registerCommand(RESTART_COMMAND, async (node: StoppedNode) => {
     const server = pool.all().find(s => s.folder.uri.toString() === node.folder.uri.toString());
@@ -285,10 +326,10 @@ export function registerRestart(pool: ServerPool): vscode.Disposable {
   });
 }
 
-/** The context key the empty-state `viewsWelcome` entry watches (R3.7). */
+/** The context key the empty-state `viewsWelcome` entry watches. */
 export const HAS_PROJECT = 'steno.hasProject';
 
-/** Whether any folder has answered with a tree that says it is a steno project (R3.7). */
+/** Whether any folder has answered with a tree that says it is a steno project. */
 export function hasProject(servers: readonly FolderServer[]): boolean {
   // a folder with no tree yet has not answered, so it neither sets nor clears the key
   return servers.some(s => s.tree !== undefined && s.tree.notSetUp !== true);
@@ -296,7 +337,7 @@ export function hasProject(servers: readonly FolderServer[]): boolean {
 
 /**
  * Keep the view current: every change a pool reports redraws as little of the tree as it can, and
- * refreshes the empty-state key with it (R3.6, R3.7).
+ * refreshes the empty-state key with it.
  */
 export function watchTree(pool: ServerPool, provider: SpecTreeProvider): vscode.Disposable {
   let was = provider.shownServers().map(s => s.folder.uri.toString()).join('\n');

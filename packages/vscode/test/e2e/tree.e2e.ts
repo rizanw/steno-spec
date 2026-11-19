@@ -1,9 +1,9 @@
-// The spec tree: loaded from the folder's server, and redrawn when a State_Change lands (R1.1, R3.1, R3.6).
+// The spec tree: loaded from the folder's server, and redrawn when a State_Change lands.
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { demoDoc, find, replace, test, tree, waitFor } from './harness.js';
 
-test('the tree loads the folder\'s Spec with its documents and tasks (R1.1, R3.1)', async () => {
+test('the tree loads the folder\'s Spec with its documents and tasks', async () => {
   const items = await waitFor('the Login spec in the tree', async () => {
     const now = await tree();
     return find(now, 'Login') ? now : undefined;
@@ -13,8 +13,13 @@ test('the tree loads the folder\'s Spec with its documents and tasks (R1.1, R3.1
   assert.ok(spec, 'the Spec is a root item');
   assert.equal(spec.description, 'execute · quick · 1/2');
   assert.deepEqual(spec.children.map(c => c.label), ['requirements.md', 'design.md', 'tasks.md']);
+  assert.equal(spec.contextValue, 'spec.execute', 'a Spec in execute offers "Run next task"');
   assert.equal(find(items, 'Add the session store')?.contextValue, 'task.done');
-  assert.equal(find(items, 'Add logout')?.contextValue, 'task.open');
+  // an open task without subtasks of a Spec in execute offers "Run"; its parent only "Mark done"
+  assert.equal(find(items, 'Add logout')?.contextValue, 'task.open.run');
+  assert.equal(find(items, 'Sessions')?.contextValue, 'task.open');
+  // the Steering group shows with no steering file yet, so "Generate steering" has somewhere to hang
+  assert.equal(items.at(-1)?.contextValue, 'steering');
 });
 
 test('a State_Change made by editing tasks.md and saving refreshes the tree (R3.6)', async () => {

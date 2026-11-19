@@ -7,6 +7,7 @@ import {
 } from 'vscode-languageclient/node';
 import { METHODS, TREE_CHANGED, type SpecTree } from './protocol.js';
 import { MAX_EXITS, RestartWindow, WINDOW_MS } from './restart.js';
+import { runnable } from './tree.js';
 
 /** The part of `LanguageClient` the pool uses, so a test can pass a fake in its place. */
 export interface StenoClient {
@@ -18,7 +19,7 @@ export interface StenoClient {
 }
 
 /**
- * One folder's tree fetches, with at most one request in flight (R3.6). Notices that arrive during a
+ * One folder's tree fetches, with at most one request in flight. Notices that arrive during a
  * fetch collapse into exactly one more, so the last notice is always served and a noisy server cannot
  * queue up work. A failed fetch leaves the folder's last tree in place.
  */
@@ -58,9 +59,9 @@ export interface FolderServer {
   state: 'running' | 'stopped';
   /** the last spec tree this folder's server answered with; absent until the first answer */
   tree?: SpecTree;
-  /** this folder's unexpected exits, which decide whether the next one is restarted (R1.3) */
+  /** this folder's unexpected exits, which decide whether the next one is restarted */
   restarts: RestartWindow;
-  /** this folder's tree fetches, one in flight at a time (R3.6) */
+  /** this folder's tree fetches, one in flight at a time */
   refresher: Refresher;
 }
 
@@ -69,6 +70,8 @@ export interface ClientHandlers {
   errorHandler: ErrorHandler;
   /** `true` asks the library to try the start again */
   initializationFailedHandler: (error: unknown) => boolean;
+  /** whether the folder's tree offers "Run" on this task, so the run lens can follow it */
+  runnable: (spec: string, task: string) => boolean;
 }
 
 /** Builds the client for one folder. Production calls `new LanguageClient`; tests pass a fake. */
@@ -88,7 +91,7 @@ export function selectorFor(folder: vscode.WorkspaceFolder): vscode.DocumentFilt
   ];
 }
 
-/** The lens the server puts on an open task; it belongs to the `vscode-agent-handoff` spec, not this extension. */
+/** The lens the server puts on an open task; choosing it hands the task to the coding agent. */
 export const RUN_LENS = 'steno.task.run';
 
 /** The lens the server puts on a done task; choosing it reopens the task (R4.4). */
@@ -99,13 +102,23 @@ interface Lens { command?: { command: string; title: string; arguments?: unknown
 type Lenses<T extends Lens> = T[] | null | undefined;
 
 /**
- * Keep only the lenses this extension handles: drop `steno.task.run`, and give `steno.task.done` the
- * document's URI, so its handler can find the folder's server (R4.4). A lens with no command is kept as is.
+ * Keep only the lenses this extension handles, and give each of them the document's URI so its handler can find
+ * the folder's server. The run lens stays only where `runnable` says the tree offers "Run" too: an open task
+ * without subtasks of a Spec in `execute`. A lens with no command is kept as is.
  */
-export function keepLenses<T extends Lens>(uri: vscode.Uri, lenses: Lenses<T>): Lenses<T> {
+export function keepLenses<T extends Lens>(
+  uri: vscode.Uri,
+  lenses: Lenses<T>,
+  runnable: (spec: string, task: string) => boolean,
+): Lenses<T> {
   if (!lenses) return lenses;
-  return lenses.filter(lens => lens.command?.command !== RUN_LENS).map(lens => {
-    if (lens.command?.command !== DONE_LENS) return lens;
+  return lenses.filter(lens => {
+    if (lens.command?.command !== RUN_LENS) return true;
+    const [args] = lens.command.arguments ?? [];
+    const { spec, task } = (args ?? {}) as { spec?: unknown; task?: unknown };
+    return typeof spec === 'string' && typeof task === 'string' && runnable(spec, task);
+  }).map(lens => {
+    if (lens.command?.command !== DONE_LENS && lens.command?.command !== RUN_LENS) return lens;
     const [args] = lens.command.arguments ?? [];
     lens.command = { ...lens.command, arguments: [{ ...(args as object), uri }] };
     return lens;
@@ -117,11 +130,12 @@ export async function provideCodeLenses<T extends Lens>(
   document: { uri: vscode.Uri },
   token: unknown,
   next: (document: any, token: any) => Lenses<T> | PromiseLike<Lenses<T>>,
+  runnable: (spec: string, task: string) => boolean,
 ): Promise<Lenses<T>> {
-  return keepLenses(document.uri, await next(document, token));
+  return keepLenses(document.uri, await next(document, token), runnable);
 }
 
-/** The production factory: a `module` server, which the library runs on the editor's own Node (R6.3). */
+/** The production factory: a `module` server, which the library runs on the editor's own Node. */
 export const createLanguageClient: CreateClient = (folder, serverPath, documentSelector, handlers) => {
   const server: ServerOptions = {
     run: { module: serverPath, transport: TransportKind.stdio },
@@ -134,7 +148,10 @@ export const createLanguageClient: CreateClient = (folder, serverPath, documentS
     errorHandler: handlers.errorHandler,
     initializationFailedHandler: handlers.initializationFailedHandler,
     // typed loosely so the stubbed library in the unit tests accepts it too
-    middleware: { provideCodeLenses } as unknown as LanguageClientOptions['middleware'],
+    middleware: {
+      provideCodeLenses: (document: { uri: vscode.Uri }, token: unknown, next: Parameters<typeof provideCodeLenses>[2]) =>
+        provideCodeLenses(document, token, next, handlers.runnable),
+    } as unknown as LanguageClientOptions['middleware'],
   };
   return new LanguageClient('steno', `steno: ${folder.name}`, server, options) as unknown as StenoClient;
 };
@@ -213,10 +230,12 @@ export class ServerPool implements vscode.Disposable {
         closed: () => ({ action: decide() === 'stop' ? CloseAction.DoNotRestart : CloseAction.Restart }),
       },
       initializationFailedHandler: () => decide() === 'restart',
+      // read the tree at the moment the editor asks for lenses, so a later tree is seen without a new client
+      runnable: (spec, task) => runnable(server.tree, spec, task),
     };
   }
 
-  /** Too many exits: stop restarting, show the folder's name and offer the way back (R1.3, R1.4). */
+  /** Too many exits: stop restarting, show the folder's name and offer the way back. */
   private giveUp(server: FolderServer): void {
     server.state = 'stopped';
     this.changed.fire(server);
@@ -230,7 +249,7 @@ export class ServerPool implements vscode.Disposable {
 
   /**
    * Follow this server's notices and ask for its first tree. Every running client gets this: after a
-   * start and after a restart, since the restarted server has forgotten what it told us (R3.6).
+   * start and after a restart, since the restarted server has forgotten what it told us.
    */
   private listen(server: FolderServer): void {
     this.notices.get(server.folder.uri.toString())?.dispose();
@@ -241,7 +260,7 @@ export class ServerPool implements vscode.Disposable {
     server.refresher.request();
   }
 
-  /** Start a stopped server again with a clean record, from the error or from the tree (R1.4). */
+  /** Start a stopped server again with a clean record, from the error or from the tree. */
   async restart(server: FolderServer): Promise<void> {
     server.restarts.reset();
     server.state = 'running';
@@ -256,14 +275,14 @@ export class ServerPool implements vscode.Disposable {
     this.changed.fire(server);
   }
 
-  /** Stop every server; the window is closing or the extension is deactivating (R1.2). */
+  /** Stop every server; the window is closing or the extension is deactivating. */
   async dispose(): Promise<void> {
     await Promise.all(this.all().map(s => this.stop(s.folder)));
     this.changed.dispose();
   }
 }
 
-/** Start a server for every open `file` folder, and follow folders added and removed afterwards (R1.1, R1.2). */
+/** Start a server for every open `file` folder, and follow folders added and removed afterwards. */
 export function trackFolders(pool: ServerPool): vscode.Disposable {
   for (const folder of vscode.workspace.workspaceFolders ?? []) void pool.start(folder);
   return vscode.workspace.onDidChangeWorkspaceFolders(e => {

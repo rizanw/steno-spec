@@ -1,4 +1,4 @@
-// Approve, mark done and reopen: offered on the right nodes, sent to the folder's server, refusals shown (R4.4, R5.1–R5.4).
+// Approve, mark done and reopen: offered on the right nodes, sent to the folder's server, refusals shown.
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { readFileSync } from 'node:fs';
@@ -66,9 +66,9 @@ describe('canApprove (R5.1)', () => {
       const expected = !s.unsupported && !s.unreadable && s.mode === 'gated'
         && ['brief', 'requirements', 'design', 'tasks'].includes(s.phase ?? '');
       expect(canApprove(s as TreeSpec)).toBe(expected);
-      // the tree's context value follows the same rule, and only `spec.approvable` carries the inline "Approve"
+      // the tree's context value follows the same rule: only a value ending in `.approvable` carries the inline "Approve"
       const node = new SpecNode(vsUri(ROOT), tree(), s as TreeSpec);
-      expect(node.contextValue === 'spec.approvable').toBe(expected);
+      expect(/^spec\..*\.approvable$/.test(node.contextValue ?? '')).toBe(expected);
     }));
   });
 });
@@ -120,7 +120,9 @@ describe('mark done and reopen (R5.4)', () => {
   const taskNode = (done: boolean) => new TaskNode(spec({ phase: 'execute' }), item('T1', done), [], false, vsUri(TASKS));
 
   it('gives open and done tasks the context values their menu items match', () => {
-    expect(taskNode(false).contextValue).toBe('task.open');
+    // an open task of a Spec in `execute` also offers "Run", so its value is `task.open.run`; "Mark done" matches both
+    expect(taskNode(false).contextValue).toBe('task.open.run');
+    expect(new TaskNode(spec({ phase: 'tasks' }), item('T1', false), [], false, vsUri(TASKS)).contextValue).toBe('task.open');
     expect(taskNode(true).contextValue).toBe('task.done');
   });
 
@@ -179,8 +181,8 @@ describe('the manifest', () => {
   it('hangs each inline action off its own context value (R5.1, R5.4)', () => {
     const inline = Object.fromEntries(manifest.contributes.menus['view/item/context']
       .map((m: { command: string; when: string }) => [m.command, m.when]));
-    expect(inline[APPROVE_COMMAND]).toBe('view == steno.specs && viewItem == spec.approvable');
-    expect(inline[MARK_DONE_COMMAND]).toBe('view == steno.specs && viewItem == task.open');
+    expect(inline[APPROVE_COMMAND]).toBe('view == steno.specs && viewItem =~ /^spec\\..*\\.approvable$/');
+    expect(inline[MARK_DONE_COMMAND]).toBe('view == steno.specs && viewItem =~ /^task\\.open/');
     expect(inline[REOPEN_COMMAND]).toBe('view == steno.specs && viewItem == task.done');
   });
 

@@ -1,10 +1,12 @@
-// The pool: one server per `file` folder, started and stopped with the folder (R1.1, R1.2, R2.1, R6.3).
+// The pool: one server per `file` folder, started and stopped with the folder.
 import { describe, it, expect, beforeEach } from 'vitest';
+import fc from 'fast-check';
 import { changeFolders, folder, resetRecorded, setFolders, Uri } from './vscode-stub.js';
 import {
-  Refresher, ServerPool, keepLenses, provideCodeLenses, selectorFor, trackFolders, type CreateClient, type StenoClient,
+  Refresher, ServerPool, keepLenses, provideCodeLenses, selectorFor, trackFolders, type ClientHandlers, type CreateClient,
+  type StenoClient,
 } from '../src/servers.js';
-import type { SpecTree } from '../src/protocol.js';
+import type { OutlineItem, SpecTree } from '../src/protocol.js';
 
 const SERVER = '/ext/dist/steno-lsp.mjs';
 
@@ -232,23 +234,69 @@ describe('tree notices', () => {
   });
 });
 
-describe('the lens middleware (R4.4)', () => {
+describe('the lens middleware (R1.1, R4.4)', () => {
   const uri = Uri.file('/work/a/.steno/specs/auth/tasks.md') as unknown as import('vscode').Uri;
   const lens = (command: string, args: unknown = { spec: 'auth', task: 'T1', optional: false }) =>
     ({ range: 1, command: { command, title: command, arguments: [args] } });
+  const never = () => false;
 
-  it('drops the run lens and adds the document URI to the done lens', async () => {
+  it('drops a run lens the tree does not offer, and adds the document URI to the done lens', async () => {
     const next = async () => [lens('steno.task.run'), lens('steno.task.done'), lens('steno.task.run')];
-    const out = await provideCodeLenses({ uri }, undefined, next);
+    const out = await provideCodeLenses({ uri }, undefined, next, never);
     expect(out).toHaveLength(1);
     expect(out![0].command!.command).toBe('steno.task.done');
     expect(out![0].command!.arguments).toEqual([{ spec: 'auth', task: 'T1', optional: false, uri }]);
   });
 
+  it('keeps a runnable run lens and adds the document URI to it', async () => {
+    const out = await provideCodeLenses({ uri }, undefined, async () => [lens('steno.task.run')], (spec, task) => spec === 'auth' && task === 'T1');
+    expect(out!.map(l => l.command!.arguments)).toEqual([[{ spec: 'auth', task: 'T1', optional: false, uri }]]);
+  });
+
   it('keeps a lens with no command and passes no answer through', async () => {
     const bare: { range: number; command?: undefined }[] = [{ range: 1 }];
-    expect(keepLenses(uri, bare)).toEqual([{ range: 1 }]);
-    expect(keepLenses(uri, null)).toBeNull();
-    expect(await provideCodeLenses({ uri }, undefined, () => undefined)).toBeUndefined();
+    expect(keepLenses(uri, bare, never)).toEqual([{ range: 1 }]);
+    expect(keepLenses(uri, null, never)).toBeNull();
+    expect(await provideCodeLenses({ uri }, undefined, () => undefined, never)).toBeUndefined();
+  });
+
+  it('Property 5: keeps every other lens, a run lens exactly when runnable, and gives kept run and done lenses the URI', () => {
+    const anyLens = fc.record({
+      command: fc.constantFrom('steno.task.run', 'steno.task.done', 'other.command'),
+      spec: fc.constantFrom('auth', 'billing'),
+      task: fc.constantFrom('T1', 'T2', 'T3'),
+    });
+    fc.assert(fc.property(fc.array(anyLens), fc.func(fc.boolean()), (specs, decide) => {
+      const isRunnable = (spec: string, task: string) => decide(spec, task);
+      const lenses = specs.map(l => lens(l.command, { spec: l.spec, task: l.task, optional: false }));
+      const out = keepLenses(uri, lenses, isRunnable)!;
+      const expected = specs.filter(l => l.command !== 'steno.task.run' || isRunnable(l.spec, l.task));
+      expect(out.map(l => l.command!.command)).toEqual(expected.map(l => l.command));
+      out.forEach((l, i) => {
+        const [args] = l.command!.arguments as { uri?: unknown }[];
+        expect(args.uri).toBe(expected[i].command === 'other.command' ? undefined : uri);
+      });
+    }));
+  });
+
+  it('builds runnable from the folder tree, so the lens follows its phase and tasks', async () => {
+    const handlers: ClientHandlers[] = [];
+    const create: CreateClient = (_f, _p, _s, h) => {
+      handlers.push(h);
+      return { start: async () => {}, stop: async () => {}, sendRequest: async <T>() => undefined as T, onNotification: () => ({ dispose: () => {} }) };
+    };
+    const pool = new ServerPool(SERVER, create);
+    await pool.start(folder('/work/a'));
+    const [{ runnable }] = handlers;
+    expect(runnable('auth', 'T1')).toBe(false);
+    const item: OutlineItem = { kind: 'task', id: 'T1', title: 'T1', line: 3, endLine: 3, children: [] };
+    const tree = (phase: 'tasks' | 'execute'): SpecTree =>
+      ({ protocolVersion: 1, specs: [{ name: 'auth', phase, taskItems: [item] }], steering: [] }) as SpecTree;
+    pool.setTree(pool.all()[0], tree('tasks'));
+    expect(runnable('auth', 'T1')).toBe(false);
+    pool.setTree(pool.all()[0], tree('execute'));
+    expect(runnable('auth', 'T1')).toBe(true);
+    pool.setTree(pool.all()[0], { ...tree('execute'), specs: [{ name: 'auth', unreadable: true, taskItems: [item] }] } as SpecTree);
+    expect(runnable('auth', 'T1')).toBe(false);
   });
 });

@@ -1,14 +1,16 @@
-// The node builders: one folder's spec tree as tree items (R1.4, R3.1, R3.2, R3.3, R3.5, R3.8).
+// The node builders: one folder's spec tree as tree items.
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
+import { readFileSync } from 'node:fs';
+import { canApprove } from '../src/actions.js';
 import { ExtensionMode, Uri, commands, folder, handlers, recorded, resetRecorded } from './vscode-stub.js';
 import { PROBE_COMMAND, registerProbe, type ProbeItem } from '../src/probe.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient, type FolderServer, type StenoClient } from '../src/servers.js';
 import {
   DocNode, FileNode, HAS_PROJECT, RESTART_COMMAND, SpecNode, SpecTreeProvider, StoppedNode,
-  SteeringGroupNode, TaskNode, VIEW_ID, registerSpecTree, shown, specChildren, taskNodes, watchTree,
-  type Node,
+  SteeringGroupNode, TaskNode, VIEW_ID, folderItems, registerSpecTree, runnable, shown, specChildren, specContext,
+  taskContext, taskNodes, unusable, watchTree, type Node,
 } from '../src/tree.js';
 
 beforeEach(() => resetRecorded());
@@ -39,7 +41,7 @@ describe('SpecNode', () => {
     const node = new SpecNode(ROOT, tree(), spec());
     expect(node.label).toBe('Auth');
     expect(node.description).toBe('execute · gated · 1/4');
-    expect(node.contextValue).toBe('spec');
+    expect(node.contextValue).toBe('spec.execute');
     expect(node.unusable).toBe(false);
   });
 
@@ -214,6 +216,16 @@ async function pooled(...folders: { path: string; tree?: SpecTree; stopped?: boo
 
 const setUp = () => tree({ specs: [spec()], steering: [{ path: '.steno/steering/tech.md', inclusion: 'always' }] });
 
+describe('folderItems', () => {
+  it('always ends a set-up folder with the Steering group, even with no steering file yet (R1.6)', async () => {
+    const pool = await pooled({ path: '/work/a', tree: tree({ specs: [spec()] }) });
+    const items = folderItems(pool.all()[0]);
+    expect(items.map(n => n.kind)).toEqual(['spec', 'steering-group']);
+    expect(items[1].contextValue).toBe('steering');
+    expect((items[1] as SteeringGroupNode).children).toEqual([]);
+  });
+});
+
 describe('SpecTreeProvider', () => {
   it('shows nothing for a folder whose server has not answered yet (R3.4)', async () => {
     const pool = await pooled({ path: '/work/a' });
@@ -340,12 +352,90 @@ describe('the test-run tree probe', () => {
     registerProbe(ExtensionMode.Test, provider);
     const items = (await commands.executeCommand(PROBE_COMMAND)) as ProbeItem[];
     expect(items.map(i => i.label)).toEqual(['Auth', 'Steering']);
-    expect(items[0]).toMatchObject({ description: 'execute · gated · 1/4', contextValue: 'spec' });
+    expect(items[0]).toMatchObject({ description: 'execute · gated · 1/4', contextValue: 'spec.execute' });
     const tasks = items[0].children.find(c => c.label === 'tasks.md')!.children;
     expect(tasks.map(t => [t.label, t.contextValue])).toEqual([
-      ['task T1', 'task.done'], ['task T2', 'task.open'], ['task T3', 'task.open'],
+      ['task T1', 'task.done'], ['task T2', 'task.open.run'], ['task T3', 'task.open.run'],
     ]);
     // plain data: nothing in it can be called back into
     expect(JSON.parse(JSON.stringify(items))).toEqual(items);
+  });
+});
+
+// --- handoff offers --------------------------------------------------------------------------------
+
+/** The `viewItem` part of a menu's `when` clause, run against a context value as VS Code would. */
+function matcher(when: string): (value: string | undefined) => boolean {
+  const regex = /viewItem =~ \/(.*)\/$/.exec(when);
+  if (regex) { const re = new RegExp(regex[1]); return v => v !== undefined && re.test(v); }
+  const equal = /viewItem == (\S+)/.exec(when);
+  if (equal) return v => v === equal[1];
+  throw new Error(`no viewItem in ${when}`);
+}
+
+describe('context values for the handoffs', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const menus: { command: string; when: string; group?: string }[] = manifest.contributes.menus['view/item/context'];
+  const menu = (command: string) => matcher(menus.find(m => m.command === command)!.when);
+  const PHASES = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
+  const anySpec = fc.record({
+    name: fc.constant('s'),
+    mode: fc.option(fc.constantFrom('gated', 'quick'), { nil: undefined }),
+    phase: fc.option(fc.constantFrom(...PHASES), { nil: undefined }),
+    unsupported: fc.option(fc.constant(true as const), { nil: undefined }),
+    unreadable: fc.option(fc.constant(true as const), { nil: undefined }),
+  }) as fc.Arbitrary<TreeSpec>;
+
+  it('Property 3: each menu matches a Spec exactly in the phases its criterion names, never an Unusable one', () => {
+    const write = menu('steno.spec.write');
+    const review = menu('steno.spec.review');
+    const runNext = menu('steno.spec.runNext');
+    const approve = menu('steno.spec.approve');
+    fc.assert(fc.property(anySpec, s => {
+      const value = new SpecNode(ROOT, tree(), s).contextValue;
+      const usable = !unusable(s);
+      const inPhase = (...phases: string[]) => usable && phases.includes(s.phase ?? '');
+      expect(write(value)).toBe(inPhase('brief', 'requirements', 'design', 'tasks'));
+      expect(review(value)).toBe(inPhase('requirements', 'design', 'tasks', 'done'));
+      expect(runNext(value)).toBe(inPhase('execute'));
+      expect(approve(value)).toBe(canApprove(s));
+      if (usable) expect(value).toBe(specContext(s));
+    }));
+  });
+
+  it('Property 3: "Run" matches an open task without subtasks of a usable Spec in execute, "Mark done" every open task (R1.1)', () => {
+    const run = menu('steno.task.run');
+    const markDone = menu('steno.task.markDone');
+    const reopen = menu('steno.task.reopen');
+    fc.assert(fc.property(anySpec, fc.boolean(), fc.boolean(), (s, done, leaf) => {
+      const value = taskContext(s, done, leaf);
+      expect(run(value)).toBe(!done && leaf && !unusable(s) && s.phase === 'execute');
+      expect(markDone(value)).toBe(!done);
+      expect(reopen(value)).toBe(done);
+    }));
+  });
+
+  it('gives a parent task plain task.open, so only its subtasks can run', () => {
+    const parent = task('T1', { children: [task('T1.1')] });
+    const [node] = taskNodes(spec({ taskItems: [parent] }), [parent]);
+    expect(node.contextValue).toBe('task.open');
+    expect(node.children[0].contextValue).toBe('task.open.run');
+  });
+
+  it('offers "Generate steering" inline on the Steering group (R1.6)', () => {
+    const steer = menus.find(m => m.command === 'steno.steering.generate')!;
+    expect(steer.group).toBe('inline');
+    expect(menu('steno.steering.generate')(new SteeringGroupNode(ROOT, tree()).contextValue)).toBe(true);
+  });
+
+  it('runnable follows the tree: an open leaf task of a Spec in execute, nothing it does not know', () => {
+    const t = tree({ specs: [spec({ taskItems: [task('T1', { done: true }), task('T2', { children: [task('T2.1')] })] })] });
+    expect(runnable(t, 'auth', 'T2.1')).toBe(true);
+    expect(runnable(t, 'auth', 'T2')).toBe(false);
+    expect(runnable(t, 'auth', 'T1')).toBe(false);
+    expect(runnable(t, 'auth', 'T9')).toBe(false);
+    expect(runnable(t, 'other', 'T2.1')).toBe(false);
+    expect(runnable(undefined, 'auth', 'T2.1')).toBe(false);
+    expect(runnable(tree({ specs: [spec({ phase: 'tasks', taskItems: [task('T1')] })] }), 'auth', 'T1')).toBe(false);
   });
 });

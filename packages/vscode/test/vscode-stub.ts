@@ -80,7 +80,13 @@ export const recorded: {
   saved: string[];
   /** the status bar items created */
   statusItems: StatusBarItem[];
-} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {}, modal: [], picks: [], saved: [], inputs: [], statusItems: [] };
+  /** the terminals created, with the options they were given and whether they were shown */
+  terminals: { options: TerminalOptions; shown: boolean }[];
+  /** what was written to the clipboard, in order */
+  clipboard: string[];
+  /** the URIs `env.openExternal` was asked to open */
+  external: string[];
+} = { info: [], warning: [], error: [], commands: [], context: {}, opened: [], views: {}, modal: [], picks: [], saved: [], inputs: [], statusItems: [], terminals: [], clipboard: [], external: [] };
 
 /** The handlers `registerCommand` was given, so a test can invoke a command the way the host would. */
 export const handlers = new Map<string, (...args: any[]) => unknown>();
@@ -99,7 +105,13 @@ export function resetRecorded(): void {
   recorded.saved.length = 0;
   recorded.inputs.length = 0;
   recorded.statusItems.length = 0;
+  recorded.terminals.length = 0;
+  recorded.clipboard.length = 0;
+  recorded.external.length = 0;
   installed.clear();
+  failures.createTerminal = false;
+  failures.executeCommand = false;
+  failures.openExternal = undefined;
   handlers.clear();
   answers.message = undefined;
   answers.pick = undefined;
@@ -121,6 +133,13 @@ export const answers = {
   input: undefined as string | (string | undefined)[] | undefined,
 };
 
+/** Test hook: make a host call fail. `openExternal` either throws or answers `false`. */
+export const failures = {
+  createTerminal: false,
+  executeCommand: false,
+  openExternal: undefined as 'throw' | 'false' | undefined,
+};
+
 /** The next answer: one of a list, or the single value that answers every call. */
 function next(answer: string | (string | undefined)[] | undefined): string | undefined {
   return Array.isArray(answer) ? answer.shift() : answer;
@@ -129,11 +148,15 @@ function next(answer: string | (string | undefined)[] | undefined): string | und
 export interface MessageOptions { modal?: boolean; detail?: string }
 
 /** `show*Message(message, options?, ...items)`, as the real API accepts it. */
-const show = (into: string[]) => async <T extends string>(message: string, ...rest: (T | MessageOptions)[]): Promise<T | undefined> => {
+interface ShowMessage {
+  <T extends string>(message: string, options: MessageOptions, ...items: T[]): Promise<T | undefined>;
+  <T extends string>(message: string, ...items: T[]): Promise<T | undefined>;
+}
+const show = (into: string[]): ShowMessage => async (message: string, ...rest: (string | MessageOptions)[]) => {
   into.push(message);
   const [first] = rest;
   if (typeof first === 'object' && first?.modal) recorded.modal.push(message);
-  return rest.find((i): i is T => typeof i === 'string' && i === answers.message);
+  return rest.find((i): i is string => typeof i === 'string' && i === answers.message) as never;
 };
 
 export interface QuickPickItem { label: string; description?: string; detail?: string }
@@ -167,6 +190,12 @@ export const window = {
     recorded.statusItems.push(item);
     return item;
   },
+  createTerminal: (options: TerminalOptions) => {
+    if (failures.createTerminal) throw new Error('no terminal');
+    const entry = { options, shown: false };
+    recorded.terminals.push(entry);
+    return { show: () => { entry.shown = true; }, dispose: () => {} };
+  },
   registerTreeDataProvider: (viewId: string, provider: unknown) => {
     recorded.views[viewId] = provider;
     return { dispose: () => { delete recorded.views[viewId]; } };
@@ -180,9 +209,22 @@ export const commands = {
   },
   executeCommand: async (command: string, ...args: unknown[]) => {
     recorded.commands.push({ command, args });
+    if (failures.executeCommand && !handlers.has(command)) throw new Error(`command ${command} failed`);
     if (command === 'setContext') recorded.context[args[0] as string] = args[1];
     const handler = handlers.get(command);
     return handler ? await handler(...args) : undefined;
+  },
+};
+
+export interface TerminalOptions { name?: string; cwd?: Uri | string; shellPath?: string; shellArgs?: string[] | string }
+
+export const env = {
+  uriScheme: 'vscode',
+  clipboard: { writeText: async (text: string) => { recorded.clipboard.push(text); } },
+  openExternal: async (uri: Uri): Promise<boolean> => {
+    if (failures.openExternal === 'throw') throw new Error('cannot open');
+    recorded.external.push(uri.toString());
+    return failures.openExternal !== 'false';
   },
 };
 

@@ -105,7 +105,7 @@ describe('showStopped', () => {
     server.state = 'stopped';
     answers.message = RESTART;
     await showStopped(pool, server);
-    expect(recorded.error).toEqual(['steno server for app is stopped']);
+    expect(recorded.error).toEqual(['steno server for app is stopped, so nothing changed']);
     expect(server.state).toBe('running');
     expect(log).toEqual(['start', 'start']);
   });

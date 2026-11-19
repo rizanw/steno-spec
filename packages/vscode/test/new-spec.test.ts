@@ -198,7 +198,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     answers.pick = ['feature'];
     await commands.executeCommand(NEW_SPEC_COMMAND);
 
-    expect(recorded.inputs.map(i => i.prompt)).toEqual(['Spec name', 'Title (optional)']);
+    expect(recorded.inputs.map(i => i.prompt)).toEqual(['Spec name, as a kebab-case slug', 'Title (optional): the one line the tree shows']);
     expect(recorded.picks.map(p => p.labels)).toEqual([['feature', 'bugfix', 'brief first']]);
     expect(cli.calls()).toEqual([['new', 'billing', '-t', 'Billing', '--root', '/work/app', '--json']]);
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/billing/requirements.md', line: 1 }]);

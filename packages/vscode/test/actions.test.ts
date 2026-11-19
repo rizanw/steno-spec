@@ -78,7 +78,7 @@ describe('approve (R5.2, R5.3)', () => {
     const { sent } = await pooled();
     await commands.executeCommand(APPROVE_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec()));
     expect(sent).toEqual([{ method: 'steno/approve', params: { spec: 'auth', phase: 'requirements' } }]);
-    expect(recorded.info).toEqual(['auth: requirements approved; now in design']);
+    expect(recorded.info).toEqual(['auth: requirements approved — now in design']);
   });
 
   it('does nothing unless its argument is a SpecNode, so no other caller can approve', async () => {
@@ -104,7 +104,7 @@ describe('approve (R5.2, R5.3)', () => {
     await commands.executeCommand(APPROVE_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec()));
     expect(recorded.saved).toEqual([`file://${file}`]);
     expect(sent.map(s => s.method)).toEqual(['steno/approve', 'steno/approve']);
-    expect(recorded.info).toEqual(['auth: requirements approved; now in design']);
+    expect(recorded.info).toEqual(['auth: requirements approved — now in design']);
   });
 
   it('tells the user the server is stopped instead of sending', async () => {
@@ -112,7 +112,7 @@ describe('approve (R5.2, R5.3)', () => {
     pool.all()[0].state = 'stopped';
     await commands.executeCommand(APPROVE_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec()));
     expect(sent).toEqual([]);
-    expect(recorded.error).toEqual(['steno server for app is stopped']);
+    expect(recorded.error).toEqual(['steno server for app is stopped, so nothing changed']);
   });
 });
 

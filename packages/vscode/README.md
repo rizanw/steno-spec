@@ -11,10 +11,11 @@
 </p>
 
 <p align="center">
-  <strong>Shorthand specs for any coding agent — now where you read the code.</strong><br>
-  Spec-driven development with a gate at every stage: requirements → design → tasks → execute,
-  each one linted and approved by you before the next begins. Your agent still does the writing;
-  the editor shows you where every spec stands, and costs you nothing to watch.
+  <strong>Shorthand specs for any coding agent.</strong><br>
+  Spec-driven development with a gate at every stage: requirements → design → tasks → execute, 
+  each one linted and approved by you before the next begins. Your agent does the writing, the sidebar
+  shows where every spec stands, puts each lint finding on its line, and gives you the approvals —
+  without a model, a chat or a token.
 </p>
 
 <p align="center">
@@ -27,15 +28,14 @@
 
 ---
 
-- **Your agent writes, the editor checks.** The extension has no model in it: no language-model tool,
-  no chat participant, no network call. It lints, traces and shows; the thinking stays in the agent
-  you already use.
-- **A task gets a packet, not the whole spec.** The extension is for you, not for your agent, so
-  everything here — the tree, the lint findings, the approvals — costs zero tokens.
-- **Plain Markdown specs, any agent.** The tree reads the same `requirements.md`, `design.md` and
-  `tasks.md` your agent writes, so Claude Code, Codex, Cursor or Copilot can be driving while you watch.
-- **Reviewed with fresh context.** Reviews stay the job of read-only reviewers that never see your
-  conversation. The editor puts what they find on the line they found it.
+- **Plain Markdown specs, any agent.** `requirements.md`, `design.md` and `tasks.md`, with EARS
+  criteria and stable ids, so Claude Code, Codex, Cursor or Copilot can be driving while you watch.
+- **A gate at every stage.** Lint errors send a document back for another pass, and only your
+  approval moves a spec on — from your agent, or from the tree.
+- **A task gets a packet, not the whole spec.** Your agent reads `steno ctx T2.1`, usually a few
+  hundred tokens; the tree, the findings and the approvals you click cost nothing at all.
+- **Your agent writes, steno checks.** The extension has no model in it: no language-model tool, no
+  chat participant, no network call. The thinking stays in the agent you already use.
 
 ## Quick start
 
@@ -48,9 +48,9 @@ code --install-extension rizanw.steno-vscode
 Open a folder that already has a `.steno/` directory, or run `steno init` in one you want to track.
 A folder that is not a steno project says so in the view, and names the command that makes it one.
 
-The extension carries its own copy of the steno language server and CLI, so there is nothing else to
-install to *read* your specs. To have an agent *write* them, install the CLI too — the skills call
-`steno` directly:
+The extension carries its own copy of steno, so there is nothing else to install to *read* your
+specs. Writing them is the agent's half of the job, and the skills call `steno` directly, so install
+the CLI for that:
 
 ```bash
 npm install -g steno-spec
@@ -67,9 +67,10 @@ approve    ↺ lint           ↺ lint        ↺ lint        ↺ next task     
 ↺ sends you back to revise the same stage; only approve moves to the next one.
 ```
 
-Each phase has a skill that does the writing and a gate that ends it. Lint errors and review
-findings send the document back for another pass; a fresh-context review is there when you want one.
-Only your approval moves the spec to the next stage — from your agent, or from this view.
+Each phase has a skill that does the writing and a gate that ends it. Lint errors and review findings
+send the document back for another pass; a fresh-context review — read-only reviewers that never see
+your conversation — is there when you want one. Only your approval moves a spec to the next stage,
+from your agent or from this view.
 
 ## See it in action
 
@@ -92,13 +93,14 @@ specs
    └─ api.md                                              fileMatch
 ```
 
-Clicking any line opens that document where the item lives. Lint findings arrive in the editor and
-the Problems panel as you type, so a stage that is not ready to approve says so before you ask.
+Clicking any line opens that document where the item lives, at the requirement, section or task you
+clicked. Lint findings arrive in the editor and the Problems panel as you type, so a stage that is
+not ready to approve says so before you ask.
 
 ## Requirements
 
-VS Code 1.125 or later, on macOS, Linux or Windows. The bundled server and CLI are matched to the
-extension's version and run on the editor's own Node; the extension never looks for a `steno` on
+VS Code 1.125 or later, on macOS, Linux or Windows. The bundled server and CLI are the `steno-spec`
+release that matches the extension's version and run on the editor's own Node; the extension never looks for a `steno` on
 your PATH or in your `node_modules`, so a Restricted Mode workspace behaves exactly like a trusted one.
 
 ## Docs

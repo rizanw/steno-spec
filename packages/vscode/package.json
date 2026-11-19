@@ -1,7 +1,7 @@
 {
   "name": "steno-vscode",
   "displayName": "steno spec",
-  "description": "Spec-driven development in VS Code: a spec tree, diagnostics and one-click approvals, powered by the steno language server.",
+  "description": "Shorthand specs for any coding agent: requirements \u2192 design \u2192 tasks \u2192 execute, each stage linted and approved first.",
   "version": "0.1.1",
   "private": true,
   "license": "MIT",
@@ -44,7 +44,7 @@
     "commands": [
       {
         "command": "steno.open",
-        "title": "Open Spec Document",
+        "title": "Open Spec Document at a Line",
         "category": "steno"
       },
       {
@@ -55,25 +55,25 @@
       },
       {
         "command": "steno.server.restart",
-        "title": "Restart Server",
+        "title": "Restart steno Server for This Folder",
         "category": "steno",
         "icon": "$(debug-restart)"
       },
       {
         "command": "steno.spec.approve",
-        "title": "Approve",
+        "title": "Approve This Phase",
         "category": "steno",
         "icon": "$(check)"
       },
       {
         "command": "steno.task.markDone",
-        "title": "Mark Done",
+        "title": "Mark Task Done",
         "category": "steno",
         "icon": "$(pass)"
       },
       {
         "command": "steno.task.reopen",
-        "title": "Reopen",
+        "title": "Reopen Task",
         "category": "steno",
         "icon": "$(discard)"
       },
@@ -172,7 +172,7 @@
       {
         "view": "steno.specs",
         "when": "!steno.hasProject",
-        "contents": "No workspace folder is a steno project. Run `steno init` in a terminal to set one up."
+        "contents": "No folder in this window is a steno project.\nsteno keeps specs as plain Markdown under `.steno/`, and this view follows them. Run `steno init` in a terminal to start one, then ask your coding agent for a spec.\n[Getting started](https://github.com/rizanw/steno-spec/blob/main/docs/getting-started.md)"
       }
     ]
   },

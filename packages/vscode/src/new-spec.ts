@@ -105,9 +105,9 @@ export function validateName(name: string, existing: readonly string[]): string 
 /** The kinds, in the order they are offered; the first is the one the pick opens on (R5.7). */
 // not named `kind`: `QuickPickItem.kind` is VS Code's own separator flag
 const KINDS: readonly { label: string; description: string; makes: Kind }[] = [
-  { label: 'feature', description: 'requirements first', makes: 'feature' },
-  { label: 'bugfix', description: 'bugfix.md instead of requirements.md', makes: 'bugfix' },
-  { label: 'brief first', description: 'brainstorm in brief.md before the requirements', makes: 'brief' },
+  { label: 'feature', description: 'starts at requirements.md', makes: 'feature' },
+  { label: 'bugfix', description: 'starts at bugfix.md, a shorter requirements stage', makes: 'bugfix' },
+  { label: 'brief first', description: 'starts at brief.md, to brainstorm before the requirements', makes: 'brief' },
 ];
 
 /** The Spec_Document a new Spec opens at, whichever of these the CLI created first. */
@@ -158,13 +158,13 @@ export async function newSpec(pool: ServerPool, cli: string, node?: unknown): Pr
 
   const existing = (server.tree?.specs ?? []).map(s => s.name);
   const slug = await vscode.window.showInputBox({
-    title: TITLE, prompt: 'Spec name', placeHolder: 'kebab-case-slug',
+    title: TITLE, prompt: 'Spec name, as a kebab-case slug', placeHolder: 'link-expiry',
     validateInput: value => validateName(value, existing),
   });
   if (slug === undefined) return;
-  const title = await vscode.window.showInputBox({ title: TITLE, prompt: 'Title (optional)', placeHolder: slug });
+  const title = await vscode.window.showInputBox({ title: TITLE, prompt: 'Title (optional): the one line the tree shows', placeHolder: slug });
   if (title === undefined) return;
-  const kind = await vscode.window.showQuickPick(KINDS, { title: TITLE, placeHolder: 'Kind' });
+  const kind = await vscode.window.showQuickPick(KINDS, { title: TITLE, placeHolder: 'What this spec starts from' });
   if (!kind) return;
 
   let result: ChangeResult | StructuredError;

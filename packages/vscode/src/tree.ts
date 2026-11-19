@@ -47,7 +47,7 @@ export class StoppedNode extends vscode.TreeItem {
   constructor(readonly folder: vscode.WorkspaceFolder) {
     super('steno server stopped', None);
     this.description = folder.name;
-    this.tooltip = `steno server for ${folder.name} stopped after repeated exits`;
+    this.tooltip = `steno server for ${folder.name} stopped after repeated exits: its specs are no longer being followed. Restart to pick them up again.`;
     this.iconPath = new vscode.ThemeIcon('debug-disconnect');
     // the view's item menu hangs the inline "Restart" off this value
     this.contextValue = 'stopped';

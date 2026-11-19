@@ -51,7 +51,7 @@ export async function approve(pool: ServerPool, node: SpecNode): Promise<void> {
   const server = pool.get(node.folder);
   if (!server) return;
   const result = await change(pool, server, METHODS.approve, { spec: spec.name, phase: spec.phase });
-  if (result) void vscode.window.showInformationMessage(`${spec.name}: ${spec.phase} approved; now in ${result.phase}`);
+  if (result) void vscode.window.showInformationMessage(`${spec.name}: ${spec.phase} approved — now in ${result.phase}`);
 }
 
 /** The server of the folder that holds this task's `tasks.md`. */
@@ -68,7 +68,7 @@ export async function markDone(pool: ServerPool, node: TaskNode): Promise<void> 
 
 /** Reopen a done task, after the user confirms it in a modal (R5.4, R4.4). */
 export async function reopen(pool: ServerPool, server: FolderServer, spec: string, task: string): Promise<void> {
-  const choice = await vscode.window.showWarningMessage(`Reopen ${task} of ${spec}?`, { modal: true }, 'Reopen');
+  const choice = await vscode.window.showWarningMessage(`Reopen ${task} of ${spec}?`, { modal: true, detail: 'steno marks the task open again; the code it wrote stays as it is.' }, 'Reopen');
   if (choice !== 'Reopen') return;
   await change(pool, server, METHODS.taskReopen, { spec, task });
 }

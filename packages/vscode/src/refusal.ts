@@ -81,7 +81,7 @@ export async function showRefusal(
       detail: `${finding.rule}: ${finding.message}`,
       finding,
     }));
-    const chosen = await vscode.window.showQuickPick(items, { title: refusal.message, placeHolder: 'Open a finding' });
+    const chosen = await vscode.window.showQuickPick(items, { title: refusal.message, placeHolder: 'Open a finding to fix it' });
     if (chosen) await vscode.commands.executeCommand(OPEN_COMMAND, fileUri(folder, chosen.finding.file), chosen.finding.line);
     return;
   }
@@ -90,6 +90,6 @@ export async function showRefusal(
 
 /** A request went to a stopped server: say so, and offer the same Restart as the tree (R1.4). */
 export async function showStopped(pool: ServerPool, server: FolderServer): Promise<void> {
-  const choice = await vscode.window.showErrorMessage(`steno server for ${server.folder.name} is stopped`, RESTART);
+  const choice = await vscode.window.showErrorMessage(`steno server for ${server.folder.name} is stopped, so nothing changed`, RESTART);
   if (choice === RESTART) await pool.restart(server);
 }

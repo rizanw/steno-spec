@@ -92,10 +92,10 @@ export function selectorFor(folder: vscode.WorkspaceFolder): vscode.DocumentFilt
 }
 
 /** The lens the server puts on an open task; choosing it hands the task to the coding agent. */
-export const RUN_LENS = 'steno.task.run';
+const RUN_LENS = 'steno.task.run';
 
 /** The lens the server puts on a done task; choosing it reopens the task (R4.4). */
-export const DONE_LENS = 'steno.task.done';
+const DONE_LENS = 'steno.task.done';
 
 /** The part of a code lens the middleware reads and rewrites. */
 interface Lens { command?: { command: string; title: string; arguments?: unknown[] } }
@@ -136,7 +136,7 @@ export async function provideCodeLenses<T extends Lens>(
 }
 
 /** The production factory: a `module` server, which the library runs on the editor's own Node. */
-export const createLanguageClient: CreateClient = (folder, serverPath, documentSelector, handlers) => {
+const createLanguageClient: CreateClient = (folder, serverPath, documentSelector, handlers) => {
   const server: ServerOptions = {
     run: { module: serverPath, transport: TransportKind.stdio },
     debug: { module: serverPath, transport: TransportKind.stdio },

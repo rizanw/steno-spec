@@ -20,7 +20,7 @@ export const REVIEW_COMMAND = 'steno.spec.review';
 export const STEER_COMMAND = 'steno.steering.generate';
 
 /** Where steering lives when the server did not say. */
-export const DEFAULT_STEERING_DIR = '.steno/steering';
+const DEFAULT_STEERING_DIR = '.steno/steering';
 
 const SAVE = 'Save and hand off';
 const DONT_SAVE = 'Hand off without saving';

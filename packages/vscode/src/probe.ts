@@ -26,7 +26,7 @@ function label(node: vscode.TreeItem): string {
 }
 
 /** The whole tree from the root down, as the provider builds it right now. */
-export async function snapshot<N extends vscode.TreeItem>(provider: Provider<N>, node?: N): Promise<ProbeItem[]> {
+async function snapshot<N extends vscode.TreeItem>(provider: Provider<N>, node?: N): Promise<ProbeItem[]> {
   const children = await provider.getChildren(node);
   return Promise.all(children.map(async child => ({
     label: label(child),

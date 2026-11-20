@@ -45,7 +45,7 @@ async function change(
 }
 
 /** Approve the Spec's current phase and say which phase it moved to (R5.2). */
-export async function approve(pool: ServerPool, node: SpecNode): Promise<void> {
+async function approve(pool: ServerPool, node: SpecNode): Promise<void> {
   const { spec } = node;
   if (!canApprove(spec)) return;
   const server = pool.get(node.folder);
@@ -60,14 +60,14 @@ function taskServer(pool: ServerPool, node: TaskNode): FolderServer | undefined 
 }
 
 /** Mark an open task done (R5.4). */
-export async function markDone(pool: ServerPool, node: TaskNode): Promise<void> {
+async function markDone(pool: ServerPool, node: TaskNode): Promise<void> {
   if (node.done || !node.taskId) return;
   const server = taskServer(pool, node);
   if (server) await change(pool, server, METHODS.taskDone, { spec: node.spec.name, task: node.taskId });
 }
 
 /** Reopen a done task, after the user confirms it in a modal (R5.4, R4.4). */
-export async function reopen(pool: ServerPool, server: FolderServer, spec: string, task: string): Promise<void> {
+async function reopen(pool: ServerPool, server: FolderServer, spec: string, task: string): Promise<void> {
   const choice = await vscode.window.showWarningMessage(`Reopen ${task} of ${spec}?`, { modal: true, detail: 'steno marks the task open again; the code it wrote stays as it is.' }, 'Reopen');
   if (choice !== 'Reopen') return;
   await change(pool, server, METHODS.taskReopen, { spec, task });

@@ -13,7 +13,7 @@ import { guard } from './trust.js';
 export const SET_UP_COMMAND = 'steno.setUp';
 
 /** How long set-up waits for the folder servers' first trees. A folder still silent after that is not offered. */
-export const SET_UP_WAIT_MS = 10_000;
+const SET_UP_WAIT_MS = 10_000;
 
 /** The command that installs the steno CLI itself, which the success message names and can copy. */
 export const INSTALL_COMMAND = 'npm install -g steno-spec';
@@ -97,7 +97,7 @@ export function initAgents(value: unknown): InitAgent[] | undefined {
 }
 
 /** The message a finished set-up shows: what was installed, where or for whom, and how to get the CLI. */
-export function setUpMessage(folder: string, result: InitResult, labels: string[]): string {
+function setUpMessage(folder: string, result: InitResult, labels: string[]): string {
   const target = labels.length ? `for ${labels.join(', ')}` : 'in .agents/skills';
   const lines = [
     `steno set up in ${folder}: ${result.skills.length} skills ${target}.`,
@@ -114,7 +114,7 @@ const settled = (s: FolderServer) => s.state === 'stopped' || s.tree !== undefin
  * Wait until every folder server has sent its first tree or stopped, or until `ms` passes. On a cold start the
  * servers have only just been started when the command runs.
  */
-export function waitForTrees(pool: ServerPool, ms: number): Promise<void> {
+function waitForTrees(pool: ServerPool, ms: number): Promise<void> {
   if (pool.all().every(settled)) return Promise.resolve();
   return new Promise(resolve => {
     const done = () => { clearTimeout(timer); listener.dispose(); resolve(); };
@@ -124,7 +124,7 @@ export function waitForTrees(pool: ServerPool, ms: number): Promise<void> {
 }
 
 /** The folders that are not steno projects yet: their server answered with a tree that says so. */
-export function setUpCandidates(pool: ServerPool): FolderServer[] {
+function setUpCandidates(pool: ServerPool): FolderServer[] {
   return pool.all().filter(s => s.tree?.notSetUp === true);
 }
 

@@ -156,7 +156,7 @@ async function openCreated(server: FolderServer, result: ChangeResult): Promise<
  * cancelled after that leaves the Spec as it is. A refused name is re-asked in the box itself; every other
  * refusal is shown as a notification.
  */
-export async function newSpec(pool: ServerPool, cli: string, deps: Deps, node?: unknown): Promise<void> {
+async function newSpec(pool: ServerPool, cli: string, deps: Deps, node?: unknown): Promise<void> {
   const servers = projectServers(pool);
   if (servers.length === 0) return;
   const server = await chooseProject(pool, servers, node, TITLE);

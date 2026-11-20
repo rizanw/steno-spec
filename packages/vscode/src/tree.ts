@@ -25,10 +25,10 @@ export const STEERING_VIEW_ID = 'steno.steering';
 export const DEFAULT_SPECS_DIR = '.steno/specs';
 
 /** The agent instruction files the Steering view lists when a folder has them at its root. */
-export const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
+const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
 
 /** VS Code's built-in rich Markdown editor, from the bundled markdown extension. */
-export const MARKDOWN_EDITOR = 'vscode.markdown.editor';
+const MARKDOWN_EDITOR = 'vscode.markdown.editor';
 
 /**
  * `steno.open` with a file URI. With a 1-based line it opens the Text Editor there; without one it opens the
@@ -39,7 +39,7 @@ function open(uri: vscode.Uri, line?: number): vscode.TreeItem['command'] {
 }
 
 /** A file name without its `.md`, as the views label documents: `tasks.md` reads `tasks`. */
-export function bareName(file: string): string {
+function bareName(file: string): string {
   return file.replace(/\.md$/i, '');
 }
 
@@ -118,7 +118,7 @@ export function runnable(tree: SpecTree | undefined, specName: string, taskId: s
 }
 
 /** A Spec's icon: a pen while its documents are being written, a play button while its tasks run, a tick once done. */
-export function specIcon(spec: TreeSpec): string {
+function specIcon(spec: TreeSpec): string {
   if (spec.phase === 'done') return 'pass-filled';
   if (spec.phase === 'execute') return 'play-circle';
   return 'edit';
@@ -135,7 +135,7 @@ function taskProgress(spec: TreeSpec): string | undefined {
  * The one fact a Spec's row shows beside its title: the phase while it is being written, the required tasks
  * left while they run, nothing once it is done (its icon says so).
  */
-export function specDescription(spec: TreeSpec): string | undefined {
+function specDescription(spec: TreeSpec): string | undefined {
   if (spec.phase === undefined || spec.phase === 'done') return undefined;
   if (spec.phase !== 'execute') return spec.phase;
   const counts = spec.tasks;
@@ -148,7 +148,7 @@ export function specDescription(spec: TreeSpec): string | undefined {
  * The hover of a Spec: its folder name (the row already shows the title), then `execute | 18 of 19 tasks | gated`,
  * then the next task when there is one.
  */
-export function specTooltip(spec: TreeSpec): string {
+function specTooltip(spec: TreeSpec): string {
   const status = [spec.phase, taskProgress(spec), spec.mode]
     .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' | ');
   const next = spec.next ? `next: ${spec.next.id} ${spec.next.title}` : undefined;
@@ -200,7 +200,7 @@ export function documentDone(spec: TreeSpec, document: string): boolean {
 }
 
 /** A Spec_Document's label: its name without `.md`, capitalised, so `requirements.md` reads `Requirements`. */
-export function documentLabel(document: string): string {
+function documentLabel(document: string): string {
   const name = bareName(document);
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
@@ -275,7 +275,7 @@ export class FileNode extends vscode.TreeItem {
 }
 
 /** When a Steering_File reaches the coding agent, in a few words for its row and a sentence for its hover. */
-export function inclusionText(entry: TreeSteering): { short: string; long: string } {
+function inclusionText(entry: TreeSteering): { short: string; long: string } {
   switch (entry.inclusion) {
     case 'fileMatch': {
       const files = entry.pattern ? `: ${entry.pattern.split(',').map(p => p.trim()).join(', ')}` : '';
@@ -462,7 +462,7 @@ export class SpecTreeProvider extends FolderView<Node> implements vscode.TreeDat
 }
 
 /** Whether this VS Code has the built-in Markdown Editor; editors built on older VS Code, or forks, may not. */
-export function hasMarkdownEditor(): boolean {
+function hasMarkdownEditor(): boolean {
   const manifest = vscode.extensions.getExtension('vscode.markdown-language-features')?.packageJSON as
     { contributes?: { customEditors?: { viewType?: string }[] } } | undefined;
   return manifest?.contributes?.customEditors?.some(editor => editor.viewType === MARKDOWN_EDITOR) === true;
@@ -489,7 +489,7 @@ export function registerOpen(): vscode.Disposable {
 }
 
 /** `steno.server.restart`: the stopped folder's inline action, which resets the count too. */
-export function registerRestart(pool: ServerPool): vscode.Disposable {
+function registerRestart(pool: ServerPool): vscode.Disposable {
   return vscode.commands.registerCommand(RESTART_COMMAND, async (node: StoppedNode) => {
     const server = pool.all().find(s => s.folder.uri.toString() === node.folder.uri.toString());
     if (server) await pool.restart(server);
@@ -509,7 +509,7 @@ export function hasProject(servers: readonly FolderServer[]): boolean {
 export const CAN_SET_UP = 'steno.canSetUp';
 
 /** Whether any folder has answered with a tree that says it is not a steno project yet. */
-export function canSetUp(servers: readonly FolderServer[]): boolean {
+function canSetUp(servers: readonly FolderServer[]): boolean {
   return servers.some(s => s.tree?.notSetUp === true);
 }
 

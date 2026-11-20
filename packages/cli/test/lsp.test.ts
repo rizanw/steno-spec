@@ -90,7 +90,7 @@ describe('the server bundle', () => {
 describe('the CLI bundle', () => {
   const BUNDLE = fileURLToPath(new URL('../bin/steno-cli.mjs', import.meta.url));
 
-  it('runs alone from a CommonJS package folder and answers as steno does (R6.2)', () => {
+  it('runs alone from a CommonJS package folder and answers as steno does', () => {
     // a folder with nothing but the bundle and a package.json that makes .js files CommonJS
     const alone = mkdtempSync(join(tmpdir(), 'steno-cli-bundle-'));
     cpSync(BUNDLE, join(alone, 'cli.mjs'));
@@ -102,7 +102,7 @@ describe('the CLI bundle', () => {
     expect(existsSync(join(dir, '.steno', 'specs', 'demo', 'requirements.md'))).toBe(true);
   });
 
-  it('reports the package version, with no package.json beside it (R6.2)', () => {
+  it('reports the package version, with no package.json beside it', () => {
     const alone = mkdtempSync(join(tmpdir(), 'steno-cli-version-'));
     cpSync(BUNDLE, join(alone, 'cli.mjs'));
     const out = spawnSync(process.execPath, [join(alone, 'cli.mjs'), '--version'], { encoding: 'utf8' });
@@ -123,7 +123,7 @@ describe('the CLI bundle', () => {
     return { dir, run };
   };
 
-  it('sets a folder up from dist/ with the skills folder beside dist (R3.6)', () => {
+  it('sets a folder up from dist/ with the skills folder beside dist', () => {
     const { dir, run } = extensionLayout(true);
     const r = run('init', '-a', '');
     expect(r.status, r.stderr).toBe(0);
@@ -132,7 +132,7 @@ describe('the CLI bundle', () => {
     expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
   });
 
-  it('fails without the skills folder and leaves no .steno (R3.6)', () => {
+  it('fails without the skills folder and leaves no .steno', () => {
     const { dir, run } = extensionLayout(false);
     const r = run('init', '-a', '');
     expect(r.status, r.stdout).toBe(1);
@@ -148,7 +148,7 @@ describe('the CLI bundle', () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
-  it('inlines every dependency: it loads Node built-ins only (R6.2)', () => {
+  it('inlines every dependency: it loads Node built-ins only', () => {
     // the CLI's help text quotes module-like strings, so only whole import statements and `require()` calls count
     const source = readFileSync(BUNDLE, 'utf8');
     const specifiers = [

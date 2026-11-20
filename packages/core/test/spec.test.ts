@@ -12,7 +12,7 @@ import type { Phase, LintIssue } from '../src/index.js';
 function root() { return mkdtempSync(join(tmpdir(), 'steno-spec-')); }
 
 describe('the request line', () => {
-  it('Property 2: a request line is the description on one line', () => {
+  it('a request line is the description on one line', () => {
     fc.assert(fc.property(fc.string(), text => {
       const line = requestLine(text);
       if (text.trim() === '') { expect(line).toBeUndefined(); return; }

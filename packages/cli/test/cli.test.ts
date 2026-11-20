@@ -35,7 +35,7 @@ describe('steno CLI', () => {
     expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).toMatch(/steno:start/);
   });
 
-  it('init --list-agents --json prints the keys and labels of the agents and touches nothing (R3.6)', () => {
+  it('init --list-agents --json prints the keys and labels of the agents and touches nothing', () => {
     const { dir, steno } = project();
     const r = steno('init', '--list-agents', '--json');
     expect(r.code).toBe(0);
@@ -46,7 +46,7 @@ describe('steno CLI', () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
-  it('init makes no network request: no http, https, net or tls import and no fetch (R3.7)', () => {
+  it('init makes no network request: no http, https, net or tls import and no fetch', () => {
     const text = readFileSync(fileURLToPath(new URL('../src/commands/init.ts', import.meta.url)), 'utf8');
     expect(text).toMatch(/from 'node:fs'/);
     expect(text).not.toMatch(/(?:from\s*['"]|require\(\s*['"]|import\(\s*['"])(?:node:)?(?:http|https|net|tls)['"]|\bfetch\s*\(/);

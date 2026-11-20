@@ -343,6 +343,23 @@ In practice the `steno-review` skill runs this for you and hands the packet to t
 
 ---
 
+## Editor integration
+
+### `steno lsp`
+
+Runs the steno language server over standard input and output. You don't run it by hand: an editor plugin starts it and talks to it. It serves the project folder the editor opens (the first workspace folder), never searches parent folders, and makes no network connections. `--root` does not apply.
+
+What the editor gets:
+
+- **Diagnostics:** the findings of `steno lint` and `steno steer lint` for every spec and steering file, open or not, updated as you type and when files change on disk.
+- **Outline:** requirements, criteria, design sections and tasks of the open document.
+- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task without subtasks and a *Done* marker above each checked one.
+- **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, and approving a stage. All of them read saved files; the last four refuse while a document they need has unsaved edits.
+
+The requests, their answers and the protocol version are described in the [JSON contract](json-contract.md).
+
+---
+
 ## Exit codes
 
 Useful when you run steno in scripts or CI:

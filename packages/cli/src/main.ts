@@ -5,6 +5,7 @@ import { PROTOCOL_VERSION, StenoError, toStructuredError } from '@steno/core';
 import { register as initCmd } from './commands/init.js';
 import { register as specCmds } from './commands/spec.js';
 import { register as steerCmds } from './commands/steer.js';
+import { register as lspCmd } from './commands/lsp.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../package.json') as { version: string };
@@ -26,6 +27,7 @@ const program = new Command('steno')
 initCmd(program);
 specCmds(program);
 steerCmds(program);
+lspCmd(program);
 
 /** Exit codes: 0 success, 2 for lint errors and a blocked approval, 1 for any other failure. */
 // process.exitCode, not process.exit: a pipe to stdout may still be flushing.

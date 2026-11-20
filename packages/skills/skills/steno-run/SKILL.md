@@ -7,6 +7,9 @@ description: Implement a steno spec one task at a time using a budgeted context 
 
 Goal: implement exactly one task, verify it, mark it done, stop. Never pull the whole spec into context.
 
+## Spec name
+The user may name a spec after the task (`T3.1 my-spec`) or a spec alone (`my-spec`). When they do, append the spec name to every steno command below: `steno next <spec>`, `steno ctx <id> <spec>`, `steno done <id> <spec>`. With no spec named, run the commands as written.
+
 ## Loop (per task)
 1. `steno next` → task id. If the user named a task, use that id instead.
 2. `steno ctx <id>` → the packet: task, its acceptance criteria, its design sections, likely files, matching steering. This is your whole brief. If a pointer like `…(steno show D-auth)` appears and you need it, fetch only that.

@@ -30,7 +30,7 @@ function phaseHint(state: SpecState): string {
   return state.phase === 'requirements' ? hint.replaceAll('requirements.md', requirementsFile(state)) : hint;
 }
 
-/** The Change_Result of a command that created a Spec: its documents and `spec.yaml`. */
+/** The change result of a command that created a Spec: its documents and `spec.yaml`. */
 function created(dir: string, files: string[], phase: ChangeResult['phase']): ChangeResult {
   return { protocolVersion: PROTOCOL_VERSION, spec: basename(dir), phase, created: [...files, STATE_FILE] };
 }

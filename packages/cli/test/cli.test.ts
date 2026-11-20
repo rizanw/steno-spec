@@ -123,6 +123,18 @@ describe('steno CLI', () => {
     expect(lint.out).toMatch(/unknown inclusion "bogus"[\s\S]*\d+ errors?, \d+ warnings?/);
   });
 
+  it('show steering/<file> prints a steering file, with or without the .md', () => {
+    const { dir, steno } = project();
+    steno('init');
+    writeFileSync(join(dir, '.steno', 'steering', 'tech.md'), '# Tech stack\n\n- Node 22\n');
+    for (const id of ['steering/tech.md', 'steering/tech']) {
+      const r = steno('show', id);
+      expect(r.code).toBe(0);
+      expect(r.out).toMatch(/Node 22/);
+    }
+    expect(steno('show', 'steering/nope').code).toBe(1);
+  });
+
   it('next: names bugfix.md for a bugfix spec in the requirements phase (and requirements.md for a feature spec)', () => {
     const { steno } = project();
     steno('init');

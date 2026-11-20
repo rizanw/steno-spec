@@ -212,7 +212,8 @@ export function register(program: Command): void {
     .action((id, name) => {
       const ctx = g();
       if (id.startsWith('steering/')) {
-        const s = loadSteering(ctx.root).find(s => s.file === id.slice(9));
+        const file = id.slice(9);   // the `.md` may be left off
+        const s = loadSteering(ctx.root).find(s => s.file === file || s.file === `${file}.md`);
         if (!s) fail(`no steering file ${id}`);
         return out(ctx, s, s.body);
       }

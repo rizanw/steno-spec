@@ -57,13 +57,16 @@ export function nextTask(doc: TasksDoc, includeOptional = false): Task | undefin
 /** True when every required leaf task is ticked. Optional tasks never block. Use this wherever "all done" is checked. */
 export function allTasksDone(doc: TasksDoc): boolean { return !nextTask(doc); }
 
-/** Return new raw text with the task's checkbox set; parents auto-complete when all children done. */
+/**
+ * Return new raw text with the task's checkbox set; parents auto-complete when all children are done. Only the
+ * characters between the brackets of affected task lines change, so each line keeps its own ending. `doc` is not changed.
+ */
 export function setTaskDone(doc: TasksDoc, id: string, done = true): string {
-  const eol = doc.raw.includes('\r\n') ? '\r\n' : '\n';
-  const lines = doc.raw.split(/\r?\n/);
+  const lines = doc.raw.split(/(?<=\n)/); // each line with its own ending
+  const state = new Map(doc.tasks.map(t => [t.id, t.done]));
   const flip = (t: Task, d: boolean) => {
     lines[t.line - 1] = lines[t.line - 1].replace(/\[( |x|X)\]/, d ? '[x]' : '[ ]');
-    t.done = d;
+    state.set(t.id, d);
   };
   const t = findTask(doc, id);
   if (!t) throw new Error(`unknown task ${id}`);
@@ -74,9 +77,9 @@ export function setTaskDone(doc: TasksDoc, id: string, done = true): string {
   // cascade up
   let p = t.parent ? findTask(doc, t.parent) : undefined;
   while (p) {
-    const all = p.children.every(c => findTask(doc, c)?.done);
+    const all = p.children.every(c => state.get(c));
     flip(p, done ? all : false);
     p = p.parent ? findTask(doc, p.parent) : undefined;
   }
-  return lines.join(eol);
+  return lines.join('');
 }

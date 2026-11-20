@@ -272,7 +272,7 @@ describe('lint names the requirements file of the spec\'s kind', () => {
     '# Requirements\n\nnothing here\n',
   ];
 
-  it('Property 1: bugfix findings equal feature findings except the file', () => {
+  it('bugfix findings equal feature findings except the file', () => {
     let total = 0;
     for (const text of texts) {
       const feature = lintSpec(specWith('feature', 'requirements', text), 'requirements');
@@ -284,7 +284,7 @@ describe('lint names the requirements file of the spec\'s kind', () => {
     expect(total).toBeGreaterThan(5); // the generated texts do exercise the requirements rules
   });
 
-  it('Property 2: every requirements finding of a feature spec names requirements.md', () => {
+  it('every requirements finding of a feature spec names requirements.md', () => {
     for (const text of texts) {
       const issues = lintSpec(specWith('feature', 'requirements', text), 'requirements');
       expect(issues.every(i => i.file === 'requirements.md')).toBe(true);
@@ -292,7 +292,7 @@ describe('lint names the requirements file of the spec\'s kind', () => {
     }
   });
 
-  it('Property 3: unstaged lint reports the same missing error as staged lint, outside the brief phase', () => {
+  it('unstaged lint reports the same missing error as staged lint, outside the brief phase', () => {
     const phases: Phase[] = ['requirements', 'design', 'tasks', 'execute', 'done'];
     const cases: Array<[string, string | undefined, { other?: boolean }]> = [['absent', undefined, {}], ['empty', '', {}], ['other name', readFileSync(join(fixturesDir, 'requirements.md'), 'utf8'), { other: true }]];
     const missing = (issues: LintIssue[]) => issues.filter(i => i.rule === 'spec/missing' && (i.file === 'requirements.md' || i.file === 'bugfix.md'));

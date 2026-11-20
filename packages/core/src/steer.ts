@@ -7,7 +7,7 @@ import { existsSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSy
 import { join, relative, basename } from 'node:path';
 import picomatch from 'picomatch';
 import { loadConfig, steeringRoot } from './config.js';
-import { loadSteering, splitPattern, type Steering } from './steering.js';
+import { loadSteering, loadSteeringEntries, parseSteering, splitPattern, type Steering } from './steering.js';
 import { estimateTokens } from './tokens.js';
 import type { LintIssue } from './types.js';
 
@@ -452,32 +452,44 @@ export function listSteering(root: string, p = probe(root)): { rows: SteeringRow
   return { rows, alwaysTokens, budget: cfg.steeringBudget };
 }
 
-export function lintSteering(root: string, p = probe(root)): LintIssue[] {
+/** A steering file to lint: its name in the steering folder and its full text, frontmatter included. */
+export interface SteeringText { file: string; text: string }
+
+/**
+ * Lint steering texts without reading anything. Line numbers count from the top of the file, frontmatter included.
+ * `budget` caps the `inclusion: always` total. `matches` (file name to the number of repo files its pattern matches)
+ * enables the no-match warning; without it the warning is never produced.
+ */
+export function lintSteeringFiles(files: SteeringText[], budget: number, matches?: Map<string, number>): LintIssue[] {
   const issues: LintIssue[] = [];
-  const dir = steeringRoot(root);
-  const { rows, alwaysTokens, budget } = listSteering(root, p);
-  for (const s of loadSteering(root)) {
-    const file = `steering/${s.file}`;
-    const raw = readFileSync(join(dir, s.file), 'utf8');
-    const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw)?.[1];
+  let alwaysTokens = 0;
+  for (const { file: name, text: raw } of files) {
+    const s = parseSteering(name, raw);
+    const file = `steering/${name}`;
+    const bytes = Buffer.byteLength(s.body, 'utf8');
+    if (s.inclusion === 'always') alwaysTokens += estimateTokens(s.body);
+    const fmMatch = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+    const fm = fmMatch?.[1];
     if (fm) {
       const inc = /inclusion:\s*(\S+)/.exec(fm)?.[1];
       if (inc && !['always', 'fileMatch', 'manual'].includes(inc)) issues.push({ level: 'error', rule: 'steering/inclusion', file, msg: `unknown inclusion "${inc}" (always | fileMatch | manual)` });
       if (inc === 'fileMatch' && !s.pattern) issues.push({ level: 'error', rule: 'steering/pattern', file, msg: 'inclusion: fileMatch needs fileMatchPattern' });
     }
-    const row = rows.find(r => r.file === s.file)!;
-    if (row.matches === 0) issues.push({ level: 'warn', rule: 'steering/no-match', file, msg: `fileMatchPattern "${s.pattern}" matches no file in the repo` });
-    const maxBytes = MAX_BYTES_BY_FILE[s.file] ?? STEERING_MAX_BYTES;
-    if (row.bytes > maxBytes) issues.push({ level: 'warn', rule: 'steering/size', file, msg: `${row.bytes} bytes; keep under ${maxBytes} (split by topic or move detail to a manual file)` });
-    const lines = s.body.split('\n');
+    if (matches && s.inclusion === 'fileMatch' && s.pattern && matches.get(name) === 0) issues.push({ level: 'warn', rule: 'steering/no-match', file, msg: `fileMatchPattern "${s.pattern}" matches no file in the repo` });
+    const maxBytes = MAX_BYTES_BY_FILE[name] ?? STEERING_MAX_BYTES;
+    if (bytes > maxBytes) issues.push({ level: 'warn', rule: 'steering/size', file, msg: `${bytes} bytes; keep under ${maxBytes} (split by topic or move detail to a manual file)` });
+    // Scan the file's own lines after the frontmatter, so `i + 1` is the line in the file.
+    const all = raw.split(/\r?\n/);
+    const skip = fmMatch ? fmMatch[0].split(/\r?\n/).length : 0;
+    const lines = all.map((l, i) => (i < skip ? '' : l));
     let inFence = false;
     const ph = lines.findIndex(l => {
       if (/^\s*```/.test(l)) { inFence = !inFence; return false; }
       return !inFence && /<[^>\s/][^>]*>/.test(l) && !/^\s*<\/?[a-z]+[\s>]/.test(l) && !/`[^`]*<[^`]*>[^`]*`/.test(l);
     });
     if (ph >= 0) issues.push({ level: 'warn', rule: 'steering/placeholder', file, line: ph + 1, msg: 'template placeholder still present' });
-    const thin = STEERING_THIN_BYTES[s.file] ?? THIN_TOPIC_BYTES;
-    if (ph < 0 && row.bytes < thin && s.body.trim()) issues.push({ level: 'warn', rule: 'steering/thin', file, msg: `${row.bytes} bytes; too thin to brief an agent. Aim ${STEERING_THIN_BYTES[s.file] ? '1.5–4' : '0.5–1.5'} KB of specific facts: names, versions, paths, limits, one bullet per fact` });
+    const thin = STEERING_THIN_BYTES[name] ?? THIN_TOPIC_BYTES;
+    if (ph < 0 && bytes < thin && s.body.trim()) issues.push({ level: 'warn', rule: 'steering/thin', file, msg: `${bytes} bytes; too thin to brief an agent. Aim ${STEERING_THIN_BYTES[name] ? '1.5–4' : '0.5–1.5'} KB of specific facts: names, versions, paths, limits, one bullet per fact` });
     // A section whose only bullet is a semicolon chain is a list that was squashed into a line.
     const sections: number[][] = [[]];
     lines.forEach((l, i) => { if (/^#{1,6}\s/.test(l)) sections.push([]); else if (/^\s*-\s/.test(l)) sections[sections.length - 1].push(i); });
@@ -488,9 +500,23 @@ export function lintSteering(root: string, p = probe(root)): LintIssue[] {
       if (/^\s*```/.test(l)) { if (fence < 0) { fence = i; exempt = /^\s*```schema\b/.test(l); } else { if (i - fence > 16 && !exempt) issues.push({ level: 'warn', rule: 'steering/code-dump', file, line: fence + 1, msg: `${i - fence - 1}-line code block; name the file instead so ctx can fetch it` }); fence = -1; } }
     });
     if (!s.body.trim()) issues.push({ level: 'warn', rule: 'steering/empty', file, msg: 'empty' });
-    if (ph < 0 && s.file === 'structure.md' && !/^\s*```/m.test(s.body) && !/^\|.*\|\s*$/m.test(s.body)) issues.push({ level: 'warn', rule: 'steering/shape', file, msg: 'no tree or table: show the layout (a fenced tree with a comment per folder, a subfolder → responsibility table), not sentences about it. `steno steer template structure.md` shows the shape' });
-    if (ph < 0 && s.file === 'tech.md' && !/^\s*```(bash|sh|shell)?\s*$/m.test(s.body)) issues.push({ level: 'warn', rule: 'steering/shape', file, msg: 'no command block: list every script in a ```bash block with a comment each. `steno steer template tech.md` shows the shape' });
+    if (ph < 0 && name === 'structure.md' && !/^\s*```/m.test(s.body) && !/^\|.*\|\s*$/m.test(s.body)) issues.push({ level: 'warn', rule: 'steering/shape', file, msg: 'no tree or table: show the layout (a fenced tree with a comment per folder, a subfolder → responsibility table), not sentences about it. `steno steer template structure.md` shows the shape' });
+    if (ph < 0 && name === 'tech.md' && !/^\s*```(bash|sh|shell)?\s*$/m.test(s.body)) issues.push({ level: 'warn', rule: 'steering/shape', file, msg: 'no command block: list every script in a ```bash block with a comment each. `steno steer template tech.md` shows the shape' });
   }
   if (alwaysTokens > budget) issues.push({ level: 'error', rule: 'steering/budget', file: 'steering', msg: `inclusion: always files total ~${alwaysTokens} tokens, over steeringBudget ${budget}; they enter every ctx packet. Shorten, or switch some to fileMatch` });
   return issues;
+}
+
+/** How many repo files each fileMatch steering file's pattern matches, by file name. */
+export function steeringMatches(root: string, p = probe(root)): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const s of loadSteering(root)) if (s.inclusion === 'fileMatch' && s.pattern) m.set(s.file, globAny(p.files, splitPattern(s.pattern)).length);
+  return m;
+}
+
+/** `steno steer lint`: lint the saved steering files, with the no-match warning. Files that cannot be read are skipped here. */
+export function lintSteering(root: string, p = probe(root)): LintIssue[] {
+  const cfg = loadConfig(root);
+  const files = loadSteeringEntries(steeringRoot(root, cfg)).flatMap(e => (e.text !== undefined ? [{ file: basename(e.file), text: e.text }] : []));
+  return lintSteeringFiles(files, cfg.steeringBudget, steeringMatches(root, p));
 }

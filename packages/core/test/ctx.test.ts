@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createSpec, loadSpec, buildCtx, estimateTokens, testFilesFor } from '../src/index.js';
+import { createSpec, loadSpec, buildCtx, estimateTokens, testFilesFor, loadSteering } from '../src/index.js';
 
 function project() {
   const root = mkdtempSync(join(tmpdir(), 'steno-'));
@@ -22,7 +22,7 @@ function project() {
 describe('ctx packet', () => {
   it('slices only referenced criteria, design, files and matching steering', () => {
     const { root, dir } = project();
-    const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000);
+    const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000, { steering: loadSteering(root) });
     expect(p.text).toContain('R1.1 WHEN valid');
     expect(p.text).not.toContain('R1.2 IF wrong');
     expect(p.text).not.toContain('R2');
@@ -90,6 +90,34 @@ describe('ctx packet: checkpoints', () => {
     expect(checkpointScope(doc.tasks, t('T2')).map(x => x.id)).toEqual(['T1.1', 'T1.2']);
     expect(checkpointScope(doc.tasks, t('T3.2')).map(x => x.id)).toEqual(['T3.1']);
     expect(checkpointScope(doc.tasks, t('T4')).map(x => x.id)).toEqual(['T3.1']);
+  });
+});
+
+describe('ctx packet: omitted steering files', () => {
+  it('lists an omitted file the packet would include, with its reason, and leaves it out', () => {
+    const { root, dir } = project();
+    const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000, { steering: loadSteering(root), omit: [{ file: 'tech.md', reason: 'unsaved edits' }] });
+    expect(p.text).not.toContain('argon2');
+    expect(p.trimmed).toContain('steering/tech.md (unsaved edits)');
+  });
+
+  it('does not list an omitted file the packet would not include', () => {
+    const { root, dir } = project();
+    const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000, { steering: loadSteering(root), omit: [{ file: 'ui.md', reason: 'unsaved edits' }] });
+    expect(p.text).toContain('argon2');
+    expect(p.trimmed.some(t => t.startsWith('steering/ui.md'))).toBe(false);
+  });
+
+  it('always lists an Unreadable file, whose inclusion rule cannot be read', () => {
+    const { root, dir } = project();
+    const p = buildCtx(loadSpec(dir), root, 'T1.1', 100000, { steering: loadSteering(root), omit: [{ file: 'bad.md', reason: 'bad.md is not UTF-8 text' }] });
+    expect(p.text).toContain('argon2');
+    expect(p.trimmed).toContain('steering/bad.md (bad.md is not UTF-8 text)');
+  });
+
+  it('includes no steering when none is given', () => {
+    const { root, dir } = project();
+    expect(buildCtx(loadSpec(dir), root, 'T1.1', 100000).text).not.toContain('argon2');
   });
 });
 

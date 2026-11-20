@@ -1,0 +1,465 @@
+{
+  "protocolVersion": 1,
+  "errorCodes": [
+    "not-set-up",
+    "invalid-request",
+    "not-found",
+    "unsupported",
+    "unsaved-edits",
+    "lint-blocked",
+    "unreadable",
+    "failed"
+  ],
+  "lensCommands": [
+    "steno.task.run",
+    "steno.task.done"
+  ],
+  "shapes": {
+    "Handshake": {
+      "serverInfo": {
+        "type": {
+          "object": {
+            "name": {
+              "type": {
+                "enum": [
+                  "steno"
+                ]
+              }
+            },
+            "version": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "capabilities": {
+        "type": {
+          "object": {
+            "experimental": {
+              "type": {
+                "object": {
+                  "steno": {
+                    "type": {
+                      "object": {
+                        "protocolVersion": {
+                          "type": "number"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "SpecTree": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "notSetUp": {
+        "type": "true",
+        "optional": true
+      },
+      "specs": {
+        "type": {
+          "array": {
+            "ref": "TreeSpec"
+          }
+        }
+      },
+      "steering": {
+        "type": {
+          "array": {
+            "ref": "TreeSteering"
+          }
+        }
+      },
+      "specsDir": {
+        "type": "string",
+        "optional": true
+      },
+      "steeringDir": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "TreeSpec": {
+      "name": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string",
+        "optional": true
+      },
+      "kind": {
+        "type": {
+          "enum": [
+            "feature",
+            "bugfix"
+          ]
+        },
+        "optional": true
+      },
+      "mode": {
+        "type": {
+          "enum": [
+            "gated",
+            "quick"
+          ]
+        },
+        "optional": true
+      },
+      "phase": {
+        "type": {
+          "enum": [
+            "brief",
+            "requirements",
+            "design",
+            "tasks",
+            "execute",
+            "done"
+          ]
+        },
+        "optional": true
+      },
+      "approvals": {
+        "type": {
+          "keys": [
+            "requirements",
+            "design",
+            "tasks"
+          ],
+          "value": {
+            "nullable": "string"
+          }
+        },
+        "optional": true
+      },
+      "tasks": {
+        "type": {
+          "ref": "TaskCounts"
+        },
+        "optional": true
+      },
+      "next": {
+        "type": {
+          "nullable": {
+            "object": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "optional": true
+      },
+      "documents": {
+        "type": {
+          "array": "string"
+        },
+        "optional": true
+      },
+      "taskItems": {
+        "type": {
+          "array": {
+            "ref": "OutlineItem"
+          }
+        },
+        "optional": true
+      },
+      "unsupported": {
+        "type": "true",
+        "optional": true
+      },
+      "unreadable": {
+        "type": "true",
+        "optional": true
+      },
+      "files": {
+        "type": {
+          "array": {
+            "object": {
+              "file": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "optional": true
+      }
+    },
+    "TaskCounts": {
+      "total": {
+        "type": "number"
+      },
+      "done": {
+        "type": "number"
+      },
+      "optionalTotal": {
+        "type": "number"
+      },
+      "optionalDone": {
+        "type": "number"
+      }
+    },
+    "TreeSteering": {
+      "path": {
+        "type": "string"
+      },
+      "inclusion": {
+        "type": {
+          "enum": [
+            "always",
+            "fileMatch",
+            "manual"
+          ]
+        },
+        "optional": true
+      },
+      "unreadable": {
+        "type": "true",
+        "optional": true
+      },
+      "reason": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "TaskPacket": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "spec": {
+        "type": "string"
+      },
+      "task": {
+        "type": "string"
+      },
+      "text": {
+        "type": "string"
+      },
+      "tokens": {
+        "type": "number"
+      },
+      "budget": {
+        "type": "number"
+      },
+      "files": {
+        "type": {
+          "array": "string"
+        }
+      },
+      "trimmed": {
+        "type": {
+          "array": "string"
+        }
+      }
+    },
+    "ChangeResult": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "spec": {
+        "type": "string"
+      },
+      "phase": {
+        "type": {
+          "enum": [
+            "brief",
+            "requirements",
+            "design",
+            "tasks",
+            "execute",
+            "done"
+          ]
+        }
+      },
+      "task": {
+        "type": "string",
+        "optional": true
+      },
+      "done": {
+        "type": "boolean",
+        "optional": true
+      },
+      "approved": {
+        "type": {
+          "enum": [
+            "brief",
+            "requirements",
+            "design",
+            "tasks",
+            "execute",
+            "done"
+          ]
+        },
+        "optional": true
+      },
+      "forced": {
+        "type": "true",
+        "optional": true
+      },
+      "created": {
+        "type": {
+          "array": "string"
+        },
+        "optional": true
+      }
+    },
+    "DiagnosticList": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "spec": {
+        "type": "string",
+        "optional": true
+      },
+      "diagnostics": {
+        "type": {
+          "array": {
+            "ref": "Diagnostic"
+          }
+        }
+      }
+    },
+    "Diagnostic": {
+      "file": {
+        "type": "string"
+      },
+      "line": {
+        "type": "number"
+      },
+      "severity": {
+        "type": {
+          "enum": [
+            "error",
+            "warning"
+          ]
+        }
+      },
+      "rule": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "spec": {
+        "type": "string",
+        "optional": true
+      }
+    },
+    "Outline": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "spec": {
+        "type": "string"
+      },
+      "document": {
+        "type": "string"
+      },
+      "items": {
+        "type": {
+          "array": {
+            "ref": "OutlineItem"
+          }
+        }
+      }
+    },
+    "OutlineItem": {
+      "kind": {
+        "type": {
+          "enum": [
+            "requirement",
+            "criterion",
+            "section",
+            "task",
+            "heading"
+          ]
+        }
+      },
+      "id": {
+        "type": "string",
+        "optional": true
+      },
+      "title": {
+        "type": "string"
+      },
+      "line": {
+        "type": "number"
+      },
+      "endLine": {
+        "type": "number"
+      },
+      "children": {
+        "type": {
+          "array": {
+            "ref": "OutlineItem"
+          }
+        }
+      },
+      "done": {
+        "type": "boolean",
+        "optional": true
+      },
+      "optional": {
+        "type": "boolean",
+        "optional": true
+      }
+    },
+    "StructuredError": {
+      "protocolVersion": {
+        "type": "number"
+      },
+      "code": {
+        "type": {
+          "enum": [
+            "not-set-up",
+            "invalid-request",
+            "not-found",
+            "unsupported",
+            "unsaved-edits",
+            "lint-blocked",
+            "unreadable",
+            "failed"
+          ]
+        }
+      },
+      "message": {
+        "type": "string"
+      },
+      "field": {
+        "type": "string",
+        "optional": true
+      },
+      "file": {
+        "type": "string",
+        "optional": true
+      },
+      "spec": {
+        "type": "string",
+        "optional": true
+      },
+      "reason": {
+        "type": "string",
+        "optional": true
+      },
+      "findings": {
+        "type": {
+          "array": {
+            "ref": "Diagnostic"
+          }
+        },
+        "optional": true
+      }
+    }
+  }
+}

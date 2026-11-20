@@ -1,15 +1,15 @@
-// "Set up steno": which folder it picks, the parent project walk, the `init` call it builds, and the whole flow
+// "Set up steno": which folder it picks, the `init` call it builds, and the whole flow
 // against a fake bundled CLI.
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, posix } from 'node:path';
+import { join } from 'node:path';
 import { Uri, answers, commands, folder, openDocument, recorded, resetRecorded, window, workspace } from './vscode-stub.js';
 import type { SpecTree } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import {
-  COPY_INSTALL, INSTALL_COMMAND, OPEN_PARENT, SET_UP_COMMAND, initAgents, initArgs, initResult, parentProject,
+  COPY_INSTALL, INSTALL_COMMAND, OPEN_PARENT, SET_UP_COMMAND, initAgents, initArgs, initResult,
   pickSetUpFolder, registerSetUp, setUp,
 } from '../src/setup.js';
 
@@ -30,44 +30,6 @@ describe('pickSetUpFolder', () => {
     expect(pickSetUpFolder(['/a'], '/elsewhere')).toBe('/a');
     expect(pickSetUpFolder(['/a', '/b'], '/elsewhere')).toBeUndefined();
     expect(pickSetUpFolder([], undefined)).toBeUndefined();
-  });
-});
-
-describe('parentProject', () => {
-  it('a parent project is the nearest folder above', () => {
-    const segment = fc.constantFrom('a', 'b', 'c');
-    const dir = fc.array(segment, { maxLength: 4 }).map(parts => '/' + parts.join('/'));
-    fc.assert(fc.property(dir, fc.uniqueArray(dir), (start, projects) => {
-      const exists = (p: string) => projects.some(d => posix.join(d, '.steno') === p);
-      const ancestors: string[] = [];
-      for (let at = start; at !== '/';) { at = posix.dirname(at); ancestors.push(at); }
-      const expected = ancestors.find(a => projects.includes(a));
-      expect(parentProject(start, exists)).toBe(expected);
-    }));
-  });
-
-  it('never counts the folder itself, and walks up to the root', () => {
-    const holding = (...dirs: string[]) => (p: string) => dirs.some(d => posix.join(d, '.steno') === p);
-    expect(parentProject('/work/app', holding('/work/app'))).toBeUndefined();
-    expect(parentProject('/work/repo/packages/app', holding('/work/repo', '/work'))).toBe('/work/repo');
-    expect(parentProject('/work/app', holding('/'))).toBe('/');
-    expect(parentProject('/', holding('/'))).toBeUndefined();
-  });
-
-  it('walks a Windows path by Windows rules on any host', () => {
-    const seen: string[] = [];
-    const found = parentProject('C:\\work\\repo\\app', p => { seen.push(p); return p === 'C:\\work\\.steno'; });
-    expect(found).toBe('C:\\work');
-    expect(seen).toEqual(['C:\\work\\repo\\.steno', 'C:\\work\\.steno']);
-  });
-
-  it('finds a real .steno folder on disk', () => {
-    const root = mkdtempSync(join(tmpdir(), 'steno-parent-'));
-    try {
-      mkdirSync(join(root, '.steno'));
-      mkdirSync(join(root, 'packages', 'app'), { recursive: true });
-      expect(parentProject(join(root, 'packages', 'app'), existsSync)).toBe(root);
-    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 });
 

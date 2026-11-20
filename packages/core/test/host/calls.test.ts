@@ -1,8 +1,8 @@
 // Which skill each action calls in each phase, the order of its arguments, and the three ways we write a call.
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { SAFE, render, skillCall, type CallForm, type Handoff } from '../src/calls.js';
-import type { Phase } from '../src/protocol.js';
+import { SAFE, render, skillCall, type CallForm, type Handoff } from '../../src/host/calls.js';
+import type { Phase } from '../../src/types.js';
 
 const PHASES: Phase[] = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'];
 const FORMS: CallForm[] = ['slash', 'dollar', 'plain'];

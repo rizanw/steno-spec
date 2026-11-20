@@ -1,6 +1,6 @@
 // Builds the short message we send to a coding agent, such as `/steno-run T3.1 my-spec`. It only ever names a
 // skill, a spec and maybe a task; the agent fetches everything else itself, so no file contents end up in it.
-import type { Phase } from './protocol.js';
+import type { Phase } from '../types.js';
 
 export type Handoff =
   | { kind: 'run'; spec: string; task?: string }

@@ -1,9 +1,8 @@
-// The restart policy: a crashed server comes back until five exits land inside three minutes.
+// How the pool acts on the restart window: a crashed server comes back until five exits land inside three minutes.
 import { describe, it, expect, beforeEach } from 'vitest';
-import fc from 'fast-check';
 import { answers, folder, recorded, resetRecorded } from './vscode-stub.js';
+import { MAX_EXITS } from '@steno/core/host';
 import { CloseAction, ErrorAction } from './languageclient-stub.js';
-import { MAX_EXITS, RestartWindow, WINDOW_MS } from '../src/restart.js';
 import { ServerPool, type ClientHandlers, type CreateClient, type StenoClient } from '../src/servers.js';
 
 const SERVER = '/ext/dist/steno-lsp.mjs';
@@ -27,56 +26,6 @@ function pooled() {
   const pool = new ServerPool(SERVER, create);
   return { pool, log, handlers: () => handlers };
 }
-
-describe('RestartWindow', () => {
-  it('restarts the first four exits and stops on the fifth inside the window', () => {
-    const w = new RestartWindow();
-    const t = 1_000_000;
-    expect([0, 1, 2, 3, 4].map(i => w.record(t + i * 1000)))
-      .toEqual(['restart', 'restart', 'restart', 'restart', 'stop']);
-  });
-
-  it('forgets exits that fall out of the window', () => {
-    const w = new RestartWindow();
-    const t = 1_000_000;
-    for (let i = 0; i < 4; i++) w.record(t + i);
-    // the fifth exit arrives after the first four have aged out, so it is a first exit again
-    expect(w.record(t + WINDOW_MS + 1)).toBe('restart');
-  });
-
-  it('starts over after reset, so the user\'s Restart gets a clean record', () => {
-    const w = new RestartWindow();
-    const t = 1_000_000;
-    for (let i = 0; i < MAX_EXITS; i++) w.record(t + i);
-    w.reset();
-    expect(w.record(t + MAX_EXITS)).toBe('restart');
-  });
-
-  it('stops exactly on an exit that is the fifth or later within the window', () => {
-    // the gaps between exits, with the window's own edges among the likely values, so the boundary is exercised
-    // Gaps that divide the window, so sums of them land exactly on WINDOW_MS often: that is the one
-    // difference between "inside the window" and "outside" it, and the boundary must be exercised.
-    const onTheGrid = fc.constantFrom(0, 1, WINDOW_MS / 4, WINDOW_MS / 2, WINDOW_MS - 1, WINDOW_MS, WINDOW_MS + 1);
-    const gap = fc.oneof(
-      { arbitrary: onTheGrid, weight: 4 },
-      { arbitrary: fc.integer({ min: 0, max: 400_000 }), weight: 1 },
-    );
-    fc.assert(fc.property(
-      fc.array(gap, { minLength: 1, maxLength: 40 }),
-      gaps => {
-        const w = new RestartWindow();
-        // an increasing list of exit times, built from the gaps between them
-        let now = 0;
-        const times = gaps.map(g => (now += g));
-        times.forEach((t, i) => {
-          // the model: how many of the exits up to and including this one fall inside the window ending at it
-          const within = times.slice(0, i + 1).filter(earlier => t - earlier < WINDOW_MS).length;
-          expect(w.record(t)).toBe(within >= MAX_EXITS ? 'stop' : 'restart');
-        });
-      },
-    ), { numRuns: 1000 });
-  });
-});
 
 describe('the pool\'s handlers', () => {
   it('keeps going on a protocol error: the server has not exited', async () => {

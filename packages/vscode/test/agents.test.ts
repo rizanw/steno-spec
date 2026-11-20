@@ -1,11 +1,10 @@
-// The agent table and how we detect agents, including PATH lookup on macOS/Linux and on Windows.
+// The agent table and how we detect agents.
 import { describe, it, expect } from 'vitest';
-import { ADAPTERS, detected, findOnPath, type AgentAdapter, type Env, type Probe } from '../src/agents.js';
-import { render, skillCall, type Handoff } from '../src/calls.js';
+import { ADAPTERS, detected, type AgentAdapter, type Probe } from '../src/agents.js';
+import { render, skillCall, type Env, type Handoff } from '@steno/core/host';
 
 const files = (...paths: string[]) => { const set = new Set(paths); return (p: string) => set.has(p); };
 const posixEnv: Env = { path: '/usr/local/bin:/usr/bin::/opt/bin', windows: false };
-const winEnv: Env = { path: 'C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm', pathExt: '.COM;.EXE;.BAT;.CMD', windows: true };
 const byId = (id: string) => ADAPTERS.find(a => a.id === id)!;
 
 describe('ADAPTERS', () => {
@@ -47,30 +46,6 @@ describe('ADAPTERS', () => {
         for (const arg of a.via.args(render(skillCall(h)!, a.form))) expect(arg, a.id).toMatch(/^[A-Za-z0-9 /$:._-]+$/);
       }
     }
-  });
-});
-
-describe('findOnPath', () => {
-  it('finds the bare name on POSIX, in PATH order, skipping empty entries', () => {
-    expect(findOnPath('claude', posixEnv, files('/usr/bin/claude', '/opt/bin/claude'))).toBe('/usr/bin/claude');
-    expect(findOnPath('claude', posixEnv, files('/usr/bin/claude.cmd'))).toBeUndefined();
-    expect(findOnPath('claude', posixEnv, files())).toBeUndefined();
-  });
-
-  it('tries only the PATHEXT endings on Windows, in PATHEXT order', () => {
-    const npm = 'C:\\Users\\u\\AppData\\Roaming\\npm';
-    expect(findOnPath('codex', winEnv, files(`${npm}\\codex.cmd`, `${npm}\\codex.exe`))).toBe(`${npm}\\codex.exe`);
-    expect(findOnPath('codex', winEnv, files('C:\\Windows\\codex'))).toBeUndefined();
-  });
-
-  it('resolves a bare npm script beside its .cmd shim to the shim on Windows', () => {
-    const npm = 'C:\\Users\\u\\AppData\\Roaming\\npm';
-    expect(findOnPath('gemini', winEnv, files(`${npm}\\gemini`, `${npm}\\gemini.cmd`))).toBe(`${npm}\\gemini.cmd`);
-  });
-
-  it('falls back to the usual PATHEXT when the variable is missing', () => {
-    const env: Env = { path: 'C:\\bin', windows: true };
-    expect(findOnPath('opencode', env, files('C:\\bin\\opencode.exe'))).toBe('C:\\bin\\opencode.exe');
   });
 });
 

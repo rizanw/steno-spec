@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import {
   Uri, answers, failures, folder, handlers, installed, memento, openDocument, recorded, resetRecorded, setFolders, workspace,
 } from './vscode-stub.js';
+import { cmdLine } from '@steno/core/host';
 import { ADAPTERS, type Probe } from '../src/agents.js';
 import { AGENT_KEY, Chooser } from '../src/chooser.js';
 import {
@@ -84,11 +85,9 @@ describe('terminalOptions', () => {
       .toEqual({ shellPath: 'C:\\bin\\claude.exe', shellArgs: ['/steno-run T1 auth'] });
   });
 
-  it('starts a Windows .cmd or .bat shim through cmd.exe, quoting each argument that holds a space', () => {
-    expect(terminalOptions('C:\\npm\\codex.cmd', ['$steno-run T1 auth'], true))
-      .toEqual({ shellPath: 'cmd.exe', shellArgs: '/d /s /c ""C:\\npm\\codex.cmd" "$steno-run T1 auth""' });
+  it('starts a Windows .cmd or .bat shim through cmd.exe with one quoted command line', () => {
     expect(terminalOptions('C:\\npm\\gemini.BAT', ['-i', 'x y'], true))
-      .toEqual({ shellPath: 'cmd.exe', shellArgs: '/d /s /c ""C:\\npm\\gemini.BAT" -i "x y""' });
+      .toEqual({ shellPath: 'cmd.exe', shellArgs: `/d /s /c "${cmdLine('C:\\npm\\gemini.BAT', ['-i', 'x y'])}"` });
   });
 });
 

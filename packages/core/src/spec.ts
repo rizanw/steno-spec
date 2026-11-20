@@ -8,7 +8,7 @@ import { allTasksDone, parseTasks } from './parse/tasks.js';
 import { specsRoot } from './config.js';
 import { diskSource, type FileSource } from './source.js';
 import { StenoError } from './contract.js';
-import { requirementsTemplate, bugfixTemplate, designTemplate, tasksTemplate, briefTemplate } from './templates.js';
+import { requirementsTemplate, bugfixTemplate, designTemplate, tasksTemplate, briefTemplate, requestLine, withRequest } from './templates.js';
 
 export const ARTIFACTS = ['brief.md', 'requirements.md', 'bugfix.md', 'design.md', 'tasks.md'] as const;
 
@@ -91,7 +91,11 @@ export function loadSpec(dir: string, src: FileSource = diskSource): Spec {
   return buildSpec(dir, state, files);
 }
 
-export interface NewSpecOptions { title?: string; bugfix?: boolean; quick?: boolean; brief?: boolean }
+export interface NewSpecOptions {
+  title?: string; bugfix?: boolean; quick?: boolean; brief?: boolean;
+  /** the user's own words on what the spec is about; written as a `> Request:` line in the first document */
+  description?: string;
+}
 
 /** Scaffold a spec directory. Gated mode writes only the first artifact (brief.md with --brief, else requirements.md/bugfix.md); quick mode writes all three. */
 export function createSpec(projectRoot: string, name: string, opts: NewSpecOptions = {}): { dir: string; state: SpecState; written: string[] } {
@@ -104,8 +108,10 @@ export function createSpec(projectRoot: string, name: string, opts: NewSpecOptio
   if (opts.quick) state.phase = 'execute';
   const written: string[] = [];
   const put = (f: string, text: string) => { writeFileSync(join(dir, f), text); written.push(f); };
-  if (opts.brief) put('brief.md', briefTemplate(title));
-  else put(opts.bugfix ? 'bugfix.md' : 'requirements.md', opts.bugfix ? bugfixTemplate(title) : requirementsTemplate(title));
+  // only the first document carries the request; it is what the agent writes first
+  const request = requestLine(opts.description);
+  if (opts.brief) put('brief.md', withRequest(briefTemplate(title), request));
+  else put(opts.bugfix ? 'bugfix.md' : 'requirements.md', withRequest(opts.bugfix ? bugfixTemplate(title) : requirementsTemplate(title), request));
   if (opts.quick) { put('design.md', designTemplate(title)); put('tasks.md', tasksTemplate(title)); }
   saveState(dir, state);
   return { dir, state, written };

@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 import { Command, CommanderError } from 'commander';
-import { createRequire } from 'node:module';
 import { PROTOCOL_VERSION, StenoError, toStructuredError } from '@steno/core';
 import { register as initCmd } from './commands/init.js';
 import { register as specCmds } from './commands/spec.js';
 import { register as steerCmds } from './commands/steer.js';
 import { register as lspCmd } from './commands/lsp.js';
 
-const require = createRequire(import.meta.url);
-const { version } = require('../package.json') as { version: string };
+// the release version, compiled in at build time, so the binary reports it wherever the file is placed
+declare const __STENO_VERSION__: string;
+const version = __STENO_VERSION__;
 
 // Parsing may stop before the options are read, so --json comes from the raw arguments.
 const json = process.argv.slice(2).includes('--json');

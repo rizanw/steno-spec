@@ -8,6 +8,9 @@ description: Write or revise the technical design of a steno spec (design.md) so
 Goal: `design.md` that names the components, data, failure modes and correctness properties needed to satisfy every requirement, readable in five minutes, with traceability precise enough that `steno ctx` can slice one task's sections.
 Hard rules: read code, never run it. No test, lint or build runs in this phase; nothing is implemented yet. Never read the spec files back in full (`steno show <id>`).
 
+## Spec name
+When the request ends with a spec name (`my-spec`), append the spec name to every steno command that takes `[spec]` (`status`, `scaffold`, `show`, `lint`, `trace`, `approve`), never to `steno new` or `steno quick`. With none named, run the commands as written.
+
 ## Steps
 1. `steno status`; confirm phase is `design`, then `steno scaffold` (writes `design.md` if missing; harmless otherwise). `steno show requirements` for the outline; `steno show R<n>` only when designing the section that satisfies it. `steno show glossary` once.
 2. Look at the existing code for the areas involved: current components, data fields, patterns to extend. Prefer extending what exists. If a sub-agent is available, one bounded explorer (≤ 15 files, ≤ 250 words) is enough.

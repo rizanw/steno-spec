@@ -8,6 +8,9 @@ description: Fresh-context review of a steno spec stage (requirements, design, t
 Why: a reviewer that shares your conversation agrees with you. Reviewers must see only the packet.
 A review settles and removes. It never grows the spec on its own, and it ends: one full round, at most one verify round.
 
+## Spec name
+The request gives the stage first, then may give a spec name (`design my-spec`): the first word is the stage for `steno review --stage`. With a spec name, append the spec name to every steno command that takes `[spec]` (`review`, `lint`, `approve`), never to `steno new`.
+
 ## Steps
 1. `steno review --stage <requirements|design|tasks|drift>` → writes `reviews/<date>-<stage>-packet.md` and prints the round (`full` or `verify`), the size and any warning. Note the path; tell the user every warning. If it says nothing changed, go to step 7.
 2. **EGM, only on request.** If `.steno/config.yaml` sets `reviewer: egm` or the user asked for EGM in this request, and EGM is installed: invoke `egm-review` on that packet file (for `drift`, `egm-drift-report`), telling it which stage the file is; for requirements or tasks, add that it is not a design document, so no architecture, alternatives or risks sections are expected. Save its findings as `reviews/<date>-<stage>.md`. Go to step 5.

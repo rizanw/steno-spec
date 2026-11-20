@@ -28,8 +28,14 @@ export function register(program: Command): void {
     .option('-a, --agent <keys>', `comma list of: ${AGENTS.map(a => a.key).join(', ')}`, 'claude,codex')
     .option('--copy', 'copy skills into each agent dir instead of symlinking')
     .option('--no-agents-md', 'do not touch AGENTS.md')
+    .option('--list-agents', 'print the agents init can set up and exit, touching nothing')
     .action((opts) => {
       const ctx = ctxFromOpts(program.opts());
+      if (opts.listAgents) {
+        const agents = AGENTS.map(({ key, label }) => ({ key, label }));
+        out(ctx, { agents }, () => agents.map(a => `${a.key.padEnd(11)} ${a.label}`).join('\n'));
+        return;
+      }
       // An explicit --root is taken as given, so a project nested inside another steno project
       // (an example, a monorepo package) can be initialised; without it, the nearest .steno/ upwards wins.
       const explicit = program.opts().root as string | undefined;
@@ -37,6 +43,8 @@ export function register(program: Command): void {
       const keys = String(opts.agent).split(',').map(s => s.trim()).filter(Boolean);
       const bad = keys.filter(k => !agentByKey(k));
       if (bad.length) fail(`unknown agent(s): ${bad.join(', ')} (supported: ${AGENTS.map(a => a.key).join(', ')})`);
+      // Find the skills before creating anything, so a missing skills folder fails cleanly without leaving a half-made .steno.
+      const src = skillsSource();
 
       mkdirSync(join(root, '.steno', 'specs'), { recursive: true });
       mkdirSync(join(root, '.steno', 'steering'), { recursive: true });
@@ -46,7 +54,6 @@ export function register(program: Command): void {
       // canonical copy
       const canonical = join(root, '.agents', 'skills');
       mkdirSync(canonical, { recursive: true });
-      const src = skillsSource();
       const installed: string[] = [];
       for (const name of readdirSync(src)) {
         const dst = join(canonical, name);

@@ -25,7 +25,7 @@ describe('buildTree', () => {
       '.steno/specs/a/spec.yaml': STATE, '.steno/specs/a/requirements.md': '# R\n', '.steno/specs/a/tasks.md': TASKS,
       '.steno/specs/k/design.md': '# D\n',
       '.steno/specs/u/spec.yaml': 'name: u\nformatVersion: 9\n',
-      '.steno/steering/ok.md': '---\ninclusion: manual\n---\n# Ok\n', '.steno/steering/bad.md': Buffer.from([0xc3, 0x28]),
+      '.steno/steering/ok.md': '---\ninclusion: manual\n---\n# Ok\n', '.steno/steering/web.md': '---\ninclusion: fileMatch\nfileMatchPattern: "src/web/**"\n---\n# Web\n', '.steno/steering/bad.md': Buffer.from([0xc3, 0x28]),
     });
     const tree = buildTree(loadProject(root));
     expect(tree.protocolVersion).toBe(PROTOCOL_VERSION);
@@ -46,6 +46,8 @@ describe('buildTree', () => {
     expect(tree.steering).toEqual([
       { path: '.steno/steering/bad.md', unreadable: true, reason: 'bad.md is not UTF-8 text' },
       { path: '.steno/steering/ok.md', inclusion: 'manual' },
+      // a fileMatch file carries its pattern, so a Client can say which files it is for
+      { path: '.steno/steering/web.md', inclusion: 'fileMatch', pattern: 'src/web/**' },
     ]);
   });
 
@@ -57,6 +59,21 @@ describe('buildTree', () => {
     const tree = buildTree(loadProject(root));
     expect(tree.specs[0]).toMatchObject({ name: 'e', taskItems: [] });
     expect(tree).toMatchObject({ specsDir: 'docs/specs', steeringDir: 'docs/steering' });
+  });
+
+  it('lists specs newest created first, the same day by name, and specs with no date of their own last by name', () => {
+    const dated = (name: string, created: string) => STATE.replace('name: a', `name: ${name}`).replace('created: 2026-01-01', created);
+    const root = project({
+      '.steno/specs/old/spec.yaml': dated('old', 'created: 2026-01-01'),
+      '.steno/specs/new-b/spec.yaml': dated('new-b', 'created: 2026-03-01'),
+      '.steno/specs/new-a/spec.yaml': dated('new-a', 'created: 2026-03-01'),
+      '.steno/specs/mid/spec.yaml': dated('mid', 'created: 2026-02-01'),
+      '.steno/specs/no-date/spec.yaml': dated('no-date', ''),
+      '.steno/specs/derived/design.md': '# D\n',
+      '.steno/specs/broken/spec.yaml': 'name: broken\nformatVersion: 9\n',
+    });
+    expect(buildTree(loadProject(root)).specs.map(s => s.name))
+      .toEqual(['new-a', 'new-b', 'mid', 'old', 'broken', 'derived', 'no-date']);
   });
 
   it('marks a snapshot that is not set up', () => {

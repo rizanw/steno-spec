@@ -87,6 +87,79 @@ describe('the server bundle', () => {
   });
 });
 
+describe('the CLI bundle', () => {
+  const BUNDLE = fileURLToPath(new URL('../bin/steno-cli.mjs', import.meta.url));
+
+  it('runs alone from a CommonJS package folder and answers as steno does', () => {
+    // a folder with nothing but the bundle and a package.json that makes .js files CommonJS
+    const alone = mkdtempSync(join(tmpdir(), 'steno-cli-bundle-'));
+    cpSync(BUNDLE, join(alone, 'cli.mjs'));
+    writeFileSync(join(alone, 'package.json'), '{ "type": "commonjs" }\n');
+    const dir = project(true);
+    const run = (...args: string[]) =>
+      JSON.parse(spawnSync(process.execPath, [join(alone, 'cli.mjs'), ...args, '--json'], { cwd: dir, encoding: 'utf8' }).stdout);
+    expect(run('new', 'demo')).toEqual(cliJson(project(true), 'new', 'demo'));
+    expect(existsSync(join(dir, '.steno', 'specs', 'demo', 'requirements.md'))).toBe(true);
+  });
+
+  it('reports the package version, with no package.json beside it', () => {
+    const alone = mkdtempSync(join(tmpdir(), 'steno-cli-version-'));
+    cpSync(BUNDLE, join(alone, 'cli.mjs'));
+    const out = spawnSync(process.execPath, [join(alone, 'cli.mjs'), '--version'], { encoding: 'utf8' });
+    expect(out.stdout.trim()).toBe(`${version} (protocol ${PROTOCOL_VERSION})`);
+  });
+
+  // Mirrors how the VS Code extension ships the CLI: the bundle in dist/, the skills folder next to dist.
+  const extensionLayout = (withSkills: boolean) => {
+    const ext = mkdtempSync(join(tmpdir(), 'steno-cli-ext-'));
+    cpSync(BUNDLE, join(ext, 'dist', 'steno-cli.mjs'));
+    if (withSkills) cpSync(fileURLToPath(new URL('../../skills/skills', import.meta.url)), join(ext, 'skills'), { recursive: true });
+    const dir = mkdtempSync(join(tmpdir(), 'steno-cli-init-'));
+    // pnpm sets NODE_PATH when it runs the tests, which would let the bundle find the workspace's skills package.
+    // VS Code doesn't set it, so we drop it here too.
+    const { NODE_PATH: _, ...env } = process.env;
+    const run = (...args: string[]) =>
+      spawnSync(process.execPath, [join(ext, 'dist', 'steno-cli.mjs'), ...args, '--root', dir, '--json'], { cwd: dir, env, encoding: 'utf8' });
+    return { dir, run };
+  };
+
+  it('sets a folder up from dist/ with the skills folder beside dist', () => {
+    const { dir, run } = extensionLayout(true);
+    const r = run('init', '-a', '');
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).skills).toContain('steno-spec');
+    expect(existsSync(join(dir, '.steno', 'config.yaml'))).toBe(true);
+    expect(existsSync(join(dir, '.agents', 'skills', 'steno-spec', 'SKILL.md'))).toBe(true);
+  });
+
+  it('fails without the skills folder and leaves no .steno', () => {
+    const { dir, run } = extensionLayout(false);
+    const r = run('init', '-a', '');
+    expect(r.status, r.stdout).toBe(1);
+    expect(r.stdout).toMatch(/@steno\/skills/);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('lists the agents with --list-agents, touching nothing', () => {
+    const { dir, run } = extensionLayout(false);
+    const r = run('init', '--list-agents');
+    expect(r.status, r.stderr).toBe(0);
+    expect(JSON.parse(r.stdout).agents).toContainEqual({ key: 'claude', label: 'Claude Code' });
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('inlines every dependency: it loads Node built-ins only', () => {
+    // the CLI's help text quotes module-like strings, so only whole import statements and `require()` calls count
+    const source = readFileSync(BUNDLE, 'utf8');
+    const specifiers = [
+      ...[...source.matchAll(/^import\b[^\n]*?from\s*['"]([^'"]+)['"]/gm)].map(m => m[1]),
+      ...[...source.matchAll(/\brequire\(['"]([^'"]+)['"]\)/g)].map(m => m[1]),
+    ];
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const s of specifiers) expect(builtinModules, s).toContain(s.replace(/^node:/, ''));
+  });
+});
+
 describe('steno lsp: spec tree', () => {
   it('returns the tree of a set-up project', async () => {
     const dir = project(true, 'demo');

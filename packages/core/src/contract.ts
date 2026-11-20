@@ -56,7 +56,7 @@ export const CONTRACT = {
     },
     TaskCounts: { total: req('number'), done: req('number'), optionalTotal: req('number'), optionalDone: req('number') },
     TreeSteering: {
-      path: req('string'), inclusion: opt({ enum: ['always', 'fileMatch', 'manual'] }),
+      path: req('string'), inclusion: opt({ enum: ['always', 'fileMatch', 'manual'] }), pattern: opt('string'),
       unreadable: opt('true'), reason: opt('string'),
     },
     TaskPacket: {

@@ -63,7 +63,7 @@ describe('the spec rows', () => {
 
   it('names what each row acts on and where a document lives', () => {
     const rows = byKey(specRows(tree([executing], { specsDir: 'specs/' }), none));
-    expect(rows.get('spec:login')!.target).toEqual({ spec: 'login' });
+    expect(rows.get('spec:login')!.target).toEqual({ spec: 'login', phase: 'execute' });
     expect(rows.get('doc:login/design.md')).toMatchObject({ target: { spec: 'login', phase: 'design' }, path: 'specs/login/design.md' });
     expect(rows.get('task:login/T1.2')!.target).toEqual({ spec: 'login', task: 'T1.2' });
   });

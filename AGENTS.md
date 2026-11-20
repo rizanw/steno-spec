@@ -30,7 +30,7 @@ docs/                                  → User docs (update with any visible ch
 examples/link-shortener/               → A finished spec to try a change on
 ```
 
-Generated, never edit: `packages/cli/{bin,skills}/`, `packages/cli/{README,LICENSE,JSON-CONTRACT}.md`, `packages/vscode/{dist,skills,media}/`, `packages/vscode/LICENSE`, `packages/paseo/server/vendor/`, `packages/paseo/media/`.
+Generated, never edit: `packages/cli/{bin,skills}/`, `packages/cli/{README,LICENSE,JSON-CONTRACT}.md`, `packages/vscode/{dist,skills,media}/`, `packages/vscode/LICENSE`, `packages/paseo/server/vendor/`, `packages/paseo/client/vendor/`, `packages/paseo/media/`.
 
 ## Code patterns
 

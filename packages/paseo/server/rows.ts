@@ -54,7 +54,9 @@ function taskRowsOf(spec: TreeSpec, parent: string, depth: number, rows: readonl
 function rowsOfSpec(tree: SpecTree, spec: TreeSpec, diagnostics: ReadonlyMap<string, readonly Diagnostic[]>): Row[] {
   const key = `spec:${spec.name}`;
   const own: Row = {
-    key, parent: SPECS_KEY, depth: 1, kind: 'spec', ...text(specRow(spec)), target: { spec: spec.name },
+    key, parent: SPECS_KEY, depth: 1, kind: 'spec', ...text(specRow(spec)),
+    // the phase names the spec's Write and Review actions, such as Write Tasks
+    target: { spec: spec.name, ...(spec.phase ? { phase: spec.phase } : {}) },
     ...act(specActions(spec).filter(a => a !== 'approve'), ['runNext', 'write']),
   };
   // core's row already carries the reason in its hover; an unusable spec has nothing below it to act on

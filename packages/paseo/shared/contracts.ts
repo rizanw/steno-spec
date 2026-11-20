@@ -1,9 +1,9 @@
 // Every RPC and subscription between the plugin's client and server, as Zod contracts both sides import. Paseo
 // validates each call and event against them, so a shape changed here changes on both sides at once. The client
-// bundle cannot reach core, so the enums core owns are written out here and checked against core's types below.
+// bundle cannot reach core, so the enums core owns are written out here; server/agreement.ts checks them against
+// core's types. Nothing in this file may import from server/: Paseo refuses a shared module that reaches server code.
 import { defineRpc, defineSubscription } from '@getpaseo/plugin';
 import { z } from 'zod';
-import type { Diagnostic as CoreDiagnostic, Handoff as CoreHandoff, HostAction, RowIcon as CoreRowIcon, StructuredError as CoreStructuredError, ChangeResult as CoreChangeResult } from '../server/vendor/host.mjs';
 
 const workspaceId = z.string().min(1);
 
@@ -127,11 +127,3 @@ export const setUp = defineRpc({ name: 'steno.set-up', input: z.object({ workspa
 export const intent = defineRpc({ name: 'steno.intent', input: z.object({ workspaceId, action: Action }), output: nothing });
 
 export const restart = defineRpc({ name: 'steno.restart', input: z.object({ workspaceId }), output: nothing });
-
-// Compile-time only: each copy above must stay the same set as core's, or typechecking fails here.
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
-const agree: [
-  Same<(typeof HOST_ACTIONS)[number], HostAction>, Same<RowIcon, CoreRowIcon>, Same<Diagnostic, CoreDiagnostic>,
-  Same<StructuredError, CoreStructuredError>, Same<ChangeResult, CoreChangeResult>, Same<Handoff, CoreHandoff>,
-] = [true, true, true, true, true, true];
-void agree;

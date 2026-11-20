@@ -4,3 +4,5 @@ export * from './calls.js';
 export * from './process.js';
 export * from './rows.js';
 export * from './actions.js';
+// A host compares this with what a `steno` on PATH reports; contract.ts holds only data, so it adds no dependency.
+export { PROTOCOL_VERSION } from '../contract.js';

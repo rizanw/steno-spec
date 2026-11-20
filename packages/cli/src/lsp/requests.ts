@@ -18,7 +18,7 @@ const KIND_BY_FILE: Record<string, DocKind> = {
   'brief.md': 'brief', 'requirements.md': 'requirements', 'bugfix.md': 'bugfix', 'design.md': 'design', 'tasks.md': 'tasks',
 };
 
-/** What a path is in the editor snapshot: a Spec_Document (with its Spec's entry when the folder is a Spec), a Steering_File, or nothing. */
+/** What a path is in the editor snapshot: a spec document (with its Spec's entry when the folder is a Spec), a steering file, or nothing. */
 export function documentAt(s: Session, path: string): { kind: DocKind; entry?: SpecEntry } | undefined {
   const snap = s.editor;
   if (s.root === undefined || !snap.setUp) return undefined;
@@ -81,7 +81,7 @@ function checked(s: Session, req: Request) {
 }
 
 /**
- * The Task_Packet `steno ctx` builds for the task, from the files on disk. Steering files with unsaved edits and
+ * The task packet `steno ctx` builds for the task, from the files on disk. Steering files with unsaved edits and
  * Unreadable ones are left out and listed among the trimmed parts with the reason.
  */
 export function taskPacket(s: Session, p: { spec?: string; task?: string; budget?: unknown }): TaskPacket {
@@ -113,7 +113,7 @@ export function applyChange(s: Session, req: Extract<Request, { kind: 'done' | '
   return r;
 }
 
-/** Run a handler, returning a refusal as a protocol error that carries the Structured_Error. */
+/** Run a handler, returning a refusal as a protocol error that carries the structured error. */
 function answer<T>(run: () => T): T {
   try { return run(); } catch (e) {
     if (e instanceof StenoError) throw failure(e);

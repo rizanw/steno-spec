@@ -9,7 +9,7 @@ import type { Session } from './session.js';
 export interface Watcher { close(): void }
 
 /** The folders and files to watch, from the saved snapshot's configuration. Absent when there is no root. */
-export function watchTargets(s: Session): { root: string; steno: string; config: string; specs: string; steering: string } | undefined {
+function watchTargets(s: Session): { root: string; steno: string; config: string; specs: string; steering: string } | undefined {
   if (s.root === undefined) return undefined;
   const { config } = s.saved;
   return {

@@ -4,11 +4,11 @@
 import { posix, win32 } from 'node:path';
 import * as vscode from 'vscode';
 import type { AgentAdapter, Probe } from './agents.js';
-import { cmdLine, findOnPath, isBatch, render, skillCall, unsafeBatch, type Handoff } from '@steno/core/host';
+import { DEFAULT_SPECS_DIR, cmdLine, findOnPath, isBatch, render, skillCall, unsafeBatch, unusable, type Handoff } from '@steno/core/host';
 import type { Chooser } from './chooser.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import { chooseProject, projectServers } from './project.js';
-import { DEFAULT_SPECS_DIR, FolderNode, SpecNode, TaskNode, unusable } from './tree.js';
+import { FolderNode, SpecNode, TaskNode } from './tree.js';
 import { guard } from './trust.js';
 
 export interface Deps { chooser: Chooser; probe: Probe }

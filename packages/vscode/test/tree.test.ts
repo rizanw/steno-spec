@@ -2,17 +2,16 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { readFileSync } from 'node:fs';
-import { canApprove } from '../src/actions.js';
 import { ExtensionMode, Uri, commands, files, folder, handlers, markdownEditor, recorded, resetRecorded, watchers } from './vscode-stub.js';
 import { PROBE_COMMAND, STEERING_PROBE_COMMAND, registerProbe, type ProbeItem } from '../src/probe.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient, type FolderServer, type StenoClient } from '../src/servers.js';
 import {
   CAN_SET_UP, DocNode, FileNode, HAS_PROJECT, InstructionNode, RESTART_COMMAND, STEERING_VIEW_ID, SpecNode,
-  SpecTreeProvider, SteeringNode, SteeringTreeProvider, StoppedNode, TaskNode, VIEW_ID, documentDone, folderItems,
-  registerSpecTree, runnable, shown, specChildren, specContext, specOrder, steeringItems, taskContext, taskNodes, unusable,
-  watchTree, type Node,
+  SpecTreeProvider, SteeringNode, SteeringTreeProvider, StoppedNode, TaskNode, VIEW_ID, folderItems, registerSpecTree,
+  shown, specChildren, specContext, steeringItems, taskContext, taskNodes, watchTree, type Node,
 } from '../src/tree.js';
+import { specActions, taskActions, type HostAction } from '@steno/core/host';
 
 beforeEach(() => resetRecorded());
 
@@ -106,22 +105,6 @@ describe('specChildren', () => {
     const docs = specChildren(ROOT, tree(), approved) as DocNode[];
     expect(docs.map(d => (d.iconPath as { id: string }).id)).toEqual(['pass', 'pass', 'file-text']);
     expect(docs.map(d => d.tooltip)).toEqual(['requirements.md · done', 'design.md · done', 'tasks.md']);
-  });
-
-  it('counts a document done by its own stage', () => {
-    const at = (over: Partial<TreeSpec>) => spec(over);
-    expect(documentDone(at({ phase: 'brief' }), 'brief.md')).toBe(false);
-    expect(documentDone(at({ phase: 'requirements' }), 'brief.md')).toBe(true);
-    expect(documentDone(at({ approvals: { requirements: '2026-11-01' } }), 'bugfix.md')).toBe(true);
-    expect(documentDone(at({ phase: 'requirements', approvals: {} }), 'requirements.md')).toBe(false);
-    // a quick Spec records no approvals: moving past a phase is what makes its document done
-    expect(documentDone(at({ mode: 'quick', phase: 'done', approvals: {} }), 'design.md')).toBe(true);
-    expect(documentDone(at({ mode: 'quick', phase: 'design', approvals: {} }), 'requirements.md')).toBe(true);
-    expect(documentDone(at({ mode: 'quick', phase: 'design', approvals: {} }), 'design.md')).toBe(false);
-    // a derived Spec's approval has no date, and still counts
-    expect(documentDone(at({ approvals: { tasks: null } }), 'tasks.md')).toBe(true);
-    expect(documentDone(at({ phase: 'design', approvals: { tasks: null } }), 'design.md')).toBe(false);
-    expect(documentDone(at({}), 'notes.md')).toBe(false);
   });
 
   it('honours a non-default specsDir', () => {
@@ -276,35 +259,6 @@ describe('folderItems', () => {
     const specs = [spec({ name: 'a', title: 'A', phase: 'done' }), spec({ name: 'b', title: 'B' })];
     const pool = await pooled({ path: '/work/a', tree: tree({ specs }) });
     expect(folderItems(pool.all()[0]).map(n => n.label)).toEqual(['B', 'A']);
-  });
-});
-
-describe('specOrder', () => {
-  it('puts done Specs last, keeping the server order within each group', () => {
-    // the server order: dated newest first, then the undated ones, an unreadable one among them
-    const specs = [
-      spec({ name: 'new-done', phase: 'done' }),
-      spec({ name: 'new-open', phase: 'design' }),
-      spec({ name: 'old-done', phase: 'done' }),
-      spec({ name: 'old-open', phase: 'execute' }),
-      spec({ name: 'undated-done', phase: 'done' }),
-      { name: 'broken', unreadable: true, files: [] } as TreeSpec,
-      spec({ name: 'undated-open', phase: 'requirements' }),
-    ];
-    expect(specOrder(specs).map(s => s.name)).toEqual([
-      'new-open', 'old-open', 'broken', 'undated-open', 'new-done', 'old-done', 'undated-done',
-    ]);
-  });
-
-  it('keeps every Spec exactly once, the done ones forming the tail', () => {
-    const phases = fc.constantFrom('brief', 'requirements', 'design', 'tasks', 'execute', 'done', undefined);
-    fc.assert(fc.property(fc.array(phases), list => {
-      const specs = list.map((phase, i) => ({ name: `s${i}`, phase }) as TreeSpec);
-      const out = specOrder(specs);
-      expect([...out].sort((a, b) => Number(a.name.slice(1)) - Number(b.name.slice(1)))).toEqual(specs);
-      const firstDone = out.findIndex(s => s.phase === 'done');
-      if (firstDone >= 0) expect(out.slice(firstDone).every(s => s.phase === 'done')).toBe(true);
-    }));
   });
 });
 
@@ -584,32 +538,32 @@ describe('context values for the handoffs', () => {
     unreadable: fc.option(fc.constant(true as const), { nil: undefined }),
   }) as fc.Arbitrary<TreeSpec>;
 
-  it('each menu matches a Spec exactly in the phases its criterion names, never an Unusable one', () => {
-    const write = menu('steno.spec.write');
-    const review = menu('steno.spec.review');
-    const runNext = menu('steno.spec.runNext');
-    const approve = menu('steno.spec.approve');
+  // each row menu's command, by the action it stands for
+  const SPEC_MENUS: Record<string, HostAction> = {
+    'steno.spec.approve': 'approve', 'steno.spec.write': 'write', 'steno.spec.review': 'review', 'steno.spec.runNext': 'runNext',
+  };
+  const TASK_MENUS: Record<string, HostAction> = { 'steno.task.markDone': 'done', 'steno.task.reopen': 'reopen', 'steno.task.run': 'run' };
+
+  it('names every spec and task row menu in the action table', () => {
+    const rowMenus = menus.map(m => m.command)
+      .filter(c => !['steno.spec.new', 'steno.server.restart', 'steno.steering.generate'].includes(c));
+    expect(rowMenus.sort()).toEqual([...Object.keys(SPEC_MENUS), ...Object.keys(TASK_MENUS)].sort());
+  });
+
+  it('each spec menu matches a spec row exactly when the spec offers its action', () => {
     fc.assert(fc.property(anySpec, s => {
       const value = new SpecNode(ROOT, tree(), s).contextValue;
-      const usable = !unusable(s);
-      const inPhase = (...phases: string[]) => usable && phases.includes(s.phase ?? '');
-      expect(write(value)).toBe(inPhase('brief', 'requirements', 'design', 'tasks'));
-      expect(review(value)).toBe(inPhase('requirements', 'design', 'tasks', 'done'));
-      expect(runNext(value)).toBe(inPhase('execute'));
-      expect(approve(value)).toBe(canApprove(s));
-      if (usable) expect(value).toBe(specContext(s));
+      const actions = specActions(s);
+      for (const [command, action] of Object.entries(SPEC_MENUS)) expect(menu(command)(value), command).toBe(actions.includes(action));
+      if (actions.length > 0) expect(value).toBe(specContext(s));
     }));
   });
 
-  it('"Run" matches an open task without subtasks of a usable Spec in execute, "Mark done" every open task', () => {
-    const run = menu('steno.task.run');
-    const markDone = menu('steno.task.markDone');
-    const reopen = menu('steno.task.reopen');
+  it('each task menu matches a task row exactly when the task offers its action', () => {
     fc.assert(fc.property(anySpec, fc.boolean(), fc.boolean(), (s, done, leaf) => {
       const value = taskContext(s, done, leaf);
-      expect(run(value)).toBe(!done && leaf && !unusable(s) && s.phase === 'execute');
-      expect(markDone(value)).toBe(!done);
-      expect(reopen(value)).toBe(done);
+      const actions = taskActions(s, done, leaf);
+      for (const [command, action] of Object.entries(TASK_MENUS)) expect(menu(command)(value), command).toBe(actions.includes(action));
     }));
   });
 
@@ -627,16 +581,5 @@ describe('context values for the handoffs', () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() }, { path: '/work/b', tree: setUp() });
     const [folderNode] = await new SteeringTreeProvider(pool).getChildren();
     expect(menu('steno.steering.generate')(folderNode.contextValue)).toBe(true);
-  });
-
-  it('runnable follows the tree: an open leaf task of a Spec in execute, nothing it does not know', () => {
-    const t = tree({ specs: [spec({ taskItems: [task('T1', { done: true }), task('T2', { children: [task('T2.1')] })] })] });
-    expect(runnable(t, 'auth', 'T2.1')).toBe(true);
-    expect(runnable(t, 'auth', 'T2')).toBe(false);
-    expect(runnable(t, 'auth', 'T1')).toBe(false);
-    expect(runnable(t, 'auth', 'T9')).toBe(false);
-    expect(runnable(t, 'other', 'T2.1')).toBe(false);
-    expect(runnable(undefined, 'auth', 'T2.1')).toBe(false);
-    expect(runnable(tree({ specs: [spec({ phase: 'tasks', taskItems: [task('T1')] })] }), 'auth', 'T1')).toBe(false);
   });
 });

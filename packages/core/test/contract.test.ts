@@ -72,3 +72,28 @@ describe('contractBreaks', () => {
     expect(edit(c => { c.protocolVersion++; delete c.shapes.Diagnostic; })).toEqual([]);
   });
 });
+
+describe('the contract document', () => {
+  const DOC = join(import.meta.dirname, '..', '..', '..', 'docs', 'json-contract.md');
+  const doc = readFileSync(DOC, 'utf8');
+  /** The text of the `### <name>` section, up to the next heading of level 2 or 3. */
+  const section = (name: string) => doc.split(/^#{2,3} /m).find(s => s.startsWith(`${name}\n`));
+
+  it('states the protocol version at the top', () => {
+    expect(doc.split('\n').slice(0, 5).join('\n')).toContain(`**Protocol version: ${PROTOCOL_VERSION}**`);
+  });
+  it('has a section for every shape, naming each of its fields', () => {
+    for (const [name, fields] of Object.entries(CONTRACT.shapes)) {
+      const text = section(name);
+      expect(text, `no "### ${name}" section`).toBeDefined();
+      const spans = [...text!.matchAll(/`([^`]+)`/g)].map(m => m[1]);
+      for (const field of Object.keys(fields)) {
+        expect(spans.some(s => new RegExp(`(^|[.])${field}\\b`).test(s)), `${name}.${field}`).toBe(true);
+      }
+    }
+  });
+  it('names every error code and lens command', () => {
+    for (const code of CONTRACT.errorCodes) expect(section('Error codes')).toContain(`| \`${code}\` |`);
+    for (const command of CONTRACT.lensCommands) expect(section('Task lenses')).toContain(`\`${command}\``);
+  });
+});

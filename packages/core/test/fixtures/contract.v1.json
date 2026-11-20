@@ -75,6 +75,14 @@
             "ref": "TreeSteering"
           }
         }
+      },
+      "specsDir": {
+        "type": "string",
+        "optional": true
+      },
+      "steeringDir": {
+        "type": "string",
+        "optional": true
       }
     },
     "TreeSpec": {
@@ -153,6 +161,14 @@
       "documents": {
         "type": {
           "array": "string"
+        },
+        "optional": true
+      },
+      "taskItems": {
+        "type": {
+          "array": {
+            "ref": "OutlineItem"
+          }
         },
         "optional": true
       },
@@ -389,6 +405,14 @@
             "ref": "OutlineItem"
           }
         }
+      },
+      "done": {
+        "type": "boolean",
+        "optional": true
+      },
+      "optional": {
+        "type": "boolean",
+        "optional": true
       }
     },
     "StructuredError": {

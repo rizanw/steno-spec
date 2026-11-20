@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { outlineOf, itemTitle, type OutlineItem } from '../src/index.js';
+import { outlineOf, itemTitle, taskOutline, parseTasks, type OutlineItem } from '../src/index.js';
 
 const strip = (items: OutlineItem[]): unknown[] => items.map(i => [i.id ?? i.title, i.line, i.endLine, ...(i.children.length ? [strip(i.children)] : [])]);
 
@@ -35,6 +35,17 @@ describe('outlineOf', () => {
     const items = outlineOf('tasks', text);
     expect(strip(items)).toEqual([['T1', 3, 4, [['T1.1', 4, 4]]], ['T2', 5, 5], ['T1.2', 6, 6], ['T3.1', 7, 7], ['T3', 8, 9]]);
     expect(items[0]).toMatchObject({ kind: 'task', title: 'A' });
+  });
+
+  it('gives each task its checked state and optional mark, and no other kind (R11.5)', () => {
+    const text = '# T\n\n- [x] 1. A\n  - [ ]* 1.1 A1\n- [ ] 2. B\n';
+    const items = outlineOf('tasks', text);
+    expect(items[0]).toMatchObject({ id: 'T1', done: true, optional: false });
+    expect(items[0].children[0]).toMatchObject({ id: 'T1.1', done: false, optional: true });
+    expect(items[1]).toMatchObject({ id: 'T2', done: false, optional: false });
+    expect(taskOutline(parseTasks(text), text)).toEqual(items);
+    for (const kind of ['requirements', 'design', 'steering'] as const)
+      for (const i of outlineOf(kind, '# X\n## A\n## R1 B\n1. THE s SHALL c.\n')) expect(i).not.toHaveProperty('done');
   });
 
   it('lists level-2 and level-3 headings of a brief or steering file, skipping fenced code', () => {

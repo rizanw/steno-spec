@@ -49,7 +49,7 @@ describe('buildTree', () => {
     ]);
   });
 
-  it('gives an empty tasks.md an empty list and names configured folders relative to the root (R11.2, R11.3)', () => {
+  it('gives an empty tasks.md an empty list and names configured folders relative to the root', () => {
     const root = project({
       '.steno/config.yaml': 'specsDir: docs/specs\nsteeringDir: ./docs/steering/\n',
       'docs/specs/e/spec.yaml': STATE.replace('name: a', 'name: e'), 'docs/specs/e/tasks.md': '',

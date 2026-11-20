@@ -37,7 +37,7 @@ describe('outlineOf', () => {
     expect(items[0]).toMatchObject({ kind: 'task', title: 'A' });
   });
 
-  it('gives each task its checked state and optional mark, and no other kind (R11.5)', () => {
+  it('gives each task its checked state and optional mark, and no other kind', () => {
     const text = '# T\n\n- [x] 1. A\n  - [ ]* 1.1 A1\n- [ ] 2. B\n';
     const items = outlineOf('tasks', text);
     expect(items[0]).toMatchObject({ id: 'T1', done: true, optional: false });

@@ -4,3 +4,7 @@ allowBuilds:
   esbuild: true
   # @vscode/vsce-sign ships the signing binary its postinstall unpacks; `vsce package` needs it
   '@vscode/vsce-sign': true
+overrides:
+  # 10.x has a denial-of-service advisory (GHSA-g3hv-75wg-m249); @vscode/vsce and vscode-languageclient still ask
+  # for ^10. Remove this once they depend on 11 themselves.
+  minimatch: ^11.0.1

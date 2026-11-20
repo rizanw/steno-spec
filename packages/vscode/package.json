@@ -45,7 +45,7 @@
     "commands": [
       {
         "command": "steno.open",
-        "title": "Open Spec Document at a Line",
+        "title": "Open Spec Document",
         "category": "steno"
       },
       {
@@ -137,9 +137,16 @@
       "steno": [
         {
           "id": "steno.specs",
-          "name": "specs",
+          "name": "Specs",
           "icon": "media/steno.svg",
           "contextualTitle": "steno"
+        },
+        {
+          "id": "steno.steering",
+          "name": "Steering",
+          "icon": "media/steno.svg",
+          "contextualTitle": "steno",
+          "when": "steno.hasProject"
         }
       ]
     },
@@ -250,7 +257,7 @@
         },
         {
           "command": "steno.steering.generate",
-          "when": "view == steno.specs && viewItem == steering",
+          "when": "view == steno.steering && viewItem == folder.project",
           "group": "inline"
         }
       ],
@@ -258,6 +265,11 @@
         {
           "command": "steno.spec.new",
           "when": "view == steno.specs && steno.hasProject",
+          "group": "navigation"
+        },
+        {
+          "command": "steno.steering.generate",
+          "when": "view == steno.steering && steno.hasProject",
           "group": "navigation"
         }
       ]
@@ -267,6 +279,11 @@
         "view": "steno.specs",
         "when": "!steno.hasProject",
         "contents": "No folder in this window is a steno project.\nSet one up to write specs with your coding agent.\n[Set up steno](command:steno.setUp)"
+      },
+      {
+        "view": "steno.steering",
+        "when": "steno.hasProject",
+        "contents": "No steering files yet. Steering tells your coding agent what this project is and how it is built.\n[Generate steering](command:steno.steering.generate)"
       }
     ]
   },

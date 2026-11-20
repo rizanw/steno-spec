@@ -109,6 +109,9 @@ export function resetRecorded(): void {
   recorded.clipboard.length = 0;
   recorded.external.length = 0;
   installed.clear();
+  markdownEditor.available = false;
+  files.clear();
+  watchers.length = 0;
   failures.createTerminal = false;
   failures.executeCommand = false;
   failures.openExternal = undefined;
@@ -269,7 +272,27 @@ export const workspace = {
   onDidChangeWorkspaceFolders: folderChanges.event,
   getConfiguration: () => ({ get: () => undefined }),
   openTextDocument: async (uri: Uri) => ({ uri }),
+  /** `stat` finds only the paths a test put in `files` */
+  fs: {
+    stat: async (uri: Uri) => {
+      if (!files.has(uri.toString())) throw new Error(`ENOENT ${uri.toString()}`);
+      return { type: 1 };
+    },
+  },
+  createFileSystemWatcher: (pattern: string, _ignoreCreate?: boolean, _ignoreChange?: boolean, _ignoreDelete?: boolean) => {
+    const created = new EventEmitter<Uri>();
+    const deleted = new EventEmitter<Uri>();
+    const watcher = { pattern, onDidCreate: created.event, onDidDelete: deleted.event, fire: { created, deleted }, dispose: () => {} };
+    watchers.push(watcher);
+    return watcher;
+  },
 };
+
+/** Test hook: the files `workspace.fs.stat` finds, by URI string. */
+export const files = new Set<string>();
+
+/** Test hook: every file watcher made, so a test can fire its events. */
+export const watchers: { pattern: string; fire: { created: EventEmitter<Uri>; deleted: EventEmitter<Uri> } }[] = [];
 
 /** Test helper: open the given folders, as if the window had just opened them. */
 export function setFolders(...folders: WorkspaceFolder[]): void {
@@ -327,8 +350,16 @@ export class StatusBarItem {
 
 /** Test hook: the extension ids `extensions.getExtension` finds. */
 export const installed = new Set<string>();
+/** Test hook: whether the bundled markdown extension contributes the Markdown Editor. */
+export const markdownEditor = { available: false };
+const MARKDOWN_EXTENSION = 'vscode.markdown-language-features';
 export const extensions = {
-  getExtension: (id: string) => (installed.has(id) ? { id } : undefined),
+  getExtension: (id: string) => {
+    if (id === MARKDOWN_EXTENSION && markdownEditor.available) {
+      return { id, packageJSON: { contributes: { customEditors: [{ viewType: 'vscode.markdown.editor' }] } } };
+    }
+    return installed.has(id) ? { id } : undefined;
+  },
 };
 
 /** vscode.Disposable is structural: anything with `dispose()` satisfies it. */

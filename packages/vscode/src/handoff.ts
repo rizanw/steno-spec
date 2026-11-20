@@ -7,7 +7,8 @@ import { findOnPath, type AgentAdapter, type Probe } from './agents.js';
 import { render, skillCall, type Handoff } from './calls.js';
 import type { Chooser } from './chooser.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { DEFAULT_SPECS_DIR, SpecNode, SteeringGroupNode, TaskNode, unusable } from './tree.js';
+import { chooseProject, projectServers } from './project.js';
+import { DEFAULT_SPECS_DIR, FolderNode, SpecNode, TaskNode, unusable } from './tree.js';
 import { guard } from './trust.js';
 
 export interface Deps { chooser: Chooser; probe: Probe }
@@ -227,8 +228,11 @@ export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposabl
       if (found) await handOff(deps, found.server, { kind: 'review', spec: found.node.spec.name, phase: found.node.spec.phase! });
     }),
     vscode.commands.registerCommand(STEER_COMMAND, async (arg: unknown) => {
-      if (!(arg instanceof SteeringGroupNode)) return;
-      const server = pool.get(arg.folder);
+      // from a folder of the Steering view, or from its title bar or empty state with no item at all
+      if (arg !== undefined && !(arg instanceof FolderNode)) return;
+      const servers = projectServers(pool);
+      if (servers.length === 0) return;
+      const server = await chooseProject(pool, servers, arg, 'Generate steering');
       if (server) await handOff(deps, server, { kind: 'steer' });
     }),
   ];

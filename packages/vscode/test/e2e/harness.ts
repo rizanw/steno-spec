@@ -54,6 +54,11 @@ export async function tree(): Promise<ProbeItem[]> {
   return (await vscode.commands.executeCommand<ProbeItem[]>('steno.test.tree')) ?? [];
 }
 
+/** The extension's Steering view, as it would show right now. */
+export async function steering(): Promise<ProbeItem[]> {
+  return (await vscode.commands.executeCommand<ProbeItem[]>('steno.test.steering')) ?? [];
+}
+
 /** The first item at any depth whose label is `label`. */
 export function find(items: ProbeItem[], label: string): ProbeItem | undefined {
   for (const item of items) {

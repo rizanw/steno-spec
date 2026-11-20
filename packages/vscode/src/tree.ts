@@ -1,6 +1,7 @@
-// One folder's Spec_Tree as tree items. Every node is a `vscode.TreeItem` it builds itself, so the
-// provider (tree-view.ts) only has to say who the children are. Nothing here touches the editor host:
-// a node is pure data, which is what lets the builders below be tested without VS Code.
+// The two sidebar views, Specs and Steering, built from each folder's Spec_Tree. Every node is a
+// `vscode.TreeItem` it builds itself, so a provider only has to say who the children are. A node is pure
+// data, which is what lets the builders below be tested without VS Code; only the Steering view looks at
+// the disk, to find the agent instruction files the server does not report.
 import * as vscode from 'vscode';
 import type { OutlineItem, SpecTree, TreeSpec, TreeSteering } from './protocol.js';
 import type { FolderServer, ServerPool } from './servers.js';
@@ -14,19 +15,36 @@ export const OPEN_COMMAND = 'steno.open';
 /** The stopped folder's inline action. */
 export const RESTART_COMMAND = 'steno.server.restart';
 
-/** The view this provider feeds, as contributed in package.json. */
+/** The Specs view, as contributed in package.json. */
 export const VIEW_ID = 'steno.specs';
+
+/** The Steering view, as contributed in package.json. */
+export const STEERING_VIEW_ID = 'steno.steering';
 
 /** Where specs live when the server did not say; only a set-up folder reaches the builders below. */
 export const DEFAULT_SPECS_DIR = '.steno/specs';
 
-/** `steno.open` with a file URI and a 1-based line. */
-function open(uri: vscode.Uri, line: number): vscode.TreeItem['command'] {
-  return { command: OPEN_COMMAND, title: 'Open', arguments: [uri, line] };
+/** The agent instruction files the Steering view lists when a folder has them at its root. */
+export const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
+
+/** VS Code's built-in rich Markdown editor, from the bundled markdown extension. */
+export const MARKDOWN_EDITOR = 'vscode.markdown.editor';
+
+/**
+ * `steno.open` with a file URI. With a 1-based line it opens the Text Editor there; without one it opens the
+ * document as a whole, in the Markdown Editor when VS Code has it.
+ */
+function open(uri: vscode.Uri, line?: number): vscode.TreeItem['command'] {
+  return { command: OPEN_COMMAND, title: 'Open', arguments: line === undefined ? [uri] : [uri, line] };
 }
 
-export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode
-  | SteeringGroupNode | SteeringNode | FileNode;
+/** A file name without its `.md`, as the views label documents: `tasks.md` reads `tasks`. */
+export function bareName(file: string): string {
+  return file.replace(/\.md$/i, '');
+}
+
+export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode | FileNode;
+export type SteeringViewNode = FolderNode | SteeringNode | InstructionNode;
 
 /** One Workspace_Folder, shown only when the window has two or more shown folders. */
 export class FolderNode extends vscode.TreeItem {
@@ -99,7 +117,45 @@ export function runnable(tree: SpecTree | undefined, specName: string, taskId: s
   return item !== undefined && taskContext(spec, item.done === true, item.children.length === 0) === 'task.open.run';
 }
 
-/** One Spec: title, `phase · mode · done/total`, or the reason it is Unusable. */
+/** A Spec's icon: a pen while its documents are being written, a play button while its tasks run, a tick once done. */
+export function specIcon(spec: TreeSpec): string {
+  if (spec.phase === 'done') return 'pass-filled';
+  if (spec.phase === 'execute') return 'play-circle';
+  return 'edit';
+}
+
+/** "18 of 19 tasks", from the required tasks only. */
+function taskProgress(spec: TreeSpec): string | undefined {
+  const counts = spec.tasks;
+  if (!counts || counts.total === 0) return undefined;
+  return `${counts.done} of ${counts.total} ${counts.total === 1 ? 'task' : 'tasks'}`;
+}
+
+/**
+ * The one fact a Spec's row shows beside its title: the phase while it is being written, the required tasks
+ * left while they run, nothing once it is done (its icon says so).
+ */
+export function specDescription(spec: TreeSpec): string | undefined {
+  if (spec.phase === undefined || spec.phase === 'done') return undefined;
+  if (spec.phase !== 'execute') return spec.phase;
+  const counts = spec.tasks;
+  const left = counts ? counts.total - counts.done : 0;
+  if (left <= 0) return 'all tasks done';
+  return `${left} ${left === 1 ? 'task' : 'tasks'} left`;
+}
+
+/**
+ * The hover of a Spec: its folder name (the row already shows the title), then `execute | 18 of 19 tasks | gated`,
+ * then the next task when there is one.
+ */
+export function specTooltip(spec: TreeSpec): string {
+  const status = [spec.phase, taskProgress(spec), spec.mode]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' | ');
+  const next = spec.next ? `next: ${spec.next.id} ${spec.next.title}` : undefined;
+  return [spec.name, status, next].filter(Boolean).join('\n');
+}
+
+/** One Spec: its title with the one fact `specDescription` picks, or the reason it is Unusable. */
 export class SpecNode extends vscode.TreeItem {
   readonly kind = 'spec' as const;
   readonly unusable: boolean;
@@ -115,24 +171,53 @@ export class SpecNode extends vscode.TreeItem {
       // no contextValue on purpose: an Unusable Spec offers nothing but opening its files
       return;
     }
-    const counts = spec.tasks;
-    this.description = [spec.phase, spec.mode, counts && `${counts.done}/${counts.total}`]
-      .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' · ');
+    this.iconPath = new vscode.ThemeIcon(specIcon(spec));
+    this.description = specDescription(spec);
+    this.tooltip = specTooltip(spec);
     // "Approve", "Write", "Review" and "Run next task" each match the phase part of this value
     this.contextValue = specContext(spec);
   }
 }
 
-/** One Spec_Document. `tasks.md` holds the Spec's tasks. */
+/** The phases in the order a Spec moves through them. */
+const PHASE_ORDER = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
+
+/** The phase each Spec_Document is written in; `bugfix.md` takes the place of `requirements.md`. */
+const DOCUMENT_PHASE: Record<string, 'brief' | 'requirements' | 'design' | 'tasks'> = {
+  'brief.md': 'brief', 'requirements.md': 'requirements', 'bugfix.md': 'requirements', 'design.md': 'design', 'tasks.md': 'tasks',
+};
+
+/**
+ * Whether a Spec_Document's stage is behind the Spec: approved, or the Spec has moved past its phase. A quick
+ * Spec records no approvals, so the phase is what tells for it; a gated one only moves on by approving.
+ */
+export function documentDone(spec: TreeSpec, document: string): boolean {
+  const stage = DOCUMENT_PHASE[document];
+  if (stage === undefined) return false;
+  if (stage !== 'brief' && spec.approvals?.[stage] !== undefined) return true;
+  const at = PHASE_ORDER.indexOf(spec.phase as (typeof PHASE_ORDER)[number]);
+  return at > PHASE_ORDER.indexOf(stage);
+}
+
+/** A Spec_Document's label: its name without `.md`, capitalised, so `requirements.md` reads `Requirements`. */
+export function documentLabel(document: string): string {
+  const name = bareName(document);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/** One Spec_Document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. */
 export class DocNode extends vscode.TreeItem {
   readonly kind = 'doc' as const;
 
   constructor(readonly folder: vscode.Uri, readonly document: string, readonly uri: vscode.Uri,
-    readonly children: TaskNode[] = []) {
-    super(document, children.length ? Collapsed : None);
+    readonly children: TaskNode[] = [], readonly done = false) {
+    super(documentLabel(document), children.length ? Collapsed : None);
     this.resourceUri = uri;
+    // not 'file': that one means "the file icon theme's icon", which is the Markdown icon for a .md
+    this.iconPath = new vscode.ThemeIcon(done ? 'pass' : 'file-text');
+    this.tooltip = done ? `${document} · done` : document;
     this.contextValue = 'doc';
-    this.command = open(uri, 1);
+    this.command = open(uri);
   }
 }
 
@@ -189,37 +274,56 @@ export class FileNode extends vscode.TreeItem {
   }
 }
 
-/** The steering group, the last item of its level, and where "Generate steering" hangs. */
-export class SteeringGroupNode extends vscode.TreeItem {
-  readonly kind = 'steering-group' as const;
-  readonly children: SteeringNode[];
-
-  constructor(readonly folder: vscode.Uri, readonly tree: SpecTree) {
-    super('Steering', Collapsed);
-    this.iconPath = new vscode.ThemeIcon('compass');
-    this.contextValue = 'steering';
-    this.children = tree.steering.map(entry => new SteeringNode(folder, entry));
+/** When a Steering_File reaches the coding agent, in a few words for its row and a sentence for its hover. */
+export function inclusionText(entry: TreeSteering): { short: string; long: string } {
+  switch (entry.inclusion) {
+    case 'fileMatch': {
+      const files = entry.pattern ? `: ${entry.pattern.split(',').map(p => p.trim()).join(', ')}` : '';
+      return { short: 'matching files', long: `Given to the agent for a task that touches matching files${files}` };
+    }
+    case 'manual': {
+      const file = entry.path.split('/').pop() ?? entry.path;
+      return { short: 'on request', long: `Never given to the agent on its own; fetch it with \`steno show steering/${file}\`` };
+    }
+    default: return { short: 'always on', long: 'Given to the agent with every task' };
   }
 }
 
-/** One Steering_File, by path, with its inclusion mode, or the reason it could not be read. */
+/** One Steering_File, by its name, with when it reaches the agent, or the reason it could not be read. */
 export class SteeringNode extends vscode.TreeItem {
   readonly kind = 'steering-file' as const;
   readonly uri: vscode.Uri;
 
   constructor(readonly folder: vscode.Uri, readonly entry: TreeSteering) {
-    super(entry.path, None);
+    super(bareName(entry.path.split('/').pop() ?? entry.path), None);
     this.uri = vscode.Uri.joinPath(folder, ...entry.path.split('/'));
     this.resourceUri = this.uri;
-    this.command = open(this.uri, 1);
+    this.command = open(this.uri);
     if (entry.unreadable) {
       this.description = 'unreadable';
-      this.tooltip = entry.reason;
+      this.tooltip = `${entry.path}: ${entry.reason ?? 'could not be read'}`;
       this.iconPath = new vscode.ThemeIcon('warning');
       return;
     }
-    this.description = entry.inclusion;
+    const when = inclusionText(entry);
+    this.description = when.short;
+    this.tooltip = `${entry.path}\n${when.long}`;
+    this.iconPath = new vscode.ThemeIcon('file-text');
     this.contextValue = 'steering.file';
+  }
+}
+
+/** An agent instruction file at the folder's root, such as `AGENTS.md`, listed with the steering it sits beside. */
+export class InstructionNode extends vscode.TreeItem {
+  readonly kind = 'instructions' as const;
+
+  constructor(readonly folder: vscode.Uri, readonly file: string, readonly uri: vscode.Uri) {
+    super(bareName(file), None);
+    this.resourceUri = uri;
+    this.tooltip = `${file}: instructions your coding agent reads`;
+    this.iconPath = new vscode.ThemeIcon('hubot');
+    this.contextValue = 'instructions';
+    this.command = open(uri);
   }
 }
 
@@ -235,7 +339,7 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
   return (spec.documents ?? []).map(document => {
     const uri = vscode.Uri.joinPath(folder, ...dir, spec.name, document);
     const tasks = document === 'tasks.md' ? taskNodes(spec, spec.taskItems ?? [], uri) : [];
-    return new DocNode(folder, document, uri, tasks);
+    return new DocNode(folder, document, uri, tasks, documentDone(spec, document));
   });
 }
 
@@ -245,30 +349,55 @@ export function shown(servers: readonly FolderServer[]): FolderServer[] {
   return servers.filter(s => s.state === 'stopped' || (s.tree !== undefined && s.tree.notSetUp !== true));
 }
 
-/** The items of one folder: its Specs then the steering group, or the stopped item. */
+/** The items of one folder in the Specs view: its Specs, or the stopped item. */
 export function folderItems(server: FolderServer): Node[] {
   if (server.state === 'stopped') return [new StoppedNode(server.folder)];
   const tree = server.tree;
   if (!tree) return [];
   const uri = server.folder.uri;
-  const items: Node[] = tree.specs.map(spec => new SpecNode(uri, tree, spec));
-  // "Steering" is the last item of the folder's level. It shows even with no steering files yet, because that
-  // is exactly when the user wants "Generate steering"
-  items.push(new SteeringGroupNode(uri, tree));
-  return items;
+  return tree.specs.map(spec => new SpecNode(uri, tree, spec));
 }
 
-/** The sidebar tree (view `steno.specs`): every shown folder's Spec_Tree. */
-export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
-  private readonly changed = new vscode.EventEmitter<Node | undefined>();
+/** Whether a file exists; `stat` throws for one that does not. */
+async function exists(uri: vscode.Uri): Promise<boolean> {
+  try {
+    await vscode.workspace.fs.stat(uri);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The items of one folder in the Steering view: the agent instruction files at its root, then its
+ * Steering_Files in the server's order.
+ */
+export async function steeringItems(server: FolderServer): Promise<SteeringViewNode[]> {
+  const tree = server.tree;
+  if (server.state === 'stopped' || !tree) return [];
+  const uri = server.folder.uri;
+  const found = await Promise.all(INSTRUCTION_FILES.map(async file => {
+    const at = vscode.Uri.joinPath(uri, file);
+    return (await exists(at)) ? new InstructionNode(uri, file, at) : undefined;
+  }));
+  const instructions = found.filter((node): node is InstructionNode => node !== undefined);
+  return [...instructions, ...tree.steering.map(entry => new SteeringNode(uri, entry))];
+}
+
+/** What both views share: one FolderNode per folder, kept so a refresh can name a subtree the view already holds. */
+abstract class FolderView<N extends vscode.TreeItem> {
+  protected readonly changed = new vscode.EventEmitter<N | undefined>();
   readonly onDidChangeTreeData = this.changed.event;
-  /** one FolderNode per folder, kept so a refresh can name a subtree the view already holds */
   private readonly folderNodes = new Map<string, FolderNode>();
 
-  constructor(private readonly pool: ServerPool) {}
+  constructor(protected readonly pool: ServerPool) {}
+
+  /** The folders this view shows right now, in the order their servers started. */
+  abstract shownServers(): FolderServer[];
 
   /** Redraw the whole tree, or just this node's subtree. */
-  refresh(node?: Node): void { this.changed.fire(node); }
+  // every view's node type includes FolderNode, so naming one is always a node this view holds
+  refresh(node?: N | FolderNode): void { this.changed.fire(node as N | undefined); }
 
   /** The FolderNode of this folder, the same object every time, so the view can refresh its subtree. */
   folderNode(server: FolderServer): FolderNode {
@@ -281,10 +410,36 @@ export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
     return made;
   }
 
-  /** The folders the view shows right now, in the order their servers started. */
-  shownServers(): FolderServer[] { return shown(this.pool.all()); }
+  /** The server behind a FolderNode of this view. */
+  protected serverOf(node: FolderNode): FolderServer | undefined {
+    return this.pool.all().find(s => s.folder.uri.toString() === node.folder.uri.toString());
+  }
 
-  getTreeItem(node: Node): vscode.TreeItem { return node; }
+  getTreeItem(node: N): vscode.TreeItem { return node; }
+
+  dispose(): void { this.changed.dispose(); }
+}
+
+/** The Steering view (`steno.steering`): each running project's agent instruction files and Steering_Files. */
+export class SteeringTreeProvider extends FolderView<SteeringViewNode> implements vscode.TreeDataProvider<SteeringViewNode> {
+  // a stopped folder has no tree to read its steering from; the Specs view already offers its restart
+  shownServers(): FolderServer[] { return shown(this.pool.all()).filter(s => s.state !== 'stopped'); }
+
+  async getChildren(node?: SteeringViewNode): Promise<SteeringViewNode[]> {
+    if (!node) {
+      const servers = this.shownServers();
+      if (servers.length === 1) return steeringItems(servers[0]);
+      return servers.map(server => this.folderNode(server));
+    }
+    if (node.kind !== 'folder') return [];
+    const server = this.serverOf(node);
+    return server ? steeringItems(server) : [];
+  }
+}
+
+/** The Specs view (`steno.specs`): every shown folder's Specs. */
+export class SpecTreeProvider extends FolderView<Node> implements vscode.TreeDataProvider<Node> {
+  shownServers(): FolderServer[] { return shown(this.pool.all()); }
 
   getChildren(node?: Node): Node[] {
     if (!node) {
@@ -295,25 +450,40 @@ export class SpecTreeProvider implements vscode.TreeDataProvider<Node> {
     }
     switch (node.kind) {
       case 'folder': {
-        const server = this.pool.all().find(s => s.folder.uri.toString() === node.folder.uri.toString());
+        const server = this.serverOf(node);
         return server ? folderItems(server) : [];
       }
       case 'spec': return node.unusable || node.spec.documents ? specChildren(node.folder, node.tree, node.spec) : [];
       case 'doc': return node.children;
       case 'task': return node.children;
-      case 'steering-group': return node.children;
       default: return [];
     }
   }
-
-  dispose(): void { this.changed.dispose(); }
 }
 
-/** `steno.open`: open a document and put the cursor on a 1-based line. */
+/** Whether this VS Code has the built-in Markdown Editor; editors built on older VS Code, or forks, may not. */
+export function hasMarkdownEditor(): boolean {
+  const manifest = vscode.extensions.getExtension('vscode.markdown-language-features')?.packageJSON as
+    { contributes?: { customEditors?: { viewType?: string }[] } } | undefined;
+  return manifest?.contributes?.customEditors?.some(editor => editor.viewType === MARKDOWN_EDITOR) === true;
+}
+
+/**
+ * `steno.open`: with a 1-based line, open the Text Editor with the cursor on it. Without one, open a Markdown
+ * document in the Markdown Editor, falling back to the Text Editor where VS Code has no Markdown Editor.
+ */
 export function registerOpen(): vscode.Disposable {
-  return vscode.commands.registerCommand(OPEN_COMMAND, async (uri: vscode.Uri, line = 1) => {
+  return vscode.commands.registerCommand(OPEN_COMMAND, async (uri: vscode.Uri, line?: number) => {
+    if (line === undefined && /\.md$/i.test(uri.path) && hasMarkdownEditor()) {
+      try {
+        await vscode.commands.executeCommand('vscode.openWith', uri, MARKDOWN_EDITOR);
+        return;
+      } catch {
+        // the editor refused this document: the Text Editor below still opens it
+      }
+    }
     const document = await vscode.workspace.openTextDocument(uri);
-    const at = new vscode.Position(Math.max(0, line - 1), 0);
+    const at = new vscode.Position(Math.max(0, (line ?? 1) - 1), 0);
     await vscode.window.showTextDocument(document, { selection: new vscode.Range(at, at) });
   });
 }
@@ -350,36 +520,54 @@ function setKeys(servers: readonly FolderServer[]): void {
 }
 
 /**
- * Keep the view current: every change a pool reports redraws as little of the tree as it can, and
+ * Keep both views current: every change a pool reports redraws as little of each view as it can, and
  * refreshes the empty-state and set-up keys with it.
  */
-export function watchTree(pool: ServerPool, provider: SpecTreeProvider): vscode.Disposable {
-  let was = provider.shownServers().map(s => s.folder.uri.toString()).join('\n');
+export function watchTree(pool: ServerPool, ...views: (SpecTreeProvider | SteeringTreeProvider)[]): vscode.Disposable {
+  const keyOf = (servers: FolderServer[]) => servers.map(s => s.folder.uri.toString()).join('\n');
+  const was = views.map(view => keyOf(view.shownServers()));
   const sync = (server: FolderServer): void => {
-    const servers = provider.shownServers();
-    const now = servers.map(s => s.folder.uri.toString()).join('\n');
-    const setChanged = now !== was;
-    was = now;
-    // with one shown folder its items sit at the root, so only the whole tree can be redrawn
-    if (setChanged || servers.length <= 1) provider.refresh();
-    else provider.refresh(provider.folderNode(server));
+    views.forEach((view, i) => {
+      const servers = view.shownServers();
+      const now = keyOf(servers);
+      const setChanged = now !== was[i];
+      was[i] = now;
+      // with one shown folder its items sit at the root, so only the whole tree can be redrawn
+      if (setChanged || servers.length <= 1) view.refresh();
+      else if (servers.some(s => s.folder.uri.toString() === server.folder.uri.toString())) view.refresh(view.folderNode(server));
+    });
     setKeys(pool.all());
   };
   setKeys(pool.all());
   return pool.onDidChange(sync);
 }
 
-/** The view, its data provider and the two commands its items use. */
-export function registerSpecTree(pool: ServerPool): { provider: SpecTreeProvider; disposables: vscode.Disposable[] } {
+/** Redraw the Steering view when an agent instruction file appears or goes; the server does not watch them. */
+function watchInstructions(view: SteeringTreeProvider): vscode.Disposable {
+  const watcher = vscode.workspace.createFileSystemWatcher(`**/{${INSTRUCTION_FILES.map(bareName).join(',')}}.md`, false, true, false);
+  const redraw = () => view.refresh();
+  const listening = [watcher.onDidCreate(redraw), watcher.onDidDelete(redraw), watcher];
+  return { dispose: () => { for (const d of listening) d.dispose(); } };
+}
+
+/** Both views, their data providers and the two commands their items use. */
+export function registerSpecTree(pool: ServerPool): {
+  provider: SpecTreeProvider; steering: SteeringTreeProvider; disposables: vscode.Disposable[];
+} {
   const provider = new SpecTreeProvider(pool);
+  const steering = new SteeringTreeProvider(pool);
   return {
     provider,
+    steering,
     disposables: [
       vscode.window.registerTreeDataProvider(VIEW_ID, provider),
-      watchTree(pool, provider),
+      vscode.window.registerTreeDataProvider(STEERING_VIEW_ID, steering),
+      watchTree(pool, provider, steering),
+      watchInstructions(steering),
       registerOpen(),
       registerRestart(pool),
       provider,
+      steering,
     ],
   };
 }

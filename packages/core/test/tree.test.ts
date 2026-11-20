@@ -25,7 +25,7 @@ describe('buildTree', () => {
       '.steno/specs/a/spec.yaml': STATE, '.steno/specs/a/requirements.md': '# R\n', '.steno/specs/a/tasks.md': TASKS,
       '.steno/specs/k/design.md': '# D\n',
       '.steno/specs/u/spec.yaml': 'name: u\nformatVersion: 9\n',
-      '.steno/steering/ok.md': '---\ninclusion: manual\n---\n# Ok\n', '.steno/steering/bad.md': Buffer.from([0xc3, 0x28]),
+      '.steno/steering/ok.md': '---\ninclusion: manual\n---\n# Ok\n', '.steno/steering/web.md': '---\ninclusion: fileMatch\nfileMatchPattern: "src/web/**"\n---\n# Web\n', '.steno/steering/bad.md': Buffer.from([0xc3, 0x28]),
     });
     const tree = buildTree(loadProject(root));
     expect(tree.protocolVersion).toBe(PROTOCOL_VERSION);
@@ -46,6 +46,8 @@ describe('buildTree', () => {
     expect(tree.steering).toEqual([
       { path: '.steno/steering/bad.md', unreadable: true, reason: 'bad.md is not UTF-8 text' },
       { path: '.steno/steering/ok.md', inclusion: 'manual' },
+      // a fileMatch file carries its pattern, so a Client can say which files it is for
+      { path: '.steno/steering/web.md', inclusion: 'fileMatch', pattern: 'src/web/**' },
     ]);
   });
 

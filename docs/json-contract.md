@@ -104,6 +104,7 @@ Counts tasks without subtasks.
 |---|---|---|
 | `path` | `string` | |
 | `inclusion?` | `"always" \| "fileMatch" \| "manual"` | Absent when the file is unreadable. |
+| `pattern?` | `string` | The `fileMatchPattern` of a `fileMatch` file, as written. |
 | `unreadable?` | `true` | |
 | `reason?` | `string` | Why the file is unreadable. |
 

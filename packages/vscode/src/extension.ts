@@ -23,7 +23,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push(
     ...tree.disposables, ...registerActions(pool), registerNewSpec(pool, cli, deps), registerSetUp(pool, cli), trackFolders(pool),
     chooser, registerChooser(chooser), ...registerHandoffs(pool, deps),
-    ...registerProbe(ctx.extensionMode, tree.provider));
+    ...registerProbe(ctx.extensionMode, tree.provider, tree.steering));
 }
 
 export function deactivate(): Promise<void> | undefined {

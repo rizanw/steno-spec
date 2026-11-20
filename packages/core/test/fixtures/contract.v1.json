@@ -224,6 +224,10 @@
         },
         "optional": true
       },
+      "pattern": {
+        "type": "string",
+        "optional": true
+      },
       "unreadable": {
         "type": "true",
         "optional": true

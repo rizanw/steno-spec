@@ -39,7 +39,8 @@ function treeSpec(snap: ProjectSnapshot, e: SpecEntry): TreeSpec {
 function treeSteering(snap: ProjectSnapshot, e: ProjectSnapshot['steering'][number]): TreeSteering {
   const path = relative(snap.root, e.file).split(sep).join('/');
   if (e.unreadable !== undefined) return { path, unreadable: true, reason: e.unreadable };
-  return { path, inclusion: e.steering!.inclusion };
+  const { inclusion, pattern } = e.steering!;
+  return inclusion === 'fileMatch' && pattern !== undefined ? { path, inclusion, pattern } : { path, inclusion };
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;

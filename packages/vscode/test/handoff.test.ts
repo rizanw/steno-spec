@@ -13,7 +13,7 @@ import {
 } from '../src/handoff.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type FolderServer } from '../src/servers.js';
-import { SpecNode, SteeringGroupNode, TaskNode } from '../src/tree.js';
+import { FolderNode, SpecNode, TaskNode } from '../src/tree.js';
 
 beforeEach(() => resetRecorded());
 
@@ -287,7 +287,7 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
 
   function setup(t: SpecTree = tree()) {
     const s = server(APP, t);
-    const p = { get: (uri: { fsPath: string }) => (uri.fsPath.startsWith(ROOT) ? s : undefined) } as unknown as ServerPool;
+    const p = { all: () => [s], get: (uri: { fsPath: string }) => (uri.fsPath.startsWith(ROOT) ? s : undefined) } as unknown as ServerPool;
     registerHandoffs(p, deps('clipboard'));
     return (command: string, arg: unknown) => handlers.get(command)!(arg);
   }
@@ -311,8 +311,12 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
     await run(WRITE_COMMAND, new SpecNode(ROOT_URI, tree(), design));
     await run(REVIEW_COMMAND, new SpecNode(ROOT_URI, tree(), design));
     await run(REVIEW_COMMAND, new SpecNode(ROOT_URI, tree(), spec({ phase: 'done' })));
-    await run(STEER_COMMAND, new SteeringGroupNode(ROOT_URI, tree()));
-    expect(recorded.clipboard).toEqual(['/steno-design auth', '/steno-review design auth', '/steno-review drift auth', '/steno-steer']);
+    // from a folder of the Steering view, and from its title bar, which passes no item
+    await run(STEER_COMMAND, new FolderNode(APP as unknown as import('vscode').WorkspaceFolder, true));
+    await run(STEER_COMMAND, undefined);
+    expect(recorded.clipboard).toEqual([
+      '/steno-design auth', '/steno-review design auth', '/steno-review drift auth', '/steno-steer', '/steno-steer',
+    ]);
   });
 
   it('ignores a wrong node, an Unusable Spec, a done or parent task and a lens without its URI (R1.7)', async () => {
@@ -320,7 +324,7 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
     const bad = { name: 'old', unsupported: true, phase: 'execute' } as TreeSpec;
     await run(RUN_NEXT_COMMAND, new SpecNode(ROOT_URI, tree(), bad));
     await run(WRITE_COMMAND, { kind: 'spec', folder: ROOT_URI, spec: spec({ phase: 'design' }) });
-    await run(STEER_COMMAND, undefined);
+    await run(STEER_COMMAND, new SpecNode(ROOT_URI, tree(), spec()));
     await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1', { done: true }), [], false, tasksUri));
     const child = new TaskNode(spec(), task('T1.1'), [], false, tasksUri);
     await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1'), [child], false, tasksUri));
@@ -347,9 +351,14 @@ describe('the manifest (R1.1 to R1.6)', () => {
     }
   });
 
-  it('hangs each handoff off the tree view only', () => {
+  it('hangs each handoff off the views only, generating steering off the Steering view', () => {
     const items = manifest.contributes.menus['view/item/context'].filter((m: { command: string }) => HANDOFFS.includes(m.command));
     expect(items.map((m: { command: string }) => m.command).sort()).toEqual([...HANDOFFS].sort());
-    for (const m of items) expect(m.when).toMatch(/^view == steno\.specs && viewItem /);
+    for (const m of items) {
+      const view = m.command === STEER_COMMAND ? 'steering' : 'specs';
+      expect(m.when).toMatch(new RegExp(`^view == steno\\.${view} && viewItem `));
+    }
+    expect(manifest.contributes.menus['view/title']).toContainEqual(
+      { command: STEER_COMMAND, when: 'view == steno.steering && steno.hasProject', group: 'navigation' });
   });
 });

@@ -4,11 +4,11 @@
 import { execFile } from 'node:child_process';
 import * as vscode from 'vscode';
 import { handOff, type Deps } from './handoff.js';
-import { pickProject } from './pick.js';
+import { chooseProject, projectServers } from './project.js';
 import type { ChangeResult, StructuredError } from './protocol.js';
 import { showRefusal } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { DEFAULT_SPECS_DIR, FolderNode, OPEN_COMMAND } from './tree.js';
+import { DEFAULT_SPECS_DIR, OPEN_COMMAND } from './tree.js';
 
 /** The three things the CLI can create; `brief` is the brainstorm-first feature Spec. */
 export type Kind = 'feature' | 'bugfix' | 'brief';
@@ -139,28 +139,6 @@ const WRITE_ITEMS: Record<WriteChoice, { label: string; detail: string }> = {
 /** The Spec_Document a new Spec opens at, whichever of these the CLI created first. */
 const OPENS = ['brief.md', 'requirements.md', 'bugfix.md'];
 
-/** The folders that are Steno_Projects right now: a running server whose tree says the folder is set up. */
-export function projectServers(pool: ServerPool): FolderServer[] {
-  return pool.all().filter(s => s.state !== 'stopped' && s.tree !== undefined && s.tree.notSetUp !== true);
-}
-
-/**
- * The project to create in: the hints first, and a quick pick only when neither settled it (R5.8).
- * `undefined` means the user escaped the pick.
- */
-async function chooseProject(pool: ServerPool, servers: FolderServer[], node: unknown): Promise<FolderServer | undefined> {
-  const paths = servers.map(s => s.folder.uri.fsPath);
-  const fromItem = node instanceof FolderNode ? node.folder.uri.fsPath : undefined;
-  const editor = vscode.window.activeTextEditor?.document.uri;
-  // a file outside every project is no hint at all; `pickProject` keeps only a path that is in the list
-  const fromEditor = editor ? pool.get(editor)?.folder.uri.fsPath : undefined;
-  const chosen = pickProject(paths, fromItem, fromEditor);
-  if (chosen !== undefined) return servers.find(s => s.folder.uri.fsPath === chosen);
-  const items = servers.map(s => ({ label: s.folder.name, description: s.folder.uri.fsPath, server: s }));
-  const picked = await vscode.window.showQuickPick(items, { title: TITLE, placeHolder: 'Which steno project?' });
-  return picked?.server;
-}
-
 /** Open the Spec the CLI just created, at the first document it wrote that a Spec starts from. */
 async function openCreated(server: FolderServer, result: ChangeResult): Promise<void> {
   const created = result.created ?? [];
@@ -168,7 +146,7 @@ async function openCreated(server: FolderServer, result: ChangeResult): Promise<
   if (!document) return;
   const dir = (server.tree?.specsDir ?? DEFAULT_SPECS_DIR).split('/').filter(Boolean);
   await vscode.commands.executeCommand(
-    OPEN_COMMAND, vscode.Uri.joinPath(server.folder.uri, ...dir, result.spec, document), 1);
+    OPEN_COMMAND, vscode.Uri.joinPath(server.folder.uri, ...dir, result.spec, document));
 }
 
 /**
@@ -181,7 +159,7 @@ async function openCreated(server: FolderServer, result: ChangeResult): Promise<
 export async function newSpec(pool: ServerPool, cli: string, deps: Deps, node?: unknown): Promise<void> {
   const servers = projectServers(pool);
   if (servers.length === 0) return;
-  const server = await chooseProject(pool, servers, node);
+  const server = await chooseProject(pool, servers, node, TITLE);
   if (!server) return;
 
   const kind = await vscode.window.showQuickPick(KINDS, { title: TITLE, placeHolder: 'What are you working on?' });

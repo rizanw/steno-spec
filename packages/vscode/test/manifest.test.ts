@@ -89,8 +89,21 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
       .toEqual([{ command: 'steno.setUp', when: '!steno.hasProject || steno.canSetUp' }]);
   });
 
+  it('contributes the Specs and Steering views, Steering only once a folder is a steno project', () => {
+    expect(manifest.contributes.views.steno.map((v: any) => [v.id, v.name, v.when])).toEqual([
+      ['steno.specs', 'Specs', undefined], ['steno.steering', 'Steering', 'steno.hasProject'],
+    ]);
+  });
+
+  it('ends the empty Steering view\'s message with the "Generate steering" button', () => {
+    const welcome = manifest.contributes.viewsWelcome.filter((w: any) => w.view === 'steno.steering');
+    expect(welcome).toHaveLength(1);
+    expect(welcome[0].when).toBe('steno.hasProject');
+    expect(welcome[0].contents.split('\n').at(-1)).toBe('[Generate steering](command:steno.steering.generate)');
+  });
+
   it('ends the empty view\'s message with the "Set up steno" button (R3.1)', () => {
-    const welcome = manifest.contributes.viewsWelcome;
+    const welcome = manifest.contributes.viewsWelcome.filter((w: any) => w.view === 'steno.specs');
     expect(welcome).toHaveLength(1);
     expect(welcome[0]).toMatchObject({ view: 'steno.specs', when: '!steno.hasProject' });
     const lines = welcome[0].contents.split('\n');

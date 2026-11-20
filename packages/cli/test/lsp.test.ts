@@ -61,10 +61,10 @@ describe('steno lsp: stopping', () => {
   });
 });
 
-describe('the Server_Bundle', () => {
+describe('the server bundle', () => {
   const BUNDLE = fileURLToPath(new URL('../bin/steno-lsp.mjs', import.meta.url));
 
-  it('runs alone from a CommonJS package folder and answers as steno lsp does (R12.2, R12.3, R12.4)', async () => {
+  it('runs alone from a CommonJS package folder and answers as steno lsp does', async () => {
     // a folder with nothing but the bundle and a package.json that makes .js files CommonJS
     const alone = mkdtempSync(join(tmpdir(), 'steno-bundle-'));
     cpSync(BUNDLE, join(alone, 'server.mjs'));
@@ -80,7 +80,7 @@ describe('the Server_Bundle', () => {
     expect(bundled).toEqual(await answers(client()));
   });
 
-  it('inlines every dependency: it loads Node built-ins only (R12.2)', () => {
+  it('inlines every dependency: it loads Node built-ins only', () => {
     const specifiers = [...readFileSync(BUNDLE, 'utf8').matchAll(/(?:from |require\()['"]([^'"]+)['"]/g)].map(m => m[1]);
     expect(specifiers.length).toBeGreaterThan(0);
     for (const s of specifiers) expect(builtinModules, s).toContain(s.replace(/^node:/, ''));
@@ -496,7 +496,7 @@ describe('steno lsp: task packets', () => {
     }
   });
 
-  it('refuses a Spec_Document with unsaved edits, naming the file', async () => {
+  it('refuses a spec document with unsaved edits, naming the file', async () => {
     const p = withTasks();
     const c = client();
     await c.initialize({ rootUri: uri(p.dir) });
@@ -607,7 +607,7 @@ describe('steno lsp: approve', () => {
     expect(stateOf(p)).toBe(before);
   });
 
-  it('refuses an approval while any Spec_Document of the Spec has unsaved edits', async () => {
+  it('refuses an approval while any spec document of the Spec has unsaved edits', async () => {
     const p = demo();
     const before = stateOf(p);
     const c = client();

@@ -26,7 +26,7 @@ export function createSession(root?: string): Session {
   return s;
 }
 
-/** Spec_Documents and Steering_Files, the only files whose open text counts in the editor snapshot. */
+/** Spec documents and steering files, the only files whose open text counts in the editor snapshot. */
 function documentFilter(root: string): (path: string) => boolean {
   const { config } = readConfig(root);
   const specs = resolve(root, config.specsDir), steering = resolve(root, config.steeringDir);
@@ -34,7 +34,7 @@ function documentFilter(root: string): (path: string) => boolean {
     || (dirname(p) === steering && p.endsWith('.md'));
 }
 
-/** Load both snapshots in full from the current files and open texts; says whether the Set_Up state flipped. */
+/** Load both snapshots in full from the current files and open texts; says whether the set-up state flipped. */
 export function reload(s: Session): { becameSetUp: boolean; becameNotSetUp: boolean } {
   if (s.root === undefined) return { becameSetUp: false, becameNotSetUp: false };
   const was = s.saved.setUp;

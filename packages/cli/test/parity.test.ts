@@ -1,4 +1,4 @@
-// The CLI and the language server agree on one project: the Spec_Tree, the Diagnostics and a Task_Packet.
+// The CLI and the language server agree on one project: the spec tree, the Diagnostics and a task packet.
 // The only differences masked are the approval dates of a derived Spec (the CLI writes them, the server shows null)
 // and the no-match warning, which only `steno steer lint` gives. Needs `pnpm build` first.
 import { describe, it, expect } from 'vitest';

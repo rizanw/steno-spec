@@ -30,7 +30,7 @@ export class Client {
   /** every notification and request the server sent, with the time it arrived */
   received: { method: string; params: any; id?: number; at: number }[] = [];
 
-  /** `args` and `cwd` start another server, such as the Server_Bundle; the default is `steno lsp`. */
+  /** `args` and `cwd` start another server, such as the server bundle; the default is `steno lsp`. */
   constructor(args: string[] = [BIN, 'lsp'], cwd?: string) {
     this.proc = spawn(process.execPath, args, { stdio: 'pipe', cwd });
     this.exited = new Promise(r => this.proc.on('exit', code => r(code)));

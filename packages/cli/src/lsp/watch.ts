@@ -1,4 +1,4 @@
-// Learns of disk changes to Watched_Files: through the Client's file watcher when it can register one, else with fs.watch.
+// Learns of disk changes to watched files: through the Client's file watcher when it can register one, else with fs.watch.
 import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';

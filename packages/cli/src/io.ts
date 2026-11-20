@@ -36,8 +36,8 @@ export function resolveSpec(ctx: Ctx, req: Request): { entry: SpecEntry; task?: 
 }
 
 /**
- * Print `data` as JSON with `--json`, else the text. `versioned` marks a JSON_Contract shape (the commands D-cli-json
- * lists): its JSON states the protocol version first.
+ * Print `data` as JSON with `--json`, else the text. `versioned` marks a JSON contract shape: its JSON states the
+ * protocol version first.
  */
 export function out(ctx: Ctx, data: unknown, text: string | (() => string), opts: { versioned?: boolean } = {}): void {
   if (ctx.json) {

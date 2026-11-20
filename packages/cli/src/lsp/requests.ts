@@ -9,7 +9,7 @@ import {
 import { unsaved, type Session } from './session.js';
 import { taskLenses } from './lens.js';
 
-export const METHODS = {
+const METHODS = {
   specTree: 'steno/specTree', taskPacket: 'steno/taskPacket',
   taskDone: 'steno/taskDone', taskReopen: 'steno/taskReopen', approve: 'steno/approve',
 } as const;
@@ -19,7 +19,7 @@ const KIND_BY_FILE: Record<string, DocKind> = {
 };
 
 /** What a path is in the editor snapshot: a spec document (with its Spec's entry when the folder is a Spec), a steering file, or nothing. */
-export function documentAt(s: Session, path: string): { kind: DocKind; entry?: SpecEntry } | undefined {
+function documentAt(s: Session, path: string): { kind: DocKind; entry?: SpecEntry } | undefined {
   const snap = s.editor;
   if (s.root === undefined || !snap.setUp) return undefined;
   const specs = resolve(s.root, snap.config.specsDir), steering = resolve(s.root, snap.config.steeringDir);
@@ -50,7 +50,7 @@ function toSymbols(items: OutlineItem[], lines: string[]): DocumentSymbol[] {
 }
 
 /** The document's Outline as symbols, from its current text: the open text, else the saved file. */
-export function documentSymbols(s: Session, path: string): DocumentSymbol[] {
+function documentSymbols(s: Session, path: string): DocumentSymbol[] {
   const doc = documentAt(s, path);
   if (!doc) return [];
   const open = s.open.get(path);
@@ -63,7 +63,7 @@ export function documentSymbols(s: Session, path: string): DocumentSymbol[] {
 }
 
 /** The task lenses of an open tasks document of a usable Spec, from its open text. */
-export function codeLenses(s: Session, path: string): CodeLens[] {
+function codeLenses(s: Session, path: string): CodeLens[] {
   const doc = documentAt(s, path);
   const text = s.open.get(path);
   if (doc?.kind !== 'tasks' || !doc.entry || !('spec' in doc.entry) || text === undefined) return [];
@@ -84,7 +84,7 @@ function checked(s: Session, req: Request) {
  * The task packet `steno ctx` builds for the task, from the files on disk. Steering files with unsaved edits and
  * Unreadable ones are left out and listed among the trimmed parts with the reason.
  */
-export function taskPacket(s: Session, p: { spec?: string; task?: string; budget?: unknown }): TaskPacket {
+function taskPacket(s: Session, p: { spec?: string; task?: string; budget?: unknown }): TaskPacket {
   const { snap, entry } = checked(s, { kind: 'packet', spec: p.spec, task: p.task, budget: p.budget });
   const spec = (entry as Extract<SpecEntry, { spec: unknown }>).spec;
   const budget = p.budget === undefined || p.budget === null ? snap.config.ctxBudget : Number(p.budget);
@@ -102,7 +102,7 @@ export type Changed = (written: string[]) => void;
  * One state change, run synchronously to the end: load from disk, `check`, apply, then `changed` (reload and notice).
  * The library reads the next message only after this returns, so changes apply one at a time in order of arrival.
  */
-export function applyChange(s: Session, req: Extract<Request, { kind: 'done' | 'reopen' | 'approve' }>, changed: Changed): ChangeResult {
+function applyChange(s: Session, req: Extract<Request, { kind: 'done' | 'reopen' | 'approve' }>, changed: Changed): ChangeResult {
   const { snap, entry } = checked(s, req);
   const dir = (entry as Extract<SpecEntry, { spec: unknown }>).spec.root;
   // no force: the server offers no equivalent of `steno approve --force`

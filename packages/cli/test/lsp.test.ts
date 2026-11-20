@@ -344,7 +344,8 @@ describe('steno lsp: set-up changes and removed files', () => {
     await c.waitFor(TREE);
     const req = join(dir, '.steno', 'specs', 'demo', 'requirements.md');
     await c.waitFor(PUBLISH, ps => ps.uri === uri(req) && has('spec/placeholder')(ps));
-    expect((await c.request('steno/specTree')).specs.map((s: any) => s.name)).toEqual(['demo']);
+    // a reload that ran while `steno new` was still writing can hold a tree without the spec; the next one has it
+    await expect.poll(async () => (await c.request('steno/specTree')).specs.map((s: any) => s.name), { timeout: 3000 }).toEqual(['demo']);
   });
 
   it('keeps only the configuration error when the configuration breaks, and sends a notice', async () => {

@@ -56,7 +56,7 @@ export function unsaved(s: Session, paths: string[]): string | undefined {
 /** What asked for a reload: an open, edit or close of a document, or a watcher event. */
 export type ReloadCause = 'edit' | 'event';
 /** Per cause: wait this long after the latest request, and never longer than `cap` after the first one not yet served. */
-export const RELOAD_DELAYS: Record<ReloadCause, { quiet: number; cap: number }> = {
+const RELOAD_DELAYS: Record<ReloadCause, { quiet: number; cap: number }> = {
   edit: { quiet: 100, cap: 300 },
   event: { quiet: 150, cap: 500 },
 };

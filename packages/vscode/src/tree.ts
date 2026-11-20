@@ -24,8 +24,22 @@ export const STEERING_VIEW_ID = 'steno.steering';
 /** Where specs live when the server did not say; only a set-up folder reaches the builders below. */
 export const DEFAULT_SPECS_DIR = '.steno/specs';
 
-/** The agent instruction files the Steering view lists when a folder has them at its root. */
-const INSTRUCTION_FILES = ['AGENTS.md', 'CLAUDE.md'] as const;
+/** The agent instruction files at a folder's root, listed first in the Steering view when the folder has them. */
+const ROOT_INSTRUCTIONS = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'] as const;
+
+/** Instruction files only one agent reads, listed last in the Steering view when the folder has them. */
+const AGENT_INSTRUCTION_FILES = ['.cursorrules', '.github/copilot-instructions.md'] as const;
+
+/** Folders of instruction files only one agent reads: every file in the folder whose name ends with `suffix`. */
+const AGENT_INSTRUCTION_DIRS = [
+  { dir: '.cursor/rules', suffix: '.mdc' },
+  { dir: '.github/instructions', suffix: '.instructions.md' },
+] as const;
+
+/** Every agent instruction file the Steering view lists, as one glob for the watcher that redraws it. */
+const INSTRUCTION_GLOB = `**/{${[
+  ...ROOT_INSTRUCTIONS, ...AGENT_INSTRUCTION_FILES, ...AGENT_INSTRUCTION_DIRS.map(d => `${d.dir}/*${d.suffix}`),
+].join(',')}}`;
 
 /** VS Code's built-in rich Markdown editor, from the bundled markdown extension. */
 const MARKDOWN_EDITOR = 'vscode.markdown.editor';
@@ -313,12 +327,15 @@ export class SteeringNode extends vscode.TreeItem {
   }
 }
 
-/** An agent instruction file at the folder's root, such as `AGENTS.md`, listed with the steering it sits beside. */
+/**
+ * An agent instruction file, listed with the steering it sits beside. One at the folder's root, such as
+ * `AGENTS.md`, reads by its name; one inside a folder, such as `.github/copilot-instructions.md`, by its path.
+ */
 export class InstructionNode extends vscode.TreeItem {
   readonly kind = 'instructions' as const;
 
   constructor(readonly folder: vscode.Uri, readonly file: string, readonly uri: vscode.Uri) {
-    super(bareName(file), None);
+    super(file.includes('/') ? file : bareName(file), None);
     this.resourceUri = uri;
     this.tooltip = `${file}: instructions your coding agent reads`;
     this.iconPath = new vscode.ThemeIcon('hubot');
@@ -349,13 +366,22 @@ export function shown(servers: readonly FolderServer[]): FolderServer[] {
   return servers.filter(s => s.state === 'stopped' || (s.tree !== undefined && s.tree.notSetUp !== true));
 }
 
+/**
+ * The Specs of a tree in the order the Specs view lists them: the ones still in progress first, the done ones
+ * last. Each group keeps the server's order, newest `created` first and the ones with no date after, so an
+ * undated Spec in progress sits just above the done ones.
+ */
+export function specOrder(specs: readonly TreeSpec[]): TreeSpec[] {
+  return [...specs.filter(s => s.phase !== 'done'), ...specs.filter(s => s.phase === 'done')];
+}
+
 /** The items of one folder in the Specs view: its Specs, or the stopped item. */
 export function folderItems(server: FolderServer): Node[] {
   if (server.state === 'stopped') return [new StoppedNode(server.folder)];
   const tree = server.tree;
   if (!tree) return [];
   const uri = server.folder.uri;
-  return tree.specs.map(spec => new SpecNode(uri, tree, spec));
+  return specOrder(tree.specs).map(spec => new SpecNode(uri, tree, spec));
 }
 
 /** Whether a file exists; `stat` throws for one that does not. */
@@ -368,20 +394,60 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
   }
 }
 
+/** The names of the files in a folder, or none when the folder does not exist. */
+async function filesIn(uri: vscode.Uri): Promise<string[]> {
+  try {
+    const entries = await vscode.workspace.fs.readDirectory(uri);
+    return entries.filter(([, type]) => type === vscode.FileType.File).map(([name]) => name);
+  } catch {
+    return [];
+  }
+}
+
+/** A to Z, ignoring case; two names that differ only in case keep a fixed order. */
+function alphabetical(a: string, b: string): number {
+  const la = a.toLowerCase(), lb = b.toLowerCase();
+  if (la !== lb) return la < lb ? -1 : 1;
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/** The given folder-relative files that exist. */
+async function present(folder: vscode.Uri, candidates: readonly string[]): Promise<string[]> {
+  const found = await Promise.all(candidates.map(async file =>
+    (await exists(vscode.Uri.joinPath(folder, ...file.split('/')))) ? file : undefined));
+  return found.filter((file): file is string => file !== undefined);
+}
+
+/** Folder-relative instruction files, A to Z, as nodes. */
+function instructionNodes(folder: vscode.Uri, files: string[]): InstructionNode[] {
+  return [...files].sort(alphabetical)
+    .map(file => new InstructionNode(folder, file, vscode.Uri.joinPath(folder, ...file.split('/'))));
+}
+
+/** The files of the agent instruction folders, by their folder-relative paths. */
+async function instructionDirFiles(folder: vscode.Uri): Promise<string[]> {
+  const perDir = await Promise.all(AGENT_INSTRUCTION_DIRS.map(async ({ dir, suffix }) =>
+    (await filesIn(vscode.Uri.joinPath(folder, ...dir.split('/'))))
+      .filter(name => name.endsWith(suffix)).map(name => `${dir}/${name}`)));
+  return perDir.flat();
+}
+
 /**
- * The items of one folder in the Steering view: the agent instruction files at its root, then its
- * steering files in the server's order.
+ * The items of one folder in the Steering view, in three groups, each A to Z: the agent instruction files at
+ * its root, then its steering files, then the instruction files only one agent reads, such as Cursor's rules.
  */
 export async function steeringItems(server: FolderServer): Promise<SteeringViewNode[]> {
   const tree = server.tree;
   if (server.state === 'stopped' || !tree) return [];
   const uri = server.folder.uri;
-  const found = await Promise.all(INSTRUCTION_FILES.map(async file => {
-    const at = vscode.Uri.joinPath(uri, file);
-    return (await exists(at)) ? new InstructionNode(uri, file, at) : undefined;
-  }));
-  const instructions = found.filter((node): node is InstructionNode => node !== undefined);
-  return [...instructions, ...tree.steering.map(entry => new SteeringNode(uri, entry))];
+  const [root, agentFiles, agentDirFiles] = await Promise.all([
+    present(uri, ROOT_INSTRUCTIONS), present(uri, AGENT_INSTRUCTION_FILES), instructionDirFiles(uri),
+  ]);
+  const fileName = (entry: TreeSteering) => entry.path.split('/').pop() ?? entry.path;
+  const steering = [...tree.steering]
+    .sort((a, b) => alphabetical(fileName(a), fileName(b)) || alphabetical(a.path, b.path))
+    .map(entry => new SteeringNode(uri, entry));
+  return [...instructionNodes(uri, root), ...steering, ...instructionNodes(uri, [...agentFiles, ...agentDirFiles])];
 }
 
 /** What both views share: one FolderNode per folder, kept so a refresh can name a subtree the view already holds. */
@@ -544,7 +610,7 @@ export function watchTree(pool: ServerPool, ...views: (SpecTreeProvider | Steeri
 
 /** Redraw the Steering view when an agent instruction file appears or goes; the server does not watch them. */
 function watchInstructions(view: SteeringTreeProvider): vscode.Disposable {
-  const watcher = vscode.workspace.createFileSystemWatcher(`**/{${INSTRUCTION_FILES.map(bareName).join(',')}}.md`, false, true, false);
+  const watcher = vscode.workspace.createFileSystemWatcher(INSTRUCTION_GLOB, false, true, false);
   const redraw = () => view.refresh();
   const listening = [watcher.onDidCreate(redraw), watcher.onDidDelete(redraw), watcher];
   return { dispose: () => { for (const d of listening) d.dispose(); } };

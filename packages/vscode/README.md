@@ -49,9 +49,9 @@ Open a folder that already has a `.steno/` directory. For one that has none, cho
 in the view, or run **steno: Set Up steno in a Folder** from the command palette: pick the coding
 agents you use, and the extension creates `.steno/` and installs the steno skills for them.
 
-The extension carries its own copy of steno, so there is nothing else to install to *read* your
-specs. Writing them is the agent's half of the job, and the skills call `steno` directly, so install
-the CLI for that:
+The extension carries its own copy of steno, so there is nothing else to install to *read* your specs.
+Writing them is the agent's half of the job, and the skills call `steno` directly, so install the CLI 
+for that:
 
 ```bash
 npm install -g steno-spec
@@ -79,7 +79,7 @@ The steno icon in the activity bar opens every steno project in the window:
 
 ```text
 specs
-├─ link-expiry                                 execute · gated · 2/3
+├─ link-expiry                                           1 task left
 │  ├─ requirements.md
 │  ├─ design.md
 │  └─ tasks.md
@@ -90,13 +90,9 @@ specs
 │        ├─ → T2.1 Skip an expired link in the resolver        next
 │        └─ ○ T2.2 Sweep expired links on a timer          optional
 └─ Steering
-   ├─ product.md                                             always
-   └─ api.md                                              fileMatch
+   ├─ product.md                                          always on
+   └─ api.md                                         matching files
 ```
-
-Clicking any line opens that document where the item lives, at the requirement, section or task you
-clicked. Lint findings arrive in the editor and the Problems panel as you type, so a stage that is
-not ready to approve says so before you ask.
 
 ## Requirements
 

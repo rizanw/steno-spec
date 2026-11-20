@@ -35,6 +35,8 @@ export class EventEmitter<T> {
 
 export enum ExtensionMode { Production = 1, Development = 2, Test = 3 }
 
+export enum FileType { Unknown = 0, File = 1, Directory = 2, SymbolicLink = 64 }
+
 export enum TreeItemCollapsibleState { None = 0, Collapsed = 1, Expanded = 2 }
 
 export class ThemeIcon {
@@ -272,11 +274,23 @@ export const workspace = {
   onDidChangeWorkspaceFolders: folderChanges.event,
   getConfiguration: () => ({ get: () => undefined }),
   openTextDocument: async (uri: Uri) => ({ uri }),
-  /** `stat` finds only the paths a test put in `files` */
+  /** `stat` and `readDirectory` find only the paths a test put in `files` */
   fs: {
     stat: async (uri: Uri) => {
       if (!files.has(uri.toString())) throw new Error(`ENOENT ${uri.toString()}`);
-      return { type: 1 };
+      return { type: FileType.File };
+    },
+    // a folder exists while a test file sits somewhere under it; its entries are the names one level down
+    readDirectory: async (uri: Uri): Promise<[string, FileType][]> => {
+      const prefix = `${uri.toString()}/`;
+      const below = [...files].filter(f => f.startsWith(prefix)).map(f => f.slice(prefix.length));
+      if (below.length === 0) throw new Error(`ENOENT ${uri.toString()}`);
+      const entries = new Map<string, FileType>();
+      for (const rest of below) {
+        const [name, ...deeper] = rest.split('/');
+        entries.set(name, deeper.length ? FileType.Directory : FileType.File);
+      }
+      return [...entries];
     },
   },
   createFileSystemWatcher: (pattern: string, _ignoreCreate?: boolean, _ignoreChange?: boolean, _ignoreDelete?: boolean) => {

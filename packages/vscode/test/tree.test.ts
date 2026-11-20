@@ -10,7 +10,7 @@ import { ServerPool, type CreateClient, type FolderServer, type StenoClient } fr
 import {
   CAN_SET_UP, DocNode, FileNode, HAS_PROJECT, InstructionNode, RESTART_COMMAND, STEERING_VIEW_ID, SpecNode,
   SpecTreeProvider, SteeringNode, SteeringTreeProvider, StoppedNode, TaskNode, VIEW_ID, documentDone, folderItems,
-  registerSpecTree, runnable, shown, specChildren, specContext, steeringItems, taskContext, taskNodes, unusable,
+  registerSpecTree, runnable, shown, specChildren, specContext, specOrder, steeringItems, taskContext, taskNodes, unusable,
   watchTree, type Node,
 } from '../src/tree.js';
 
@@ -271,6 +271,41 @@ describe('folderItems', () => {
     const pool = await pooled({ path: '/work/a', tree: tree({ specs: [spec()], steering: [{ path: '.steno/steering/tech.md', inclusion: 'always' }] }) });
     expect(folderItems(pool.all()[0]).map(n => n.kind)).toEqual(['spec']);
   });
+
+  it('lists the Specs in progress before the done ones', async () => {
+    const specs = [spec({ name: 'a', title: 'A', phase: 'done' }), spec({ name: 'b', title: 'B' })];
+    const pool = await pooled({ path: '/work/a', tree: tree({ specs }) });
+    expect(folderItems(pool.all()[0]).map(n => n.label)).toEqual(['B', 'A']);
+  });
+});
+
+describe('specOrder', () => {
+  it('puts done Specs last, keeping the server order within each group', () => {
+    // the server order: dated newest first, then the undated ones, an unreadable one among them
+    const specs = [
+      spec({ name: 'new-done', phase: 'done' }),
+      spec({ name: 'new-open', phase: 'design' }),
+      spec({ name: 'old-done', phase: 'done' }),
+      spec({ name: 'old-open', phase: 'execute' }),
+      spec({ name: 'undated-done', phase: 'done' }),
+      { name: 'broken', unreadable: true, files: [] } as TreeSpec,
+      spec({ name: 'undated-open', phase: 'requirements' }),
+    ];
+    expect(specOrder(specs).map(s => s.name)).toEqual([
+      'new-open', 'old-open', 'broken', 'undated-open', 'new-done', 'old-done', 'undated-done',
+    ]);
+  });
+
+  it('keeps every Spec exactly once, the done ones forming the tail', () => {
+    const phases = fc.constantFrom('brief', 'requirements', 'design', 'tasks', 'execute', 'done', undefined);
+    fc.assert(fc.property(fc.array(phases), list => {
+      const specs = list.map((phase, i) => ({ name: `s${i}`, phase }) as TreeSpec);
+      const out = specOrder(specs);
+      expect([...out].sort((a, b) => Number(a.name.slice(1)) - Number(b.name.slice(1)))).toEqual(specs);
+      const firstDone = out.findIndex(s => s.phase === 'done');
+      if (firstDone >= 0) expect(out.slice(firstDone).every(s => s.phase === 'done')).toBe(true);
+    }));
+  });
 });
 
 describe('steeringItems', () => {
@@ -285,6 +320,31 @@ describe('steeringItems', () => {
     files.add('file:///work/a/CLAUDE.md');
     items = await steeringItems(pool.all()[0]);
     expect(items.map(n => n.label)).toEqual(['AGENTS', 'CLAUDE', 'tech']);
+  });
+
+  it('groups root instruction files, then steering, then other agents\' files, each A to Z ignoring case', async () => {
+    const steering = [
+      { path: '.steno/steering/tech.md', inclusion: 'always' as const },
+      { path: '.steno/steering/API.md', inclusion: 'manual' as const },
+      { path: '.steno/steering/product.md', inclusion: 'always' as const },
+    ];
+    const pool = await pooled({ path: '/work/a', tree: tree({ steering }) });
+    for (const file of [
+      'GEMINI.md', 'CLAUDE.md', 'AGENTS.md',
+      '.github/copilot-instructions.md', '.cursorrules',
+      '.cursor/rules/testing.mdc', '.cursor/rules/Api.mdc', '.cursor/rules/notes.txt', '.cursor/rules/nested/deep.mdc',
+      '.github/instructions/react.instructions.md', '.github/instructions/README.md',
+    ]) files.add(`file:///work/a/${file}`);
+    const items = await steeringItems(pool.all()[0]);
+    expect(items.map(n => n.label)).toEqual([
+      'AGENTS', 'CLAUDE', 'GEMINI',
+      'API', 'product', 'tech',
+      '.cursor/rules/Api.mdc', '.cursor/rules/testing.mdc', '.cursorrules',
+      '.github/copilot-instructions.md', '.github/instructions/react.instructions.md',
+    ]);
+    const last = items.at(-1) as InstructionNode;
+    expect(last).toBeInstanceOf(InstructionNode);
+    expect(String(last.command?.arguments?.[0])).toBe('file:///work/a/.github/instructions/react.instructions.md');
   });
 
   it('is empty with no steering and no instruction file, so the view shows its "Generate steering" message', async () => {
@@ -395,12 +455,13 @@ describe('the view commands', () => {
     expect(recorded.commands.some(c => c.command === 'vscode.openWith')).toBe(false);
   });
 
-  it('redraws the Steering view when an AGENTS.md or CLAUDE.md appears or goes', async () => {
+  it('redraws the Steering view when an agent instruction file appears or goes', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() });
     const { steering } = registerSpecTree(pool);
     const fired: unknown[] = [];
     steering.onDidChangeTreeData(e => fired.push(e));
-    const watcher = watchers.find(w => w.pattern === '**/{AGENTS,CLAUDE}.md')!;
+    const watcher = watchers.find(w => w.pattern === '**/{AGENTS.md,CLAUDE.md,GEMINI.md,.cursorrules,'
+      + '.github/copilot-instructions.md,.cursor/rules/*.mdc,.github/instructions/*.instructions.md}')!;
     watcher.fire.created.fire(Uri.file('/work/a/AGENTS.md'));
     watcher.fire.deleted.fire(Uri.file('/work/a/AGENTS.md'));
     expect(fired).toEqual([undefined, undefined]);

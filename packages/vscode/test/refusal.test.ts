@@ -1,4 +1,4 @@
-// Refusals: unsaved edits offer save and retry, lint blocks list their findings, anything else is shown as is (R5.5, R5.6).
+// Refusals: unsaved edits offer save and retry, lint blocks list their findings, anything else is shown as is.
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Uri, answers, folder, openDocument, recorded, resetRecorded } from './vscode-stub.js';
 import { registerOpen } from '../src/tree.js';
@@ -10,7 +10,7 @@ beforeEach(() => resetRecorded());
 
 const app = folder('/work/app');
 
-/** A refusal as the language client hands it over: a `ResponseError` with the Structured_Error as `data`. */
+/** A refusal as the language client hands it over: a `ResponseError` with the structured error as `data`. */
 function responseError(data: Partial<StructuredError> & Pick<StructuredError, 'code' | 'message'>): Error {
   return Object.assign(new Error(data.message), { code: -32803, data: { protocolVersion: 1, ...data } });
 }
@@ -39,7 +39,7 @@ describe('fileUri', () => {
 describe('showRefusal', () => {
   const unsaved = (file: string) => responseError({ code: 'unsaved-edits', message: `${file} has unsaved edits; save it first`, file });
 
-  it('names the unsaved file, and "Save and retry" saves it and retries once (R5.5)', async () => {
+  it('names the unsaved file, and "Save and retry" saves it and retries once', async () => {
     const tasks = Uri.file('/work/app/.steno/specs/auth/tasks.md');
     openDocument(tasks);
     answers.message = SAVE_AND_RETRY;
@@ -50,7 +50,7 @@ describe('showRefusal', () => {
     expect(retried).toBe(1);
   });
 
-  it('resolves a relative file against the folder before it saves (R5.5)', async () => {
+  it('resolves a relative file against the folder before it saves', async () => {
     openDocument(Uri.file('/work/app/.steno/specs/auth/spec.yaml'));
     answers.message = SAVE_AND_RETRY;
     await showRefusal(unsaved('.steno/specs/auth/spec.yaml'), app, async () => {});
@@ -65,7 +65,7 @@ describe('showRefusal', () => {
     expect(retried).toBe(0);
   });
 
-  it('lists each lint finding as file:line and opens the chosen one at its line (R5.6)', async () => {
+  it('lists each lint finding as file:line and opens the chosen one at its line', async () => {
     registerOpen();
     const err = responseError({
       code: 'lint-blocked', message: 'auth: fix the requirements lint errors first', spec: 'auth',
@@ -83,7 +83,7 @@ describe('showRefusal', () => {
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/auth/requirements.md', line: 30 }]);
   });
 
-  it('shows any other refusal as an error with its message (R5.6)', async () => {
+  it('shows any other refusal as an error with its message', async () => {
     await showRefusal(responseError({ code: 'invalid-request', message: 'requirements already approved' }), app);
     await showRefusal(new Error('connection lost'), app);
     expect(recorded.error).toEqual(['requirements already approved', 'connection lost']);
@@ -91,7 +91,7 @@ describe('showRefusal', () => {
 });
 
 describe('showStopped', () => {
-  it('names the stopped folder and restarts it on "Restart" (R1.4)', async () => {
+  it('names the stopped folder and restarts it on "Restart"', async () => {
     const log: string[] = [];
     const create: CreateClient = () => ({
       start: async () => { log.push('start'); },

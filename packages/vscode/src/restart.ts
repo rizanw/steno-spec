@@ -19,7 +19,7 @@ export class RestartWindow {
     return this.exits.length >= MAX_EXITS ? 'stop' : 'restart';
   }
 
-  /** Forget every exit: the user asked for a restart, so the server starts with a clean record (R1.4). */
+  /** Forget every exit: the user asked for a restart, so the server starts with a clean record. */
   reset(): void {
     this.exits = [];
   }

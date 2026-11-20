@@ -37,7 +37,7 @@ function fakes(): { create: CreateClient; made: Fake[] } {
 beforeEach(() => resetRecorded());
 
 describe('ServerPool', () => {
-  it('starts one bundled server per folder, and only the bundled one (R1.1, R2.1, R6.3)', async () => {
+  it('starts one bundled server per folder, and only the bundled one', async () => {
     const { create, made } = fakes();
     const pool = new ServerPool(SERVER, create);
     await pool.start(folder('/work/a'));
@@ -64,7 +64,7 @@ describe('ServerPool', () => {
     expect(pool.all()).toHaveLength(0);
   });
 
-  it('stops a folder\'s server and forgets it (R1.2)', async () => {
+  it('stops a folder\'s server and forgets it', async () => {
     const { create, made } = fakes();
     const pool = new ServerPool(SERVER, create);
     const a = folder('/work/a');
@@ -74,7 +74,7 @@ describe('ServerPool', () => {
     expect(pool.all()).toHaveLength(0);
   });
 
-  it('stops every server on dispose, as the window closing does (R1.2)', async () => {
+  it('stops every server on dispose, as the window closing does', async () => {
     const { create, made } = fakes();
     const pool = new ServerPool(SERVER, create);
     await pool.start(folder('/work/a'));
@@ -123,7 +123,7 @@ describe('the document selector', () => {
 });
 
 describe('trackFolders', () => {
-  it('starts every open folder, then follows folders added and removed (R1.1, R1.2)', async () => {
+  it('starts every open folder, then follows folders added and removed', async () => {
     const { create, made } = fakes();
     const pool = new ServerPool(SERVER, create);
     const a = folder('/work/a'), b = folder('/work/b', 1), c = folder('/work/c', 2);
@@ -145,7 +145,7 @@ describe('Refresher', () => {
   /** let every queued microtask run, as the event loop would between notices. */
   const settle = () => new Promise(resolve => setImmediate(resolve));
 
-  it('keeps one fetch in flight and collapses the notices that arrive during it (R3.6)', async () => {
+  it('keeps one fetch in flight and collapses the notices that arrive during it', async () => {
     let calls = 0;
     let release: (() => void) | undefined;
     const applied: number[] = [];
@@ -199,7 +199,7 @@ describe('tree notices', () => {
     return { create, notify: () => handler?.(), requests };
   }
 
-  it('asks for the tree once the client runs, and again on steno/treeChanged (R3.6)', async () => {
+  it('asks for the tree once the client runs, and again on steno/treeChanged', async () => {
     const { create, notify, requests } = noticing();
     const pool = new ServerPool(SERVER, create);
     await pool.start(folder('/work/a'));
@@ -211,7 +211,7 @@ describe('tree notices', () => {
     expect(requests).toEqual(['steno/specTree', 'steno/specTree']);
   });
 
-  it('asks again after a restart, since the restarted server told us nothing yet (R1.4, R3.6)', async () => {
+  it('asks again after a restart, since the restarted server told us nothing yet', async () => {
     const { create, requests } = noticing();
     const pool = new ServerPool(SERVER, create);
     await pool.start(folder('/work/a'));
@@ -234,7 +234,7 @@ describe('tree notices', () => {
   });
 });
 
-describe('the lens middleware (R1.1, R4.4)', () => {
+describe('the lens middleware', () => {
   const uri = Uri.file('/work/a/.steno/specs/auth/tasks.md') as unknown as import('vscode').Uri;
   const lens = (command: string, args: unknown = { spec: 'auth', task: 'T1', optional: false }) =>
     ({ range: 1, command: { command, title: command, arguments: [args] } });
@@ -260,7 +260,7 @@ describe('the lens middleware (R1.1, R4.4)', () => {
     expect(await provideCodeLenses({ uri }, undefined, () => undefined, never)).toBeUndefined();
   });
 
-  it('Property 5: keeps every other lens, a run lens exactly when runnable, and gives kept run and done lenses the URI', () => {
+  it('keeps every other lens, a run lens exactly when runnable, and gives kept run and done lenses the URI', () => {
     const anyLens = fc.record({
       command: fc.constantFrom('steno.task.run', 'steno.task.done', 'other.command'),
       spec: fc.constantFrom('auth', 'billing'),

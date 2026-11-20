@@ -9,7 +9,7 @@ const winEnv: Env = { path: 'C:\\Windows;C:\\Users\\u\\AppData\\Roaming\\npm', p
 const byId = (id: string) => ADAPTERS.find(a => a.id === id)!;
 
 describe('ADAPTERS', () => {
-  it('holds the seven adapters in picker order, with their forms and Fill_Only flags (R2.1, R1.10)', () => {
+  it('holds the seven adapters in picker order, with their forms and fill-only flags', () => {
     expect(ADAPTERS.map(a => [a.id, a.form, a.fillOnly])).toEqual([
       ['copilot', 'slash', true],
       ['claude-code', 'slash', true],
@@ -78,13 +78,13 @@ describe('detected', () => {
   const probe = (over: Partial<Probe> = {}): Probe =>
     ({ hasExtension: () => false, env: posixEnv, exists: () => false, ...over });
 
-  it('counts an extension adapter when its extension is installed (R2.3)', () => {
+  it('counts an extension adapter when its extension is installed', () => {
     const p = probe({ hasExtension: id => id === 'GitHub.copilot-chat' });
     expect(detected(byId('copilot'), p)).toBe(true);
     expect(detected(byId('claude-code'), p)).toBe(false);
   });
 
-  it('counts a terminal adapter when its program is on PATH (R2.3)', () => {
+  it('counts a terminal adapter when its program is on PATH', () => {
     const p = probe({ exists: files('/usr/local/bin/codex') });
     expect(detected(byId('codex'), p)).toBe(true);
     expect(detected(byId('claude'), p)).toBe(false);

@@ -18,11 +18,11 @@ const handoff = (name: fc.Arbitrary<string>): fc.Arbitrary<Handoff> => fc.oneof(
 );
 
 describe('skillCall', () => {
-  it('run with a task gives steno-run with the task before the spec (R1.2)', () => {
+  it('run with a task gives steno-run with the task before the spec', () => {
     expect(skillCall({ kind: 'run', spec: 'my-spec', task: 'T3.1' })).toEqual({ skill: 'steno-run', args: ['T3.1', 'my-spec'] });
   });
 
-  it('run without a task names only the spec (R1.3)', () => {
+  it('run without a task names only the spec', () => {
     expect(skillCall({ kind: 'run', spec: 'my-spec' })).toEqual({ skill: 'steno-run', args: ['my-spec'] });
   });
 
@@ -63,7 +63,7 @@ describe('skillCall', () => {
 describe('render', () => {
   const call = { skill: 'steno-run', args: ['T3.1', 'my-spec'] };
 
-  it('renders the three forms (R1.8)', () => {
+  it('renders the three forms', () => {
     expect(render(call, 'slash')).toBe('/steno-run T3.1 my-spec');
     expect(render(call, 'dollar')).toBe('$steno-run T3.1 my-spec');
     expect(render(call, 'plain')).toBe('Use the steno-run skill with: T3.1 my-spec');
@@ -77,7 +77,7 @@ describe('render', () => {
 
 describe('properties', () => {
   // Whatever we're handed, the message only ever holds a skill name and safe arguments.
-  it('Property 1: any call renders to the skill and at most two safe arguments, with no cmd.exe syntax', () => {
+  it('any call renders to the skill and at most two safe arguments, with no cmd.exe syntax', () => {
     const prefixed = new RegExp(`^[/$]steno-[a-z]+( ${ARG}){0,2}$`);
     const plain = new RegExp(`^Use the steno-[a-z]+ skill( with:( ${ARG}){1,2})?$`);
     fc.assert(fc.property(handoff(anyName), fc.constantFrom(...FORMS), (h, form) => {
@@ -90,7 +90,7 @@ describe('properties', () => {
   });
 
   // The skill and arguments always match the action and the spec's phase.
-  it('Property 2: run puts the task first; write and review are defined exactly in their Phases', () => {
+  it('run puts the task first; write and review are defined exactly in their Phases', () => {
     fc.assert(fc.property(safeName, safeName, phase, (spec, task, p) => {
       expect(SAFE.test(spec) && SAFE.test(task)).toBe(true);
       expect(skillCall({ kind: 'run', spec, task })).toEqual({ skill: 'steno-run', args: [task, spec] });

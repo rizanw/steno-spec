@@ -19,34 +19,34 @@ function sources(dir: string = SRC): { path: string; text: string }[] {
   });
 }
 
-describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
-  it('names the extension as the Marketplace id rizanw.steno-vscode, and is private to the workspace (R6.2)', () => {
+describe('the manifest and source', () => {
+  it('names the extension as the Marketplace id rizanw.steno-vscode, and is private to the workspace', () => {
     expect(manifest.name).toBe('steno-vscode');
     expect(manifest.publisher).toBe('rizanw');
     expect(manifest.displayName).toBe('steno spec');
     expect(manifest.private).toBe(true);
   });
 
-  it('carries the version of the steno-spec release it bundles (R6.2)', () => {
+  it('carries the version of the steno-spec release it bundles', () => {
     expect(manifest.version).toBe(cli.version);
   });
 
-  it('bundles the server and the CLI from this workspace, so the build runs packages/cli first (R6.2)', () => {
+  it('bundles the server and the CLI from this workspace, so the build runs packages/cli first', () => {
     expect(manifest.devDependencies['steno-spec']).toBe('workspace:*');
   });
 
-  it('supports VS Code 1.125 and later, with typings pinned to the same release (R6.1)', () => {
+  it('supports VS Code 1.125 and later, with typings pinned to the same release', () => {
     expect(manifest.engines.vscode).toBe('^1.125.0');
     // equal, so the extension can never compile against an API the oldest supported editor lacks
     expect(manifest.devDependencies['@types/vscode']).toBe('1.125.0');
   });
 
-  it('runs on the extension host alone: no browser entry, no virtual workspaces (R6.1)', () => {
+  it('runs on the extension host alone: no browser entry, no virtual workspaces', () => {
     expect(manifest.browser).toBeUndefined();
     expect(manifest.capabilities.virtualWorkspaces).toBe(false);
   });
 
-  it('limits Restricted Mode to the handoffs, set-up and the chooser, read in src/trust.ts alone (R2.1, R2.2, R4.1)', () => {
+  it('limits Restricted Mode to the handoffs, set-up and the chooser, read in src/trust.ts alone', () => {
     const { supported, description } = manifest.capabilities.untrustedWorkspaces;
     expect(supported).toBe('limited');
     expect(description).toMatch(/Restricted Mode/);
@@ -54,12 +54,12 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(reading).toEqual(['trust.ts']);
   });
 
-  it('offers no when clause that a Restricted Mode workspace would turn off (R2.2)', () => {
+  it('offers no when clause that a Restricted Mode workspace would turn off', () => {
     const whens = JSON.stringify(manifest.contributes ?? {}).match(/"when":"[^"]*"/g) ?? [];
     for (const when of whens) expect(when).not.toMatch(/isTrusted|workspaceTrust/);
   });
 
-  it('exposes approval only through the view: no language-model tool, chat participant or API (R5.3)', () => {
+  it('exposes approval only through the view: no language-model tool, chat participant or API', () => {
     expect(manifest.contributes?.languageModelTools).toBeUndefined();
     expect(manifest.contributes?.chatParticipants).toBeUndefined();
     // `activate` returns nothing, so no other extension can reach a SpecNode or an approve call
@@ -67,7 +67,7 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(entry.text).toMatch(/export function activate\([^)]*\): void/);
   });
 
-  it('offers "New spec" on the view title, on a project folder and in the palette, each gated on a project (R5.7)', () => {
+  it('offers "New spec" on the view title, on a project folder and in the palette, each gated on a project', () => {
     const menus = manifest.contributes.menus;
     const of = (list: any[]) => list.filter((m: any) => m.command === 'steno.spec.new');
     expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.spec.new');
@@ -83,7 +83,7 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(shown).toEqual(['steno.spec.new', 'steno.setUp', 'steno.agent.choose']);
   });
 
-  it('offers "Set up steno" in the palette while no folder is a project or some folder is not one (R3.2)', () => {
+  it('offers "Set up steno" in the palette while no folder is a project or some folder is not one', () => {
     expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.setUp');
     expect(manifest.contributes.menus.commandPalette.filter((m: any) => m.command === 'steno.setUp'))
       .toEqual([{ command: 'steno.setUp', when: '!steno.hasProject || steno.canSetUp' }]);
@@ -102,7 +102,7 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(welcome[0].contents.split('\n').at(-1)).toBe('[Generate steering](command:steno.steering.generate)');
   });
 
-  it('ends the empty view\'s message with the "Set up steno" button (R3.1)', () => {
+  it('ends the empty view\'s message with the "Set up steno" button', () => {
     const welcome = manifest.contributes.viewsWelcome.filter((w: any) => w.view === 'steno.specs');
     expect(welcome).toHaveLength(1);
     expect(welcome[0]).toMatchObject({ view: 'steno.specs', when: '!steno.hasProject' });
@@ -112,13 +112,13 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(lines[2]).toBe('[Set up steno](command:steno.setUp)');
   });
 
-  it('offers "Choose Coding Agent" in the palette while a folder is a steno project (R2.5)', () => {
+  it('offers "Choose Coding Agent" in the palette while a folder is a steno project', () => {
     expect(manifest.contributes.commands.map((c: any) => c.command)).toContain('steno.agent.choose');
     expect(manifest.contributes.menus.commandPalette.filter((m: any) => m.command === 'steno.agent.choose'))
       .toEqual([{ command: 'steno.agent.choose', when: 'steno.hasProject' }]);
   });
 
-  it('refuses a spec name by the same rule as core\'s assertSlug, which the CLI would apply (R5.6)', () => {
+  it('refuses a spec name by the same rule as core\'s assertSlug, which the CLI would apply', () => {
     const core = readFileSync(join(HERE, '..', 'core', 'src', 'spec.ts'), 'utf8');
     const rule = (text: string) => /^const SLUG = (.+);$/m.exec(text)?.[1];
     const mine = sources().find(f => f.path === 'new-spec.ts')!.text;
@@ -126,7 +126,7 @@ describe('the manifest and source (R2.1, R2.2, R5.3, R6.1, R6.2, R6.4)', () => {
     expect(rule(mine)).toBe(rule(core));
   });
 
-  it('makes no network request: no http, https, net or tls import and no fetch (R6.4)', () => {
+  it('makes no network request: no http, https, net or tls import and no fetch', () => {
     const net = /(?:from\s*['"]|require\(\s*['"])(?:node:)?(?:http|https|net|tls)['"]|\bfetch\s*\(/;
     const files = sources();
     expect(files.length).toBeGreaterThan(0);

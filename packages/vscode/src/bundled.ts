@@ -9,7 +9,7 @@ export interface Bundled {
   cli: string;
 }
 
-/** The bundled server and CLI, as absolute paths inside the installed extension (R2.1). */
+/** The bundled server and CLI, as absolute paths inside the installed extension. */
 export function bundled(ctx: vscode.ExtensionContext): Bundled {
   const at = (file: string) => vscode.Uri.joinPath(ctx.extensionUri, 'dist', file).fsPath;
   return { server: at('steno-lsp.mjs'), cli: at('steno-cli.mjs') };

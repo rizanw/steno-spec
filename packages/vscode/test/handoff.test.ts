@@ -52,7 +52,7 @@ function deps(id?: string, p: Probe = probe()): Deps & { state: ReturnType<typeo
 const RUN = { kind: 'run', spec: 'auth', task: 'T1' } as const;
 const label = (id: string) => ADAPTERS.find(a => a.id === id)!.label;
 
-describe('dirtyFor (R1.12)', () => {
+describe('dirtyFor', () => {
   const docs = [
     { path: '/w/.steno/specs/auth/tasks.md', dirty: true },
     { path: '/w/.steno/specs/auth/design.md', dirty: false },
@@ -76,7 +76,7 @@ describe('dirtyFor (R1.12)', () => {
   });
 });
 
-describe('terminalOptions (R2.2)', () => {
+describe('terminalOptions', () => {
   it('runs a program directly with the argument list, so no shell parses the call', () => {
     expect(terminalOptions('/bin/gemini', ['-i', 'Use the steno-run skill with: T1 auth'], false))
       .toEqual({ shellPath: '/bin/gemini', shellArgs: ['-i', 'Use the steno-run skill with: T1 auth'] });
@@ -93,7 +93,7 @@ describe('terminalOptions (R2.2)', () => {
 });
 
 describe('handOff', () => {
-  it('starts a terminal agent in the handoff folder with the call in its own form (R2.2)', async () => {
+  it('starts a terminal agent in the handoff folder with the call in its own form', async () => {
     await handOff(deps('codex'), server(), RUN);
     expect(recorded.terminals).toHaveLength(1);
     const [{ options, shown }] = recorded.terminals;
@@ -105,7 +105,7 @@ describe('handOff', () => {
     expect(recorded.info).toEqual([]);
   });
 
-  it('fills Copilot Chat and tells the user to press Enter (R1.10)', async () => {
+  it('fills Copilot Chat and tells the user to press Enter', async () => {
     installed.add('GitHub.copilot-chat');
     setFolders(APP);
     await handOff(deps('copilot'), server(), { kind: 'run', spec: 'auth' });
@@ -115,7 +115,7 @@ describe('handOff', () => {
     expect(recorded.info).toEqual(['Press Enter in Copilot Chat to send it']);
   });
 
-  it('opens the Claude Code extension through its URI (R1.10)', async () => {
+  it('opens the Claude Code extension through its URI', async () => {
     installed.add('anthropic.claude-code');
     setFolders(APP);
     await handOff(deps('claude-code'), server(), { kind: 'review', spec: 'auth', phase: 'design' });
@@ -123,7 +123,7 @@ describe('handOff', () => {
     expect(recorded.info).toEqual(['Press Enter in Claude Code (extension) to send it']);
   });
 
-  describe('the clipboard path (R1.11)', () => {
+  describe('the clipboard path', () => {
     it('copies the call when the chosen agent is the clipboard', async () => {
       await handOff(deps('clipboard'), server(), RUN);
       expect(recorded.clipboard).toEqual(['/steno-run T1 auth']);
@@ -185,7 +185,7 @@ describe('handOff', () => {
     });
   });
 
-  describe('choosing the agent (R2.4)', () => {
+  describe('choosing the agent', () => {
     it('asks for an agent when none is saved, saves it and goes on', async () => {
       const d = deps(undefined);
       answers.pick = 'Codex CLI (terminal)';
@@ -201,7 +201,7 @@ describe('handOff', () => {
     });
   });
 
-  describe('unsaved edits (R1.12)', () => {
+  describe('unsaved edits', () => {
     const tasksMd = Uri.file(`${ROOT}/.steno/specs/auth/tasks.md`);
     const steering = Uri.file(`${ROOT}/.steno/steering/tech.md`);
     const code = Uri.file(`${ROOT}/src/index.ts`);
@@ -239,7 +239,7 @@ describe('handOff', () => {
     });
   });
 
-  describe('cancelling (R2.6)', () => {
+  describe('cancelling', () => {
     it('saves and sends nothing when the agent picker is dismissed', async () => {
       const d = deps(undefined);
       await handOff(d, server(), RUN);
@@ -260,7 +260,7 @@ describe('handOff', () => {
     });
   });
 
-  it('refuses in Restricted Mode before any prompt (R4.1)', async () => {
+  it('refuses in Restricted Mode before any prompt', async () => {
     workspace.isTrusted = false;
     const d = deps(undefined);
     await handOff(d, server(), RUN);
@@ -281,7 +281,7 @@ describe('handOff', () => {
   });
 });
 
-describe('registerHandoffs (R1.1 to R1.7)', () => {
+describe('registerHandoffs', () => {
   const ROOT_URI = APP.uri as unknown as import('vscode').Uri;
   const tasksUri = Uri.file(`${ROOT}/.steno/specs/auth/tasks.md`) as unknown as import('vscode').Uri;
 
@@ -292,20 +292,20 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
     return (command: string, arg: unknown) => handlers.get(command)!(arg);
   }
 
-  it('runs a task from its tree node or its lens, naming the task and the Spec (R1.2)', async () => {
+  it('runs a task from its tree node or its lens, naming the task and the Spec', async () => {
     const run = setup();
     await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1'), [], false, tasksUri));
     await run(RUN_TASK_COMMAND, { spec: 'auth', task: 'T1', optional: false, uri: tasksUri });
     expect(recorded.clipboard).toEqual(['/steno-run T1 auth', '/steno-run T1 auth']);
   });
 
-  it('runs the next task naming only the Spec (R1.3)', async () => {
+  it('runs the next task naming only the Spec', async () => {
     const run = setup();
     await run(RUN_NEXT_COMMAND, new SpecNode(ROOT_URI, tree(), spec()));
     expect(recorded.clipboard).toEqual(['/steno-run auth']);
   });
 
-  it('writes and reviews the current phase, and generates steering (R1.4, R1.5, R1.6)', async () => {
+  it('writes and reviews the current phase, and generates steering', async () => {
     const run = setup();
     const design = spec({ phase: 'design' });
     await run(WRITE_COMMAND, new SpecNode(ROOT_URI, tree(), design));
@@ -319,7 +319,7 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
     ]);
   });
 
-  it('ignores a wrong node, an Unusable Spec, a done or parent task and a lens without its URI (R1.7)', async () => {
+  it('ignores a wrong node, an Unusable Spec, a done or parent task and a lens without its URI', async () => {
     const run = setup();
     const bad = { name: 'old', unsupported: true, phase: 'execute' } as TreeSpec;
     await run(RUN_NEXT_COMMAND, new SpecNode(ROOT_URI, tree(), bad));
@@ -335,7 +335,7 @@ describe('registerHandoffs (R1.1 to R1.7)', () => {
   });
 });
 
-describe('the manifest (R1.1 to R1.6)', () => {
+describe('the manifest', () => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const HANDOFFS = [RUN_TASK_COMMAND, RUN_NEXT_COMMAND, WRITE_COMMAND, REVIEW_COMMAND, STEER_COMMAND];
 

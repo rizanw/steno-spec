@@ -1,12 +1,11 @@
-// Setting up a plain folder from the command: `.steno` and the skills appear, and the folder joins the tree
-// without a reload (R3.3, R3.6).
+// Setting up a plain folder from the command: `.steno` and the skills appear, and the folder joins the tree without a reload.
 import * as assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as vscode from 'vscode';
 import { env, find, samePath, test, tree, waitFor } from './harness.js';
 
-test('set-up turns a plain folder into a project that the tree shows at once (R3.3, R3.6)', async () => {
+test('set-up turns a plain folder into a project that the tree shows at once', async () => {
   const gamma = env('STENO_E2E_GAMMA');
   const uri = vscode.Uri.file(gamma);
   await waitFor('the alpha tree to load', async () => find(await tree(), 'Login'));

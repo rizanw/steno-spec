@@ -1,4 +1,4 @@
-// The spec tree: loaded from the folder's server, and redrawn when a State_Change lands.
+// The spec tree: loaded from the folder's server, and redrawn when a state change lands.
 import * as assert from 'node:assert/strict';
 import * as vscode from 'vscode';
 import { demoDoc, find, replace, steering, test, tree, waitFor } from './harness.js';
@@ -24,7 +24,7 @@ test('the tree loads the folder\'s Spec with its documents and tasks', async () 
   assert.deepEqual(await steering(), []);
 });
 
-test('a State_Change made by editing tasks.md and saving refreshes the tree (R3.6)', async () => {
+test('a state change made by editing tasks.md and saving refreshes the tree', async () => {
   await waitFor('the tree to load', async () => find(await tree(), 'Add logout'));
   const document = await vscode.workspace.openTextDocument(demoDoc('tasks.md'));
   await replace(document, '- [ ] 1.2 Add logout', '- [x] 1.2 Add logout');

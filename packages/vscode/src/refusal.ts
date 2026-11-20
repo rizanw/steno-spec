@@ -1,17 +1,17 @@
-// Every refusal the user sees: one function reads the Structured_Error, wherever it came from, and shows it
-// the way its code asks for (R5.5, R5.6). A request to a stopped server gets its own message with "Restart".
+// Every refusal the user sees: one function reads the structured error, wherever it came from, and shows it
+// the way its code asks for. A request to a stopped server gets its own message with "Restart".
 import * as vscode from 'vscode';
 import type { StructuredError } from './protocol.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import { OPEN_COMMAND } from './tree.js';
 
-/** The choice that saves the file and runs the refused change again (R5.5). */
+/** The choice that saves the file and runs the refused change again. */
 export const SAVE_AND_RETRY = 'Save and retry';
 
-/** The choice that starts a stopped server again (R1.4). */
+/** The choice that starts a stopped server again. */
 export const RESTART = 'Restart';
 
-/** Whether a value has the shape of a Structured_Error: a string `code` and a string `message`. */
+/** Whether a value has the shape of a structured error: a string `code` and a string `message`. */
 function isStructured(value: unknown): value is StructuredError {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
@@ -19,7 +19,7 @@ function isStructured(value: unknown): value is StructuredError {
 }
 
 /**
- * The Structured_Error a refusal carries: the `data` of a `ResponseError` from the server, or the error itself
+ * The structured error a refusal carries: the `data` of a `ResponseError` from the server, or the error itself
  * when it is one already, as the CLI's parsed standard output is. Anything else has none.
  */
 export function structuredError(err: unknown): StructuredError | undefined {
@@ -50,10 +50,10 @@ function sameFile(a: vscode.Uri, b: vscode.Uri): boolean {
 }
 
 /**
- * Show a refused State_Change. `unsaved-edits` names the file and offers "Save and retry", which saves the
- * open document and calls `retry` once (R5.5). `lint-blocked` lists each finding as `file:line` in a quick
- * pick, and the chosen one opens at its line (R5.6). Any other code, and any error that carries no
- * Structured_Error, shows its message as an error notification (R5.6).
+ * Show a refused state change. `unsaved-edits` names the file and offers "Save and retry", which saves the
+ * open document and calls `retry` once. `lint-blocked` lists each finding as `file:line` in a quick
+ * pick, and the chosen one opens at its line. Any other code, and any error that carries no
+ * structured error, shows its message as an error notification.
  */
 export async function showRefusal(
   err: unknown,
@@ -88,7 +88,7 @@ export async function showRefusal(
   await vscode.window.showErrorMessage(refusal.message);
 }
 
-/** A request went to a stopped server: say so, and offer the same Restart as the tree (R1.4). */
+/** A request went to a stopped server: say so, and offer the same Restart as the tree. */
 export async function showStopped(pool: ServerPool, server: FolderServer): Promise<void> {
   const choice = await vscode.window.showErrorMessage(`steno server for ${server.folder.name} is stopped, so nothing changed`, RESTART);
   if (choice === RESTART) await pool.restart(server);

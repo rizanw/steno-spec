@@ -1,4 +1,4 @@
-// The restart policy: a crashed server comes back until five exits land inside three minutes (R1.3, R1.4).
+// The restart policy: a crashed server comes back until five exits land inside three minutes.
 import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { answers, folder, recorded, resetRecorded } from './vscode-stub.js';
@@ -28,7 +28,7 @@ function pooled() {
   return { pool, log, handlers: () => handlers };
 }
 
-describe('RestartWindow (R1.3)', () => {
+describe('RestartWindow', () => {
   it('restarts the first four exits and stops on the fifth inside the window', () => {
     const w = new RestartWindow();
     const t = 1_000_000;
@@ -44,7 +44,7 @@ describe('RestartWindow (R1.3)', () => {
     expect(w.record(t + WINDOW_MS + 1)).toBe('restart');
   });
 
-  it('starts over after reset, so the user\'s Restart gets a clean record (R1.4)', () => {
+  it('starts over after reset, so the user\'s Restart gets a clean record', () => {
     const w = new RestartWindow();
     const t = 1_000_000;
     for (let i = 0; i < MAX_EXITS; i++) w.record(t + i);
@@ -52,7 +52,7 @@ describe('RestartWindow (R1.3)', () => {
     expect(w.record(t + MAX_EXITS)).toBe('restart');
   });
 
-  it('Property 1: stops exactly on an exit that is the fifth or later within the window', () => {
+  it('stops exactly on an exit that is the fifth or later within the window', () => {
     // the gaps between exits, with the window's own edges among the likely values, so the boundary is exercised
     // Gaps that divide the window, so sums of them land exactly on WINDOW_MS often: that is the one
     // difference between "inside the window" and "outside" it, and the boundary must be exercised.
@@ -78,14 +78,14 @@ describe('RestartWindow (R1.3)', () => {
   });
 });
 
-describe('the pool\'s handlers (R1.3, R1.4)', () => {
+describe('the pool\'s handlers', () => {
   it('keeps going on a protocol error: the server has not exited', async () => {
     const { pool, handlers } = pooled();
     await pool.start(folder('/work/a'));
     expect(handlers().errorHandler.error(new Error('bad'), undefined, 1).action).toBe(ErrorAction.Continue);
   });
 
-  it('restarts an unexpected exit until the fifth, then stops and names the folder (R1.3)', async () => {
+  it('restarts an unexpected exit until the fifth, then stops and names the folder', async () => {
     const { pool, handlers } = pooled();
     await pool.start(folder('/work/a'));
     const h = handlers().errorHandler;
@@ -104,7 +104,7 @@ describe('the pool\'s handlers (R1.3, R1.4)', () => {
     expect(pool.all()[0].state).toBe('stopped');
   });
 
-  it('Restart in the error message resets the count and starts the client again (R1.4)', async () => {
+  it('Restart in the error message resets the count and starts the client again', async () => {
     const { pool, log, handlers } = pooled();
     await pool.start(folder('/work/a'));
     answers.message = 'Restart';
@@ -119,7 +119,7 @@ describe('the pool\'s handlers (R1.3, R1.4)', () => {
     expect(h.closed().action).toBe(CloseAction.Restart);
   });
 
-  it('leaves the server stopped when the error message is dismissed (R1.4)', async () => {
+  it('leaves the server stopped when the error message is dismissed', async () => {
     const { pool, log, handlers } = pooled();
     await pool.start(folder('/work/a'));
     const h = handlers().errorHandler;

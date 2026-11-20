@@ -45,7 +45,7 @@ async function pooled(answer: (method: string, params: unknown, call: number) =>
   const pool = new ServerPool('/ext/dist/steno-lsp.mjs', create);
   await pool.start(folder('/work/app'));
   registerActions(pool);
-  // the pool asks for the first tree on start; only the State_Changes matter here
+  // the pool asks for the first tree on start; only the state changes matter here
   await new Promise(resolve => setImmediate(resolve));
   sent.length = 0;
   return { pool, sent };
@@ -53,8 +53,8 @@ async function pooled(answer: (method: string, params: unknown, call: number) =>
 
 const PHASES = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
 
-describe('canApprove (R5.1)', () => {
-  it('Property 2: Approve is offered on exactly the approvable Specs', () => {
+describe('canApprove', () => {
+  it('Approve is offered on exactly the approvable Specs', () => {
     const anySpec = fc.record({
       name: fc.constant('s'),
       mode: fc.option(fc.constantFrom('gated', 'quick'), { nil: undefined }),
@@ -73,7 +73,7 @@ describe('canApprove (R5.1)', () => {
   });
 });
 
-describe('approve (R5.2, R5.3)', () => {
+describe('approve', () => {
   it('sends steno/approve with the current phase and shows the phase that follows', async () => {
     const { sent } = await pooled();
     await commands.executeCommand(APPROVE_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec()));
@@ -95,7 +95,7 @@ describe('approve (R5.2, R5.3)', () => {
     expect(sent).toEqual([]);
   });
 
-  it('shows a refusal, and "Save and retry" sends the approval again (R5.5)', async () => {
+  it('shows a refusal, and "Save and retry" sends the approval again', async () => {
     const file = '/work/app/.steno/specs/auth/requirements.md';
     const refusal = Object.assign(new Error('unsaved'), { data: { protocolVersion: 1, code: 'unsaved-edits', message: 'unsaved', file } });
     const { sent } = await pooled((_m, _p, call) => call === 1 ? refusal : { protocolVersion: 1, spec: 'auth', phase: 'design' });
@@ -116,7 +116,7 @@ describe('approve (R5.2, R5.3)', () => {
   });
 });
 
-describe('mark done and reopen (R5.4)', () => {
+describe('mark done and reopen', () => {
   const taskNode = (done: boolean) => new TaskNode(spec({ phase: 'execute' }), item('T1', done), [], false, vsUri(TASKS));
 
   it('gives open and done tasks the context values their menu items match', () => {
@@ -142,7 +142,7 @@ describe('mark done and reopen (R5.4)', () => {
     expect(sent).toEqual([{ method: 'steno/taskReopen', params: { spec: 'auth', task: 'T1' } }]);
   });
 
-  it('shows the findings of a refused change (R5.6)', async () => {
+  it('shows the findings of a refused change', async () => {
     const refusal = Object.assign(new Error('x'), { data: { protocolVersion: 1, code: 'not-found', message: 'unknown task T1' } });
     await pooled(() => refusal);
     await commands.executeCommand(MARK_DONE_COMMAND, taskNode(false));
@@ -150,7 +150,7 @@ describe('mark done and reopen (R5.4)', () => {
   });
 });
 
-describe('the done lens (R4.4)', () => {
+describe('the done lens', () => {
   it('reopens the task in the folder that holds the document, after the same confirmation', async () => {
     const { sent } = await pooled();
     answers.message = 'Reopen';
@@ -172,13 +172,13 @@ describe('the manifest', () => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const ACTIONS = [APPROVE_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, DONE_LENS_COMMAND];
 
-  it('keeps every action out of the command palette (R5.3)', () => {
+  it('keeps every action out of the command palette', () => {
     const hidden = manifest.contributes.menus.commandPalette
       .filter((m: { when: string }) => m.when === 'false').map((m: { command: string }) => m.command);
     for (const command of ACTIONS) expect(hidden).toContain(command);
   });
 
-  it('hangs each inline action off its own context value (R5.1, R5.4)', () => {
+  it('hangs each inline action off its own context value', () => {
     const inline = Object.fromEntries(manifest.contributes.menus['view/item/context']
       .map((m: { command: string; when: string }) => [m.command, m.when]));
     expect(inline[APPROVE_COMMAND]).toBe('view == steno.specs && viewItem =~ /^spec\\..*\\.approvable$/');

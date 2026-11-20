@@ -1,5 +1,5 @@
 // "New spec" below the input flow: which project it creates in, the arguments it builds, and what it
-// makes of the bundled CLI's exit code and output (R5.7, R5.8).
+// makes of the bundled CLI's exit code and output.
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,7 +22,7 @@ beforeEach(() => resetRecorded());
 const KINDS = ['feature', 'bugfix', 'brief'] as const;
 
 describe('writeChoices and cliKind', () => {
-  it('Property 1: the brainstorm choice is a Feature\'s alone', () => {
+  it('the brainstorm choice is a Feature\'s alone', () => {
     fc.assert(fc.property(fc.constantFrom('feature', 'bugfix') as fc.Arbitrary<'feature' | 'bugfix'>, kind => {
       const choices = writeChoices(kind);
       expect(choices[0]).toBe('agent');
@@ -44,8 +44,8 @@ describe('writeChoices and cliKind', () => {
   });
 });
 
-describe('pickProject (R5.8)', () => {
-  it('Property 4: the chosen project follows the hints in order', () => {
+describe('pickProject', () => {
+  it('the chosen project follows the hints in order', () => {
     const path = fc.constantFrom('/a', '/b', '/c', '/d');
     fc.assert(fc.property(
       fc.uniqueArray(path), fc.option(path, { nil: undefined }), fc.option(path, { nil: undefined }),
@@ -68,8 +68,8 @@ describe('pickProject (R5.8)', () => {
   });
 });
 
-describe('cliArgs (R5.7)', () => {
-  it('Property 5: fixed flags plus the user text as single values', () => {
+describe('cliArgs', () => {
+  it('fixed flags plus the user text as single values', () => {
     fc.assert(fc.property(
       fc.string(), fc.string(), fc.constantFrom(...KINDS), fc.option(fc.string(), { nil: undefined }),
       fc.option(fc.string(), { nil: undefined }),
@@ -96,7 +96,7 @@ describe('cliArgs (R5.7)', () => {
   });
 });
 
-describe('runCli (R5.7)', () => {
+describe('runCli', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steno-vscode-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -122,7 +122,7 @@ describe('runCli (R5.7)', () => {
     expect(result).toEqual(change);
   });
 
-  it('gives the Structured_Error of a CLI that refused, for both refusal exit codes', async () => {
+  it('gives the structured error of a CLI that refused, for both refusal exit codes', async () => {
     for (const code of [1, 2]) {
       const result = await runCli(prints(`refused-${code}`, JSON.stringify(error), code), ['new', 'auth']);
       expect(refused(result)).toBe(true);
@@ -157,7 +157,7 @@ describe('runCli (R5.7)', () => {
   });
 });
 
-describe('validateName (R5.6, R5.7)', () => {
+describe('validateName', () => {
   it('refuses anything that is not a kebab-case slug, with core\'s own wording', () => {
     for (const bad of ['', 'Auth', 'auth spec', 'auth/sub', '../auth', '-auth', 'auth_spec']) {
       expect(validateName(bad, [])).toBe(`spec name must be a kebab-case slug, got "${bad}"`);
@@ -174,7 +174,7 @@ describe('validateName (R5.6, R5.7)', () => {
   });
 });
 
-describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
+describe('the New spec flow', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steno-vscode-flow-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -246,7 +246,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/billing/requirements.md', line: 1 }]);
   });
 
-  it('gives the name box a validator that knows the folder\'s existing Specs (R3.3)', async () => {
+  it('gives the name box a validator that knows the folder\'s existing Specs', async () => {
     const pool = await pooled(app);
     registerNewSpec(pool, recordingCli('validator', ok('x', 'requirements', [])).path, deps());
     answers.input = [undefined];
@@ -366,7 +366,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     });
   }
 
-  it('shows a CLI refusal as a notification and opens nothing (R5.6)', async () => {
+  it('shows a CLI refusal as a notification and opens nothing', async () => {
     const pool = await pooled(app);
     const cli = recordingCli('refuses', [
       `process.stdout.write(JSON.stringify({ protocolVersion: 1, code: 'failed', message: 'spec already exists: billing' }));`,
@@ -380,7 +380,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     expect(recorded.opened).toEqual([]);
   });
 
-  it('shows a CLI that ended without JSON as an error naming the exit code (R5.6)', async () => {
+  it('shows a CLI that ended without JSON as an error naming the exit code', async () => {
     const pool = await pooled(app);
     const cli = recordingCli('crashes', 'process.stderr.write("steno: boom\\n"); process.exitCode = 1;');
     registerNewSpec(pool, cli.path, deps());
@@ -390,7 +390,7 @@ describe('the New spec flow (R5.6, R5.7, R5.8)', () => {
     expect(recorded.error).toEqual(['steno exited with code 1: steno: boom']);
   });
 
-  describe('which project it creates in (R5.8)', () => {
+  describe('which project it creates in', () => {
     const two = [
       { path: '/work/app', tree: { specs: [] } as Partial<SpecTree> },
       { path: '/work/site', tree: { specs: [] } as Partial<SpecTree> },

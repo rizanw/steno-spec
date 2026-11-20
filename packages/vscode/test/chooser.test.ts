@@ -28,7 +28,7 @@ const probe: Probe = {
 };
 
 describe('pickerItems', () => {
-  it('Property 4: lists the detected adapters in table order, then the clipboard once', () => {
+  it('lists the detected adapters in table order, then the clipboard once', () => {
     const others = ADAPTERS.filter(a => a.via !== 'clipboard');
     fc.assert(fc.property(fc.subarray(others.map(a => a.id)), fc.boolean(), (ids, clipboardDetected) => {
       const on = new Set(ids);
@@ -39,7 +39,7 @@ describe('pickerItems', () => {
 });
 
 describe('Chooser', () => {
-  it('shows "steno: choose agent" with no choice, and the label once one is saved (R2.5)', async () => {
+  it('shows "steno: choose agent" with no choice, and the label once one is saved', async () => {
     const { pool } = fakePool(project);
     const chooser = new Chooser(memento(), probe, pool);
     const [item] = recorded.statusItems;
@@ -71,7 +71,7 @@ describe('Chooser', () => {
     expect(item.visible).toBe(false);
   });
 
-  it('pick offers the detected adapters and the clipboard, and stores nothing (R2.4)', async () => {
+  it('pick offers the detected adapters and the clipboard, and stores nothing', async () => {
     const state = memento();
     const chooser = new Chooser(state, probe, fakePool(project).pool);
     answers.pick = 'Codex CLI (terminal)';
@@ -98,7 +98,7 @@ describe('steno.agent.choose', () => {
     return { state, run: () => handlers.get(CHOOSE_COMMAND)!() };
   };
 
-  it('picks and saves the choice for the workspace (R2.5)', async () => {
+  it('picks and saves the choice for the workspace', async () => {
     const { state, run } = setUp();
     answers.pick = 'Copilot Chat';
     await run();
@@ -112,7 +112,7 @@ describe('steno.agent.choose', () => {
     expect(state.values.get(AGENT_KEY)).toBe('claude');
   });
 
-  it('stops at the trust guard in Restricted Mode, before any pick (R4.1)', async () => {
+  it('stops at the trust guard in Restricted Mode, before any pick', async () => {
     const { state, run } = setUp();
     workspace.isTrusted = false;
     answers.pick = 'Copilot Chat';

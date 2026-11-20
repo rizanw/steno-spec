@@ -86,7 +86,7 @@ function firstLine(text: string): string {
  * `ChangeResult` for "New spec"); exit code 1 or 2 with one gives the `StructuredError` it refused with,
  * for `showRefusal` to show. Any other ending — a crash, or output that is not JSON — throws, naming the
  * exit code and the first line of standard error. `T` is not checked here: a caller whose answer is not
- * a JSON_Contract shape checks the fields it reads itself.
+ * a JSON contract shape checks the fields it reads itself.
  */
 export async function runCli<T = ChangeResult>(cli: string, args: string[]): Promise<T | StructuredError> {
   const { code, stdout, stderr } = await exec(cli, args);
@@ -97,7 +97,7 @@ export async function runCli<T = ChangeResult>(cli: string, args: string[]): Pro
   throw new Error(`steno exited with code ${code}${detail ? `: ${detail}` : ''}`);
 }
 
-/** Whether the CLI refused the change rather than making it; the refusal is a Structured_Error. */
+/** Whether the CLI refused the change rather than making it; the refusal is a structured error. */
 export function refused<T>(result: T | StructuredError): result is StructuredError {
   return typeof (result as StructuredError).code === 'string';
 }
@@ -136,7 +136,7 @@ const WRITE_ITEMS: Record<WriteChoice, { label: string; detail: string }> = {
   self: { label: 'Write it myself', detail: 'Opens the document for you to fill in' },
 };
 
-/** The Spec_Document a new Spec opens at, whichever of these the CLI created first. */
+/** The spec document a new Spec opens at, whichever of these the CLI created first. */
 const OPENS = ['brief.md', 'requirements.md', 'bugfix.md'];
 
 /** Open the Spec the CLI just created, at the first document it wrote that a Spec starts from. */
@@ -190,7 +190,7 @@ async function newSpec(pool: ServerPool, cli: string, deps: Deps, node?: unknown
   try {
     result = await runCli(cli, cliArgs(server.folder.uri.fsPath, slug, cliKind(kind.is, write.choice), title.trim() || undefined, description));
   } catch (err) {
-    // the CLI ended in a way that carries no Structured_Error: its message is all there is to show
+    // the CLI ended in a way that carries no structured error: its message is all there is to show
     await showRefusal(err, server.folder);
     return;
   }

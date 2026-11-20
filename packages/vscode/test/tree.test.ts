@@ -38,7 +38,7 @@ function spec(over: Partial<TreeSpec> = {}): TreeSpec {
 }
 
 describe('SpecNode', () => {
-  it('shows the title with the tasks left, and phase | progress | mode in the tooltip (R3.1)', () => {
+  it('shows the title with the tasks left, and phase | progress | mode in the tooltip', () => {
     const node = new SpecNode(ROOT, tree(), spec());
     expect(node.label).toBe('Auth');
     expect(node.description).toBe('3 tasks left');
@@ -67,7 +67,7 @@ describe('SpecNode', () => {
     expect(new SpecNode(ROOT, tree(), spec({ title: undefined })).label).toBe('auth');
   });
 
-  it('marks an Unusable spec with the reason and offers no action (R3.5)', () => {
+  it('marks an Unusable spec with the reason and offers no action', () => {
     const bad = { name: 'old', unsupported: true, files: [{ file: '.steno/specs/old/spec.md', reason: 'unknown format' }] } as TreeSpec;
     const node = new SpecNode(ROOT, tree(), bad);
     expect(node.unusable).toBe(true);
@@ -85,7 +85,7 @@ describe('SpecNode', () => {
 });
 
 describe('specChildren', () => {
-  it('lists the documents in the server order, tasks under tasks.md (R3.1)', () => {
+  it('lists the documents in the server order, tasks under tasks.md', () => {
     const children = specChildren(ROOT, tree(), spec());
     expect(children.map(c => c.label)).toEqual(['Requirements', 'Design', 'Tasks']);
     const docs = children as DocNode[];
@@ -93,7 +93,7 @@ describe('specChildren', () => {
     expect(docs[2].children.map(t => t.taskId)).toEqual(['T1', 'T2', 'T3']);
   });
 
-  it('opens each document as a whole, with no line, under specsDir/name (R3.8)', () => {
+  it('opens each document as a whole, with no line, under specsDir/name', () => {
     const doc = specChildren(ROOT, tree(), spec())[0] as DocNode;
     expect(doc.command?.command).toBe('steno.open');
     expect(String(doc.command?.arguments?.[0])).toBe('file:///work/app/.steno/specs/auth/requirements.md');
@@ -129,7 +129,7 @@ describe('specChildren', () => {
     expect(String(doc.command?.arguments?.[0])).toBe('file:///work/app/docs/specs/auth/requirements.md');
   });
 
-  it('gives an Unusable spec only its files (R3.5)', () => {
+  it('gives an Unusable spec only its files', () => {
     const bad = { name: 'old', unreadable: true, files: [{ file: '.steno/specs/old/tasks.md', reason: 'EACCES' }] } as TreeSpec;
     const children = specChildren(ROOT, tree(), bad);
     expect(children).toHaveLength(1);
@@ -143,13 +143,13 @@ describe('specChildren', () => {
 });
 
 describe('taskNodes', () => {
-  it('marks done, open, optional and next (R3.2)', () => {
+  it('marks done, open, optional and next', () => {
     const nodes = taskNodes(spec(), spec().taskItems!);
     expect(nodes.map(n => (n.iconPath as { id: string }).id)).toEqual(['pass', 'arrow-right', 'circle-large-outline']);
     expect(nodes.map(n => n.description)).toEqual(['', 'next', 'optional']);
   });
 
-  it('opens a task at its own line when given the tasks.md URI (R3.8)', () => {
+  it('opens a task at its own line when given the tasks.md URI', () => {
     const uri = Uri.file('/work/app/.steno/specs/auth/tasks.md') as unknown as import('vscode').Uri;
     const node = taskNodes(spec(), [task('T1', { line: 42 })], uri)[0];
     expect(node.command?.arguments?.[1]).toBe(42);
@@ -157,7 +157,7 @@ describe('taskNodes', () => {
 });
 
 describe('SteeringNode', () => {
-  it('names each steering file without its folder or .md, with when it reaches the agent (R3.3)', () => {
+  it('names each steering file without its folder or .md, with when it reaches the agent', () => {
     const nodes = [
       { path: '.steno/steering/tech.md', inclusion: 'always' as const },
       { path: '.steno/steering/api.md', inclusion: 'fileMatch' as const, pattern: 'src/api/**,src/routes/**' },
@@ -175,7 +175,7 @@ describe('SteeringNode', () => {
     expect(nodes[0].command?.arguments).toHaveLength(1);
   });
 
-  it('marks an unreadable steering file with the same icon and its reason (R3.5)', () => {
+  it('marks an unreadable steering file with the same icon and its reason', () => {
     const node = new SteeringNode(ROOT, { path: 's/bad.md', unreadable: true, reason: 'EACCES' });
     expect(node.label).toBe('bad');
     expect((node.iconPath as { id: string }).id).toBe('warning');
@@ -186,7 +186,7 @@ describe('SteeringNode', () => {
 });
 
 describe('StoppedNode', () => {
-  it('names the folder and carries the restart context value (R1.4)', () => {
+  it('names the folder and carries the restart context value', () => {
     const node = new StoppedNode(folder('/work/app') as unknown as import('vscode').WorkspaceFolder);
     expect(node.label).toBe('steno server stopped');
     expect(node.description).toBe('app');
@@ -194,7 +194,7 @@ describe('StoppedNode', () => {
   });
 });
 
-// --- Property 3: task nodes mirror the task list (D-prop-3) ---------------------------------
+// --- task nodes mirror the task list ---------------------------------
 
 const taskArb: fc.Arbitrary<OutlineItem> = fc.letrec<{ item: OutlineItem }>(tie => ({
   item: fc.record({
@@ -216,7 +216,7 @@ function flattenItems(items: OutlineItem[]): OutlineItem[] {
   return items.flatMap(i => [i, ...flattenItems(i.children)]);
 }
 
-describe('Property 3: task nodes mirror the task list', () => {
+describe('task nodes mirror the task list', () => {
   it('keeps ids, order, nesting, done and optional, and marks at most one next', () => {
     fc.assert(fc.property(
       fc.array(taskArb, { maxLength: 5 }),
@@ -294,25 +294,25 @@ describe('steeringItems', () => {
 });
 
 describe('SpecTreeProvider', () => {
-  it('shows nothing for a folder whose server has not answered yet (R3.4)', async () => {
+  it('shows nothing for a folder whose server has not answered yet', async () => {
     const pool = await pooled({ path: '/work/a' });
     expect(new SpecTreeProvider(pool).getChildren()).toEqual([]);
   });
 
-  it('hides a folder that is not a steno project (R3.4)', async () => {
+  it('hides a folder that is not a steno project', async () => {
     const pool = await pooled({ path: '/work/a', tree: tree({ notSetUp: true, specsDir: undefined }) });
     expect(new SpecTreeProvider(pool).getChildren()).toEqual([]);
     expect(shown(pool.all())).toEqual([]);
   });
 
-  it('puts one shown folder’s items at the root (R3.3, R3.4)', async () => {
+  it('puts one shown folder’s items at the root', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() }, { path: '/work/b', tree: tree({ notSetUp: true }) });
     const roots = new SpecTreeProvider(pool).getChildren();
     expect(roots.map(n => n.kind)).toEqual(['spec']);
     expect(roots.map(n => n.label)).toEqual(['Auth']);
   });
 
-  it('groups two shown folders under one FolderNode each (R3.4)', async () => {
+  it('groups two shown folders under one FolderNode each', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() }, { path: '/work/b', tree: setUp() });
     const provider = new SpecTreeProvider(pool);
     const roots = provider.getChildren();
@@ -324,7 +324,7 @@ describe('SpecTreeProvider', () => {
     expect(provider.getChildren(roots[0]).map(n => n.label)).toEqual(['Auth']);
   });
 
-  it('shows a stopped folder stopped instead of its specs (R1.4)', async () => {
+  it('shows a stopped folder stopped instead of its specs', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp(), stopped: true });
     const roots = new SpecTreeProvider(pool).getChildren();
     expect(roots.map(n => n.kind)).toEqual(['stopped']);
@@ -362,7 +362,7 @@ describe('SteeringTreeProvider', () => {
 });
 
 describe('the view commands', () => {
-  it('registers both views and opens a document at a 1-based line (R3.8)', async () => {
+  it('registers both views and opens a document at a 1-based line', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() });
     const { provider, steering } = registerSpecTree(pool);
     expect(recorded.views[VIEW_ID]).toBe(provider);
@@ -406,7 +406,7 @@ describe('the view commands', () => {
     expect(fired).toEqual([undefined, undefined]);
   });
 
-  it('restarts the stopped folder from its inline action (R1.4)', async () => {
+  it('restarts the stopped folder from its inline action', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp(), stopped: true });
     registerSpecTree(pool);
     const node = new SpecTreeProvider(pool).getChildren()[0] as StoppedNode;
@@ -425,7 +425,7 @@ describe('watchTree', () => {
     return { provider, fired };
   }
 
-  it('redraws the whole tree when the set of shown folders changes (R3.6)', async () => {
+  it('redraws the whole tree when the set of shown folders changes', async () => {
     const pool = await pooled({ path: '/work/a' }, { path: '/work/b' });
     const { provider, fired } = watching(pool);
     pool.setTree(pool.all()[0], setUp());       // /work/a becomes shown
@@ -437,21 +437,21 @@ describe('watchTree', () => {
     expect(fired[2]).toBe(provider.folderNode(pool.all()[1]));
   });
 
-  it('redraws the whole tree while one folder is shown, whose items sit at the root (R3.4, R3.6)', async () => {
+  it('redraws the whole tree while one folder is shown, whose items sit at the root', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() });
     const { fired } = watching(pool);
     pool.setTree(pool.all()[0], setUp());
     expect(fired).toEqual([undefined]);
   });
 
-  it('redraws the whole tree when a folder is removed (R3.6)', async () => {
+  it('redraws the whole tree when a folder is removed', async () => {
     const pool = await pooled({ path: '/work/a', tree: setUp() }, { path: '/work/b', tree: setUp() });
     const { fired } = watching(pool);
     await pool.stop(pool.all()[1].folder);
     expect(fired).toEqual([undefined]);
   });
 
-  it('sets steno.hasProject from the folders that have answered (R3.7)', async () => {
+  it('sets steno.hasProject from the folders that have answered', async () => {
     const pool = await pooled({ path: '/work/a' });
     watching(pool);
     expect(recorded.context[HAS_PROJECT]).toBe(false);
@@ -461,7 +461,7 @@ describe('watchTree', () => {
     expect(recorded.context[HAS_PROJECT]).toBe(true);
   });
 
-  it('sets steno.canSetUp exactly while some folder\'s tree has notSetUp (R3.2)', async () => {
+  it('sets steno.canSetUp exactly while some folder\'s tree has notSetUp', async () => {
     const pool = await pooled({ path: '/work/a' }, { path: '/work/b', tree: setUp() });
     watching(pool);
     // a folder that has not answered says nothing yet
@@ -477,7 +477,7 @@ describe('watchTree', () => {
 // --- the end-to-end probe ----------------------------------------------------------------------
 
 describe('the test-run tree probe', () => {
-  it('offers both views as plain data, in a test run only (R5.3)', async () => {
+  it('offers both views as plain data, in a test run only', async () => {
     const pool = await pooled({ path: '/work/a', tree: { ...setUp(), steering: [{ path: '.steno/steering/tech.md', inclusion: 'always' }] } });
     const provider = new SpecTreeProvider(pool);
     const steering = new SteeringTreeProvider(pool);
@@ -523,7 +523,7 @@ describe('context values for the handoffs', () => {
     unreadable: fc.option(fc.constant(true as const), { nil: undefined }),
   }) as fc.Arbitrary<TreeSpec>;
 
-  it('Property 3: each menu matches a Spec exactly in the phases its criterion names, never an Unusable one', () => {
+  it('each menu matches a Spec exactly in the phases its criterion names, never an Unusable one', () => {
     const write = menu('steno.spec.write');
     const review = menu('steno.spec.review');
     const runNext = menu('steno.spec.runNext');
@@ -540,7 +540,7 @@ describe('context values for the handoffs', () => {
     }));
   });
 
-  it('Property 3: "Run" matches an open task without subtasks of a usable Spec in execute, "Mark done" every open task (R1.1)', () => {
+  it('"Run" matches an open task without subtasks of a usable Spec in execute, "Mark done" every open task', () => {
     const run = menu('steno.task.run');
     const markDone = menu('steno.task.markDone');
     const reopen = menu('steno.task.reopen');
@@ -559,7 +559,7 @@ describe('context values for the handoffs', () => {
     expect(node.children[0].contextValue).toBe('task.open.run');
   });
 
-  it('offers "Generate steering" inline on a project folder of the Steering view (R1.6)', async () => {
+  it('offers "Generate steering" inline on a project folder of the Steering view', async () => {
     const steer = menus.find(m => m.command === 'steno.steering.generate')!;
     expect(steer.group).toBe('inline');
     expect(steer.when).toContain('view == steno.steering');

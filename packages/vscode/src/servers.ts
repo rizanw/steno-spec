@@ -94,7 +94,7 @@ export function selectorFor(folder: vscode.WorkspaceFolder): vscode.DocumentFilt
 /** The lens the server puts on an open task; choosing it hands the task to the coding agent. */
 const RUN_LENS = 'steno.task.run';
 
-/** The lens the server puts on a done task; choosing it reopens the task (R4.4). */
+/** The lens the server puts on a done task; choosing it reopens the task. */
 const DONE_LENS = 'steno.task.done';
 
 /** The part of a code lens the middleware reads and rewrites. */

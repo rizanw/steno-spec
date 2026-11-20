@@ -1,4 +1,4 @@
-// "Set up steno": which folder it picks, the Parent_Project walk, the `init` call it builds, and the whole flow
+// "Set up steno": which folder it picks, the parent project walk, the `init` call it builds, and the whole flow
 // against a fake bundled CLI.
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import fc from 'fast-check';
@@ -15,8 +15,8 @@ import {
 
 beforeEach(() => resetRecorded());
 
-describe('pickSetUpFolder (R3.3)', () => {
-  it('Property 6: the set-up folder follows the hints in order', () => {
+describe('pickSetUpFolder', () => {
+  it('the set-up folder follows the hints in order', () => {
     const path = fc.constantFrom('/a', '/b', '/c', '/d');
     fc.assert(fc.property(fc.uniqueArray(path), fc.option(path, { nil: undefined }), (candidates, fromEditor) => {
       const expected = fromEditor !== undefined && candidates.includes(fromEditor) ? fromEditor
@@ -33,8 +33,8 @@ describe('pickSetUpFolder (R3.3)', () => {
   });
 });
 
-describe('parentProject (R3.4)', () => {
-  it('Property 7: a Parent_Project is the nearest folder above', () => {
+describe('parentProject', () => {
+  it('a parent project is the nearest folder above', () => {
     const segment = fc.constantFrom('a', 'b', 'c');
     const dir = fc.array(segment, { maxLength: 4 }).map(parts => '/' + parts.join('/'));
     fc.assert(fc.property(dir, fc.uniqueArray(dir), (start, projects) => {
@@ -71,7 +71,7 @@ describe('parentProject (R3.4)', () => {
   });
 });
 
-describe('initArgs (R3.6)', () => {
+describe('initArgs', () => {
   it('passes the selection as one comma list, then the folder as given, with --json', () => {
     expect(initArgs('/work/app', ['claude', 'codex'])).toEqual(['init', '-a', 'claude,codex', '--root', '/work/app', '--json']);
   });
@@ -108,7 +108,7 @@ describe('initResult and initAgents', () => {
   });
 });
 
-describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
+describe('the set-up flow', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steno-vscode-setup-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -156,7 +156,7 @@ describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
     return pool;
   }
 
-  // paths under the temp folder, so the walk for a Parent_Project reads a real disk that holds none
+  // paths under the temp folder, so the walk for a parent project reads a real disk that holds none
   const plain = (name: string) => ({ path: join(dir, name), tree: { notSetUp: true } as Partial<SpecTree> });
   const project = (name: string) => ({ path: join(dir, name), tree: { specs: [] } as Partial<SpecTree> });
 
@@ -232,7 +232,7 @@ describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
     expect(cli.calls()).toEqual([]);
   });
 
-  it('suggests the Parent_Project and sets nothing up', async () => {
+  it('suggests the parent project and sets nothing up', async () => {
     mkdirSync(join(dir, 'mono', '.steno'), { recursive: true });
     const nested = plain(join('mono', 'packages', 'web'));
     const pool = await pooled([nested]);
@@ -265,14 +265,14 @@ describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
     expect(cli.calls()[1]).toContain(join(dir, 'second'));
   });
 
-  it('runs no init when the user dismisses the folder pick (R2.6)', async () => {
+  it('runs no init when the user dismisses the folder pick', async () => {
     const pool = await pooled([plain('d1'), plain('d2')]);
     const cli = fakeCli('dismiss-folder');
     await setUp(pool, cli.path);
     expect(cli.calls()).toEqual([]);
   });
 
-  it('runs no init when the user dismisses the agent pick (R2.6)', async () => {
+  it('runs no init when the user dismisses the agent pick', async () => {
     const pool = await pooled([plain('dismiss')]);
     const cli = fakeCli('dismiss-agents');
     answers.many = [undefined];
@@ -281,7 +281,7 @@ describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
     expect(recorded.info).toEqual([]);
   });
 
-  it('shows a Structured_Error from init with showRefusal', async () => {
+  it('shows a structured error from init with showRefusal', async () => {
     const pool = await pooled([plain('refused')]);
     const cli = fakeCli('refused', [
       `process.stdout.write(JSON.stringify({ protocolVersion: 1, code: 'failed', message: 'cannot write .steno' }));`,
@@ -318,7 +318,7 @@ describe('the set-up flow (R2.6, R3.3 to R3.6, R4.1)', () => {
     expect(recorded.picks).toEqual([]);
   });
 
-  it('refuses in Restricted Mode with the trust message, before anything else (R4.1)', async () => {
+  it('refuses in Restricted Mode with the trust message, before anything else', async () => {
     workspace.isTrusted = false;
     const pool = await pooled([plain('restricted')]);
     const cli = fakeCli('restricted');

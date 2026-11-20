@@ -1,10 +1,10 @@
-// Folders added to and removed from the window start and stop their own servers (R1.1, R1.2, R3.4).
+// Folders added to and removed from the window start and stop their own servers.
 import * as assert from 'node:assert/strict';
 import { basename } from 'node:path';
 import * as vscode from 'vscode';
 import { env, find, samePath, test, tree, waitFor } from './harness.js';
 
-test('a folder added gets its own server in the tree, and a folder removed leaves it (R1.1, R1.2)', async () => {
+test('a folder added gets its own server in the tree, and a folder removed leaves it', async () => {
   const alpha = basename(env('STENO_E2E_ALPHA'));
   const beta = vscode.Uri.file(env('STENO_E2E_BETA'));
   await waitFor('the alpha tree to load', async () => find(await tree(), 'Login'));

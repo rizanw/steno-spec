@@ -11,7 +11,7 @@ function withCode(uri: vscode.Uri, code: string): vscode.Diagnostic[] {
   return vscode.languages.getDiagnostics(uri).filter(d => String(typeof d.code === 'object' ? d.code.value : d.code) === code);
 }
 
-test('an unsaved edit shows its Diagnostic, and reverting it clears it (R4.1, R4.3)', async () => {
+test('an unsaved edit shows its Diagnostic, and reverting it clears it', async () => {
   const uri = demoDoc('design.md');
   const document = await vscode.workspace.openTextDocument(uri);
   await vscode.window.showTextDocument(document);
@@ -25,7 +25,7 @@ test('an unsaved edit shows its Diagnostic, and reverting it clears it (R4.1, R4
   await waitFor('the diagnostic to clear after the revert', () => withCode(uri, 'design/unknown-req').length === 0);
 });
 
-test('a done task carries the done lens and only an open leaf task the run lens, each with the document URI (R4.4, R1.1)', async () => {
+test('a done task carries the done lens and only an open leaf task the run lens, each with the document URI', async () => {
   const uri = demoDoc('tasks.md');
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
   const lenses = await waitFor('the done lens on T1.1', async () => {
@@ -42,7 +42,7 @@ test('a done task carries the done lens and only an open leaf task the run lens,
   assert.ok(samePath(vscode.Uri.parse(String(runArgs.uri)), uri), 'the middleware adds the document URI to the run lens too');
 });
 
-test('the outline of tasks.md lists its tasks (R4.2)', async () => {
+test('the outline of tasks.md lists its tasks', async () => {
   const uri = demoDoc('tasks.md');
   await vscode.workspace.openTextDocument(uri);
   const names = await waitFor('the document symbols of tasks.md', async () => {

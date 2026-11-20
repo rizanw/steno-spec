@@ -36,7 +36,7 @@ _Satisfies: 1.1, 1.2_
 The store.
 `;
 
-// T1.1 is done, so it carries the done lens; T1.2 is open, for the State_Change test to tick
+// T1.1 is done, so it carries the done lens; T1.2 is open, for the state change test to tick
 const TASKS = `# Tasks
 
 - [ ] 1. Sessions

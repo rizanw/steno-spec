@@ -70,7 +70,7 @@ function describe(h: Handoff): string {
   return h.spec;
 }
 
-/** The Steno_Projects open in this window: folders on disk that hold a `.steno` folder. */
+/** The steno projects open in this window: folders on disk that hold a `.steno` folder. */
 function projectFolders(probe: Probe): vscode.WorkspaceFolder[] {
   return (vscode.workspace.workspaceFolders ?? []).filter(f =>
     f.uri.scheme === 'file' && probe.exists((probe.env.windows ? win32 : posix).join(f.uri.fsPath, '.steno')));

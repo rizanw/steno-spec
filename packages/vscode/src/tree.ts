@@ -1,4 +1,4 @@
-// The two sidebar views, Specs and Steering, built from each folder's Spec_Tree. Every node is a
+// The two sidebar views, Specs and Steering, built from each folder's spec tree. Every node is a
 // `vscode.TreeItem` it builds itself, so a provider only has to say who the children are. A node is pure
 // data, which is what lets the builders below be tested without VS Code; only the Steering view looks at
 // the disk, to find the agent instruction files the server does not report.
@@ -46,7 +46,7 @@ function bareName(file: string): string {
 export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode | FileNode;
 export type SteeringViewNode = FolderNode | SteeringNode | InstructionNode;
 
-/** One Workspace_Folder, shown only when the window has two or more shown folders. */
+/** One workspace folder, shown only when the window has two or more shown folders. */
 export class FolderNode extends vscode.TreeItem {
   readonly kind = 'folder' as const;
 
@@ -182,13 +182,13 @@ export class SpecNode extends vscode.TreeItem {
 /** The phases in the order a Spec moves through them. */
 const PHASE_ORDER = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
 
-/** The phase each Spec_Document is written in; `bugfix.md` takes the place of `requirements.md`. */
+/** The phase each spec document is written in; `bugfix.md` takes the place of `requirements.md`. */
 const DOCUMENT_PHASE: Record<string, 'brief' | 'requirements' | 'design' | 'tasks'> = {
   'brief.md': 'brief', 'requirements.md': 'requirements', 'bugfix.md': 'requirements', 'design.md': 'design', 'tasks.md': 'tasks',
 };
 
 /**
- * Whether a Spec_Document's stage is behind the Spec: approved, or the Spec has moved past its phase. A quick
+ * Whether a spec document's stage is behind the Spec: approved, or the Spec has moved past its phase. A quick
  * Spec records no approvals, so the phase is what tells for it; a gated one only moves on by approving.
  */
 export function documentDone(spec: TreeSpec, document: string): boolean {
@@ -199,13 +199,13 @@ export function documentDone(spec: TreeSpec, document: string): boolean {
   return at > PHASE_ORDER.indexOf(stage);
 }
 
-/** A Spec_Document's label: its name without `.md`, capitalised, so `requirements.md` reads `Requirements`. */
+/** A spec document's label: its name without `.md`, capitalised, so `requirements.md` reads `Requirements`. */
 function documentLabel(document: string): string {
   const name = bareName(document);
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
-/** One Spec_Document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. */
+/** One spec document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. */
 export class DocNode extends vscode.TreeItem {
   readonly kind = 'doc' as const;
 
@@ -274,7 +274,7 @@ export class FileNode extends vscode.TreeItem {
   }
 }
 
-/** When a Steering_File reaches the coding agent, in a few words for its row and a sentence for its hover. */
+/** When a steering file reaches the coding agent, in a few words for its row and a sentence for its hover. */
 function inclusionText(entry: TreeSteering): { short: string; long: string } {
   switch (entry.inclusion) {
     case 'fileMatch': {
@@ -289,7 +289,7 @@ function inclusionText(entry: TreeSteering): { short: string; long: string } {
   }
 }
 
-/** One Steering_File, by its name, with when it reaches the agent, or the reason it could not be read. */
+/** One steering file, by its name, with when it reaches the agent, or the reason it could not be read. */
 export class SteeringNode extends vscode.TreeItem {
   readonly kind = 'steering-file' as const;
   readonly uri: vscode.Uri;
@@ -328,7 +328,7 @@ export class InstructionNode extends vscode.TreeItem {
 }
 
 /**
- * What hangs under one Spec: its Spec_Documents in the server's order, with the Spec's tasks under tasks.md`. 
+ * What hangs under one Spec: its spec documents in the server's order, with the Spec's tasks under tasks.md`. 
  * An Unusable Spec has only its files, so it offers nothing but opening them.
  */
 export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec): Node[] {
@@ -370,7 +370,7 @@ async function exists(uri: vscode.Uri): Promise<boolean> {
 
 /**
  * The items of one folder in the Steering view: the agent instruction files at its root, then its
- * Steering_Files in the server's order.
+ * steering files in the server's order.
  */
 export async function steeringItems(server: FolderServer): Promise<SteeringViewNode[]> {
   const tree = server.tree;
@@ -420,7 +420,7 @@ abstract class FolderView<N extends vscode.TreeItem> {
   dispose(): void { this.changed.dispose(); }
 }
 
-/** The Steering view (`steno.steering`): each running project's agent instruction files and Steering_Files. */
+/** The Steering view (`steno.steering`): each running project's agent instruction files and steering files. */
 export class SteeringTreeProvider extends FolderView<SteeringViewNode> implements vscode.TreeDataProvider<SteeringViewNode> {
   // a stopped folder has no tree to read its steering from; the Specs view already offers its restart
   shownServers(): FolderServer[] { return shown(this.pool.all()).filter(s => s.state !== 'stopped'); }

@@ -81,7 +81,7 @@ export function samePath(a: vscode.Uri, b: vscode.Uri): boolean {
   return process.platform === 'win32' ? a.fsPath.toLowerCase() === b.fsPath.toLowerCase() : a.fsPath === b.fsPath;
 }
 
-/** A Spec_Document of the alpha project's `demo` Spec. */
+/** A spec document of the alpha project's `demo` Spec. */
 export function demoDoc(file: string): vscode.Uri {
   return vscode.Uri.joinPath(vscode.Uri.file(env('STENO_E2E_ALPHA')), '.steno', 'specs', 'demo', file);
 }

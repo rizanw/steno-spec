@@ -77,7 +77,7 @@ pnpm build
 cd packages/vscode
 rm -f steno-vscode-*.vsix
 pnpm package
-code --uninstall-extension rizanw.steno-vscode
+code --uninstall-extension rzndwb.steno-vscode
 code --install-extension steno-vscode-*.vsix --force
 ```
 

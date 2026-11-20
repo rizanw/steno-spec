@@ -5,7 +5,7 @@
 <h1 align="center">steno spec for VS Code</h1>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=rizanw.steno-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rizanw.steno-vscode" alt="Marketplace version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rzndwb.steno-vscode" alt="Marketplace version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/rizanw/steno-spec/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>
@@ -42,7 +42,7 @@
 Install from the Marketplace, or:
 
 ```bash
-code --install-extension rizanw.steno-vscode
+code --install-extension rzndwb.steno-vscode
 ```
 
 Open a folder that already has a `.steno/` directory. For one that has none, choose **Set up steno**

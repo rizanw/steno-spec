@@ -20,9 +20,9 @@ function sources(dir: string = SRC): { path: string; text: string }[] {
 }
 
 describe('the manifest and source', () => {
-  it('names the extension as the Marketplace id rizanw.steno-vscode, and is private to the workspace', () => {
+  it('names the extension as the Marketplace id rzndwb.steno-vscode, and is private to the workspace', () => {
     expect(manifest.name).toBe('steno-vscode');
-    expect(manifest.publisher).toBe('rizanw');
+    expect(manifest.publisher).toBe('rzndwb');
     expect(manifest.displayName).toBe('steno spec');
     expect(manifest.private).toBe(true);
   });

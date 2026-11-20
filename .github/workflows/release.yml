@@ -2,34 +2,30 @@ name: Release
 
 # Push a tag matching both package versions (e.g. v0.2.0) to publish steno-spec to npm with provenance and the
 # VS Code extension to the VS Code Marketplace and Open VSX, all from the one tag.
-# npm auth is trusted publishing (OIDC): no token; npm trusts this repo + release.yml directly.
-# The two extension registries take tokens: repository secrets VSCE_PAT and OVSX_PAT.
+# Auth is trusted publishing (OIDC) for all three with no stored token.
 #
 # An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take
 # only major.minor.patch). A pre-release goes to npm under `next` and to both registries with --pre-release.
 #
 # Do not re-run after a partial publish: npm refuses a version it already has. Finish a failed registry step by
 # hand: download this run's `vsix` artifact and run `vsce publish --packagePath <file>` or `ovsx publish <file>`
-# (add --pre-release for an odd minor).
+# with a token of your own (add --pre-release for an odd minor).
 on:
   push:
     tags: ['v*']
 
 permissions:
   contents: read
-  id-token: write # npm trusted publishing and provenance
+  id-token: write # trusted publishing to npm and both extension registries, and npm provenance
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # before anything is built or published: a wrong tag or a missing token stops the release here
-      - name: Check the tag, both versions and the registry tokens
+      # before anything is built or published: a wrong tag stops the release here
+      - name: Check the tag and both versions
         id: release
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-          OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
           version="${GITHUB_REF_NAME#v}"
           cli=$(node -p "require('./packages/cli/package.json').version")
@@ -38,8 +34,6 @@ jobs:
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $GITHUB_REF_NAME is not v<major>.<minor>.<patch>"
           [ "$version" = "$cli" ] || fail "tag $GITHUB_REF_NAME != packages/cli version $cli"
           [ "$version" = "$ext" ] || fail "tag $GITHUB_REF_NAME != packages/vscode version $ext"
-          [ -n "$VSCE_PAT" ] || fail "secret VSCE_PAT is empty: the VS Code Marketplace publish would fail"
-          [ -n "$OVSX_PAT" ] || fail "secret OVSX_PAT is empty: the Open VSX publish would fail"
           minor=$(echo "$version" | cut -d. -f2)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if (( minor % 2 == 1 )); then
@@ -73,11 +67,16 @@ jobs:
           if-no-files-found: error
       - name: Publish to the VS Code Marketplace
         working-directory: packages/vscode
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: pnpm exec vsce publish --packagePath steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+        run: pnpm exec vsce publish --oidc --packagePath steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
       - name: Publish to Open VSX
         working-directory: packages/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+        run: |
+          if [ -n "$OVSX_PAT" ]; then
+            pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+          else
+            # an empty OVSX_PAT must not reach ovsx: a token takes priority over trusted publishing
+            unset OVSX_PAT
+            pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }} --trusted-publishing
+          fi

@@ -27,7 +27,8 @@ test('set-up turns a plain folder into a project that the tree shows at once (R3
       await vscode.commands.executeCommand('workbench.action.acceptSelectedQuickOpenItem');
       return existsSync(join(gamma, '.steno', 'config.yaml'));
     });
-    assert.ok(existsSync(join(gamma, '.agents', 'skills', 'steno-spec', 'SKILL.md')));
+    // init writes the config before it copies the skills, so the skills can still be on their way
+    await waitFor('init to copy the skills into gamma', () => existsSync(join(gamma, '.agents', 'skills', 'steno-spec', 'SKILL.md')));
     assert.equal(existsSync(join(gamma, '.claude')), false);
 
     const shown = await waitFor('gamma to join the tree as a project', async () => {

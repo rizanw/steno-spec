@@ -309,7 +309,7 @@ export function changeFolders(e: WorkspaceFoldersChangeEvent): void {
 
 /** Test helper: a workspace folder at a path. */
 export function folder(path: string, index = 0): WorkspaceFolder {
-  return { uri: Uri.file(path), name: path.split('/').filter(Boolean).pop() ?? path, index };
+  return { uri: Uri.file(path), name: path.split(/[\\/]/).filter(Boolean).pop() ?? path, index };
 }
 
 export class RelativePattern {

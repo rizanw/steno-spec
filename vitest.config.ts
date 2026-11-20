@@ -10,6 +10,7 @@ export default defineConfig({
       // Windows CI runner, so vitest's default 5 s limit fails tests there that pass everywhere else.
       { test: { name: 'cli', include: ['packages/cli/test/**/*.test.ts'], testTimeout: 20_000 } },
       'packages/vscode/vitest.config.ts',
+      'packages/paseo/vitest.config.ts',
     ],
   },
 });

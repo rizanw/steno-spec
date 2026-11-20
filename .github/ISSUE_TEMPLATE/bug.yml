@@ -6,22 +6,39 @@ body:
     attributes:
       value: |
         Thanks for reporting. For a security problem, use the Security tab instead of a public issue.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Where is the problem
+      options:
+        - The steno command
+        - VS Code extension
+        - Language server (steno lsp) in another editor
+        - A steno skill
+        - Docs
+        - Not sure
+    validations:
+      required: true
   - type: input
     id: steno-version
     attributes:
       label: steno version
-      description: Output of `steno --version`.
-      placeholder: 0.1.0
+      description: Output of `steno --version`. For the extension, its version from the Extensions view.
+      placeholder: 0.1.2 (protocol 1)
     validations:
       required: true
   - type: input
     id: node-version
     attributes:
       label: Node version
-      description: Output of `node --version`.
+      description: Output of `node --version`. Leave empty if you only use the VS Code extension.
       placeholder: v22.11.0
-    validations:
-      required: true
+  - type: input
+    id: editor-version
+    attributes:
+      label: Editor version
+      description: For the extension or the language server, the editor and its version, from Help > About.
+      placeholder: VS Code 1.125.0
   - type: dropdown
     id: os
     attributes:
@@ -47,7 +64,7 @@ body:
         - GitHub Copilot
         - Gemini CLI
         - Kiro
-        - None (CLI only)
+        - None (CLI or extension only)
         - Other
     validations:
       required: true

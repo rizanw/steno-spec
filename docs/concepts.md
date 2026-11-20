@@ -16,6 +16,8 @@ steno has no model inside. Everything deterministic lives in the CLI and costs z
 
 Skills never name a harness's tools. They say "run `steno next`" or "ask the user", so the same file works in every agent.
 
+The same checks reach your editor. `steno lsp` is a language server built on the same code as the commands, and the [VS Code extension](../packages/vscode/README.md) uses it to show the spec tree, the lint findings and the task packets. Both return exactly what the commands return, as described in the [JSON contract](json-contract.md).
+
 ## Phases and gates
 
 ```mermaid
@@ -36,11 +38,11 @@ Every gated stage ends the same way. The first two steps loop back to the same d
 
 1. **Lint.** `steno lint <stage>` checks the file mechanically: EARS form, undefined terms, criteria with no design or task, leftover template text. Errors block approval.
 2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo. A review is one full round and at most one verify round. Reviewers may rewrite or question what is there, but anything that would add to the spec or change its scope comes to you as a question first, and it has passed when no high finding is open and every question has an answer.
-3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. The agent never approves on its own outside quick mode.
+3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. You can also approve from the tree in the VS Code extension. The agent never approves on its own.
 
 After the last task, a drift review compares the finished code with the spec.
 
-A spec's phase lives in `spec.yaml`. Only `steno approve <phase>` moves it forward, and only when `steno lint` has no errors for that file (unless `--force`).
+A spec's phase lives in `spec.yaml`. Through the gated stages only an approval moves it forward, and only when `steno lint` has no errors for that file (unless `steno approve --force`). Finishing the last task moves the spec from execute to done, and reopening a task moves it back.
 Approving writes nothing; the next file's skeleton is written by `steno scaffold` when its phase skill starts, so a file exists only once the phase has begun, and the agent still never starts from a blank page.
 
 Two modes:
@@ -137,6 +139,14 @@ Components are `Glossary_Terms`, defined once in the Glossary and used verbatim 
 
 `steno lint [requirements|design|tasks]` exits with code 2 on errors. Errors block `approve`; warnings do not.
 
+**Every document**
+
+| Rule | Level | Catches |
+|---|---|---|
+| `spec/missing` | error | the stage's file does not exist yet |
+| `spec/placeholder` | error | template lines with `<…>` are still there: the file is the skeleton, not yet written |
+| `spec/empty-section` | warn | a heading with nothing under it (no text, no sub-heading); for example `## Open questions` after the last question is settled |
+
 **requirements.md**
 
 | Rule | Level | Catches |
@@ -166,7 +176,6 @@ Components are `Glossary_Terms`, defined once in the Glossary and used verbatim 
 | `design/footer-on-overview` | warn | Overview, Testing Strategy or Open Questions carries a `_Satisfies:_` footer |
 | `design/overlap` | warn | one criterion is claimed by more than 3 sections |
 | `design/uncovered-req` | warn | a requirement no section satisfies |
-| `spec/empty-section` | warn | a heading with nothing under it (no text, no sub-heading), in the requirements, the design or the tasks; for example `## Open questions` after the last question is settled |
 
 **tasks.md**
 
@@ -178,6 +187,8 @@ Components are `Glossary_Terms`, defined once in the Glossary and used verbatim 
 | `tasks/uncovered-req` | warn | a requirement with no task |
 
 `steno trace --criteria` goes one level finer and flags criteria that are on no task, or spread across more than two.
+
+Steering files and `.steno/config.yaml` have their own rules (`steering/*`, `config/*`), listed under [`steno steer lint`](cli.md#steno-steer-lint).
 
 ## Context packets
 
@@ -219,7 +230,7 @@ All API handlers return problem+json errors. Use the shared `withAuth` wrapper.
 Writing `product.md`, `tech.md` and `structure.md` is split the same way as everything else in steno: the CLI fingerprints the repo, the agent writes the prose.
 
 1. `steno steer scan` reads manifests and folder names (never source) and suggests files. The core three are `always`; topic files such as `database.md`, `api.md`, `auth.md`, `i18n.md`, `ui.md`, `testing.md`, `infra.md`, `ci.md`, `messaging.md` and `domain.md` appear only when the repo shows evidence, each with a `fileMatchPattern` derived from the folders found and a short `read:` list. A topic with only one or two files behind it is marked weak and offered, not written, so a lone `vercel.json` does not earn an `infra.md`.
-2. `steno steer new --all` writes skeletons with topic headings (`database.md` has Engine and client, Schema conventions, Migrations, Invariants, Query patterns, Seeds and test data).
+2. `steno steer new --all` writes skeletons with topic headings (`database.md` has Engine and client, Tables, Schema conventions, Migrations, Invariants, Query patterns, Seeds and test data).
 3. `steno steer schema` prints the tables, columns and foreign keys from the SQL migrations, Prisma or Drizzle schema, or SQLAlchemy models in a compact one-line-per-table form; `database.md` carries it so data tasks see the real schema without reading migrations.
 4. The `steno-steer` skill reads only the `read:` list, fills each file with facts, and runs `steno steer lint`.
 

@@ -112,6 +112,8 @@ Repeat "do the next task", or say "run through the remaining tasks" once you tru
 steno status
 ```
 
+With the [VS Code extension](../../packages/vscode/README.md) installed, the steno sidebar shows the same progress and ticks each task as the agent finishes it.
+
 ## 5. Check the result
 
 ```bash
@@ -141,4 +143,4 @@ The finished [link-expiry spec](.steno/specs/link-expiry/) in this folder went t
 - **The agent does not know the steno skills:** run `steno init --agent <yours>` again and restart the agent so it reloads its skills.
 - **`steno lint` reports errors:** ask the agent to fix them; the message names the rule and line.
 - **A task turns out to be wrong:** tell the agent. The rule is spec first, then code: it should propose the edit to the requirement or design before changing the implementation.
-- **You want to start over:** delete `.steno/specs/click-stats/` and undo the code changes with git.
+- **You want to start over:** delete the spec's folder under `.steno/specs/` and undo the code changes with git.

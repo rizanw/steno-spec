@@ -13,6 +13,12 @@ npm install -g steno-spec
 
 To build from source instead, see [Contributing](../CONTRIBUTING.md).
 
+If you use VS Code, the [extension](../packages/vscode/README.md) adds a sidebar with every spec, its lint findings and its approvals. It is optional, and it carries its own copy of steno:
+
+```bash
+code --install-extension rzndwb.steno-vscode
+```
+
 Check it:
 
 ```bash
@@ -46,6 +52,7 @@ What you get:
   steering/          optional project context (see Concepts)
 .agents/skills/      the seven steno-* skills (canonical copy)
 .claude/skills/      symlinks to .agents/skills (one folder per non-native agent)
+.claude/agents/      steno's reviewers as read-only sub-agents (Claude Code only)
 AGENTS.md            a short block telling any agent how to read specs cheaply
 ```
 
@@ -90,11 +97,14 @@ phase: requirements   approved: none
 R 1 (3 criteria)   D 0 sections   T 0/0 done
 lint: 0 errors, 1 warnings
 changed since last status: requirements.md
+next: run the steno-spec skill (tell your agent: "write the requirements for <slug>"); it scaffolds and fills requirements.md, then: steno lint && steno approve requirements
 ```
+
+In VS Code the same facts are in the steno sidebar: each spec with its phase or the tasks left, and each lint finding on its line.
 
 ## 5. Approve, design, approve, plan
 
-Each phase ends at a gate you control. Say "approved" (or run the command yourself) and the agent moves on:
+Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve This Phase** on the spec in VS Code) and the agent moves on:
 
 | You say | What happens |
 |---|---|
@@ -180,4 +190,6 @@ steno new shared-budgets --brief
 - [Tutorial](../examples/link-shortener/TUTORIAL.md): build a feature on the example project, with a finished spec to compare against
 - [Concepts](concepts.md): what the IDs, lint rules and packets are doing
 - [CLI reference](cli.md): every command and flag
-- [Agents & integrations](agents.md): other agents, EGM, coming from Kiro
+- [Agents & integrations](agents.md): other agents, VS Code, EGM, coming from Kiro
+- [VS Code extension](../packages/vscode/README.md): the sidebar, approvals, handing work to your agent
+- [JSON contract](json-contract.md): what `steno lsp` and `--json` return, for building on steno

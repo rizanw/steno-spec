@@ -12,7 +12,7 @@ Run on 2026-11-13. One spec, requirements stage, 27 reviewer runs. This is a pil
 
 - **Spec:** the link-expiry requirements from `examples/link-shortener`, 5 requirements and 22 criteria.
 - **Packets:** `packet-clean.md` and `packet-seeded.md`, both written by `steno review --stage requirements`. Each reviewer saw one packet and nothing else.
-- **steno side:** the three personas that apply to the requirements stage (clarity, completeness, ears), each as a general-purpose subagent given only the persona file and the packet path, as the `steno-review` skill instructs.
+- **steno side:** the three personas that applied to the requirements stage at the time (clarity, completeness, ears; the scope reviewer came later and is not measured here), each as a general-purpose subagent given only the persona file and the packet path, as the `steno-review` skill instructs.
 - **EGM side (v0.1.1):** the six reviewers its feature-spec flow uses (zoom-out, inventive catalyst, comprehension, design, structural, style), dispatched directly with the standards its skill names. Its fix-and-re-review loop was not run, since this measures detection only.
 - **Runs:** seeded packet twice per side, clean packet once per side.
 - **Scoring:** a planted defect counts as found when a finding names the same criterion or glossary entry and the same problem. Scored by the session that planted them, so not blind.
@@ -80,7 +80,7 @@ The steno personas are about 100 tokens each and the packet about 1,500. The res
 
 ### After the persona rewrite: less noise, same detection
 
-The five personas were then rewritten with a stage rule (no field names, status codes or payload shapes at the requirements stage), severity definitions, a limit of 3 low findings, and narrower briefs for ears and completeness. Same packets, registered reviewers, one run each.
+The five personas of the time were then rewritten with a stage rule (no field names, status codes or payload shapes at the requirements stage), severity definitions, a limit of 3 low findings, and narrower briefs for ears and completeness. Same packets, registered reviewers, one run each.
 
 | | Planted defects found | Findings on the seeded spec | Findings on the unseeded spec | High on the unseeded spec |
 |---|---|---|---|---|
@@ -116,12 +116,10 @@ These were not judged one by one, so there is no noise percentage. Reading them:
 - A noise rate. That needs a blind judge over the clean-spec findings.
 - Anything about other models or agent harnesses.
 
-## Follow-ups this points to
+## What changed in steno because of this
 
-1. Ship the steno reviewers as registered read-only agents, as EGM does, so a review costs tens of thousands of tokens, not 200,000. Done and measured: see "After the fix" under Cost.
-2. Tell the clarity and ears personas what the requirements stage excludes (field names, status codes), to match `steno-spec`. Done and measured: see "After the persona rewrite".
-3. Teach `steno lint` the vague outcomes it missed: "handle correctly", and "or" between two outcomes after SHALL.
-4. When handing off to EGM, say that the file is a requirements document, or strip the packet wrapper, so its design-document standard and structural checks do not fire on the wrong target.
-5. For a benchmark that separates the two: subtler defects (cross-requirement gaps, a wrong boundary in one place only), the design stage with real source files, and a blind judge for the clean spec.
+1. The steno reviewers ship as registered read-only agents, as EGM's do, so a review costs tens of thousands of tokens, not 200,000. Measured: see "After the fix" under Cost.
+2. The clarity and ears personas say what the requirements stage excludes (field names, status codes), to match `steno-spec`. Measured: see "After the persona rewrite".
+3. When `steno-review` hands a requirements or tasks packet to EGM, it says which stage the file is and that it is not a design document, so EGM's design-document checks do not fire on the wrong target.
 
 Raw per-run scores are in `runs.tsv`.

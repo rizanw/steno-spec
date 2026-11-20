@@ -46,5 +46,5 @@ Forbidden in criteria: file paths, component/prop/state names, function signatur
 ## 5. Check and hand over
 1. `steno lint requirements`; fix every error and warning (`ears/implementation`, `ears/too-long`: rewrite in user terms; `ears/undefined-term`: add the term).
 2. Put every ambiguity the explorer flagged, every assumption and invented value under a final `## Open questions` list; never silently pick a side.
-3. Report: `steno show requirements`, the open questions, then offer **resolve** (open questions: interview the user one at a time, recommended answer first; write each answer into its requirement, delete the question, and the heading with the last one; re-lint), **approve** (`steno approve requirements`, then `steno-design`; open questions carry over), **review** (`steno-review --stage requirements`) or **edit** (one requirement, re-lint).
-Never `steno approve` without the user's yes, except in quick mode.
+3. Report: `steno show requirements`, the open questions, then offer **resolve** (open questions: interview the user one at a time, recommended answer first; write each answer into its requirement, delete the question, and the heading with the last one; re-lint), **approve** (`steno approve requirements`, then `steno-design`; open questions carry over), **review** (`steno-review`, stage `requirements`) or **edit** (one requirement, re-lint).
+Never `steno approve` without the user's yes; a quick spec has no gates.

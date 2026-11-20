@@ -39,11 +39,13 @@
 
 ## Quick start
 
-Install from the Marketplace, or:
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode), or:
 
 ```bash
 code --install-extension rzndwb.steno-vscode
 ```
+
+In Cursor, Windsurf, VSCodium and other editors that use Open VSX, search for **steno spec** in the Extensions view, or get it from [Open VSX](https://open-vsx.org/extension/rzndwb/steno-vscode).
 
 Open a folder that already has a `.steno/` directory. For one that has none, choose **Set up steno**
 in the view, or run **steno: Set Up steno in a Folder** from the command palette: pick the coding
@@ -75,24 +77,48 @@ from your agent or from this view.
 
 ## See it in action
 
-The steno icon in the activity bar opens every steno project in the window:
+The steno icon in the activity bar opens two views, Specs and Steering, for every steno project in the window:
 
 ```text
-specs
-├─ link-expiry                                           1 task left
-│  ├─ requirements.md
-│  ├─ design.md
-│  └─ tasks.md
-│     ├─ ✓ T1 Parse and store the expiry
-│     │  ├─ ✓ T1.1 Accept expiresAt in LinkService.create
-│     │  └─ ✓ T1.2 Reject an expiry in the past
-│     └─ ○ T2 Redirect rules
-│        ├─ → T2.1 Skip an expired link in the resolver        next
-│        └─ ○ T2.2 Sweep expired links on a timer          optional
-└─ Steering
-   ├─ product.md                                          always on
-   └─ api.md                                         matching files
+SPECS
+└─ Link expiry                                          2 tasks left
+   ├─ ✓ Requirements
+   ├─ ✓ Design
+   └─ ✓ Tasks
+      ├─ ✓ Expiry data, clock and input parsing
+      └─ ○ Service rules
+         ├─ ✓ Accept expiresAt in LinkService.create
+         ├─ ○ Make LinkService.resolve throw expired            next
+         └─ ○ Return LinkView with expired
+STEERING
+├─ product                                                 always on
+└─ api                                                matching files
 ```
+
+- **Specs** shows each spec by its title, with its phase or the tasks left, then its documents and its tasks. A tick marks an approved document and a finished task.
+- **Steering** shows each steering file with when it reaches the agent: always on, matching files, or on request.
+- **Lint findings** appear on their line in the editor and in the Problems panel, for every spec and steering file, as you or your agent edit.
+- **Approve This Phase**, **Mark Task Done** and **Reopen Task** sit on the rows of the tree. Approving is refused while lint reports errors, and the findings are listed.
+
+## Hand work to your agent
+
+The extension never writes a spec or runs a task itself. It sends your coding agent a short skill call, such as `/steno-run T2.2 link-expiry`, and the agent fetches the rest with `steno`. No file contents are in the call.
+
+| Action | Where | What the agent is asked to do |
+|---|---|---|
+| **Write This Phase** | a spec that is not yet in execute | write the brief, requirements, design or tasks |
+| **Review This Phase** | a spec in requirements, design or tasks, or a finished one | a fresh-context review of that stage, or a drift review once the spec is done |
+| **Run Task** | an open task, in the tree or the lens above it in `tasks.md` | that task |
+| **Run Next Task** | a spec in execute | its next open task |
+| **Generate Steering** | the Steering view | write the steering files |
+
+Pick the agent once with **steno: Choose Coding Agent**, or from the status bar. The list shows the agents found on your machine:
+
+| Agent | How the call arrives |
+|---|---|
+| Copilot Chat, Claude Code (extension) | typed into the chat box for you to send |
+| Claude Code, Codex CLI, Gemini CLI, OpenCode (terminal) | started in a new terminal in the project folder |
+| Copy to clipboard | always there; also the fallback when a call can't be delivered |
 
 ## Requirements
 
@@ -108,7 +134,8 @@ usual; handing work to a coding agent, choosing the agent and setting up steno w
 - [Concepts](https://github.com/rizanw/steno-spec/blob/main/docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](https://github.com/rizanw/steno-spec/blob/main/docs/cli.md): every command and flag
 - [Agents & integrations](https://github.com/rizanw/steno-spec/blob/main/docs/agents.md): supported agents, EGM, coming from Kiro
+- [JSON contract](https://github.com/rizanw/steno-spec/blob/main/docs/json-contract.md): what the bundled language server returns
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/rizanw/steno-spec/blob/main/LICENSE)

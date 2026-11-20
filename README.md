@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/steno-spec"><img src="https://img.shields.io/npm/v/steno-spec" alt="npm version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rzndwb.steno-vscode?label=VS%20Code" alt="VS Code extension version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>
@@ -23,7 +24,8 @@
   <a href="docs/getting-started.md">Getting started</a> ·
   <a href="docs/concepts.md">Concepts</a> ·
   <a href="docs/cli.md">CLI reference</a> ·
-  <a href="docs/agents.md">Agents &amp; integrations</a>
+  <a href="docs/agents.md">Agents &amp; integrations</a> ·
+  <a href="packages/vscode/README.md">VS Code extension</a>
 </p>
 
 ---
@@ -36,6 +38,8 @@
   and `_Requirements:_` footers, linked by stable ids.
 - **Reviewed with fresh context.** `steno-review` starts read-only reviewers that see only the review
   packet, never your conversation.
+- **In your editor too.** The [VS Code extension](#in-vs-code) shows where every spec stands, puts each
+  lint finding on its line and gives you the approvals.
 
 ## See it in action
 
@@ -171,6 +175,50 @@ Running `steno new` yourself only writes a template. For the full flow (intake, 
 
 `steno lint` catches what a reviewer would: missing SHALL, vague words, undefined glossary terms, implementation detail in requirements, and requirements with no design or no task.
 
+## In VS Code
+
+Your agent writes; the sidebar shows where every spec stands.
+
+```bash
+code --install-extension rzndwb.steno-vscode
+```
+
+```text
+SPECS
+└─ Link expiry                                          2 tasks left
+   ├─ ✓ Requirements
+   ├─ ✓ Design
+   └─ ✓ Tasks
+      ├─ ✓ Expiry data, clock and input parsing
+      └─ ○ Service rules
+         ├─ ✓ Accept expiresAt in LinkService.create
+         ├─ ○ Make LinkService.resolve throw expired            next
+         └─ ○ Return LinkView with expired
+STEERING
+├─ product                                                 always on
+└─ api                                                matching files
+```
+
+- **Specs and Steering views** for every steno project in the window, each spec with its phase or the tasks left.
+- **Lint findings on their line**, as you or your agent edit a spec.
+- **Approve a phase, mark a task done or reopen it** from the tree, with a run lens above each open task in `tasks.md`.
+- **Hand a task to your agent**: Copilot Chat, Claude Code, Codex, Gemini CLI or OpenCode gets a short
+  skill call such as `/steno-run T2.1 link-expiry`, never file contents.
+
+The extension has no model, no chat participant and no network call in it, and it carries its own copy of
+steno. More in the [extension's README](packages/vscode/README.md).
+
+## Build on steno
+
+Another editor or tool can read specs without parsing Markdown:
+
+- **`steno lsp`** is a language server over stdio: diagnostics, document symbols, task lenses, and requests
+  for the spec tree, a task packet, approvals and task state.
+- **`--json`** on the commands a client needs returns the same shapes as the server.
+
+Both follow one versioned [JSON contract](docs/json-contract.md). Within a protocol version it only
+grows, so a client written today keeps working.
+
 ## Docs
 
 - [Tutorial](examples/link-shortener/TUTORIAL.md): build a feature on the example project
@@ -178,8 +226,10 @@ Running `steno new` yourself only writes a template. For the full flow (intake, 
 - [Concepts](docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](docs/cli.md): every command and flag
 - [Agents & integrations](docs/agents.md): supported agents, EGM, coming from Kiro
+- [VS Code extension](packages/vscode/README.md): the sidebar, approvals, handing work to your agent
+- [JSON contract](docs/json-contract.md): every shape `steno lsp` and `--json` return
 - [Why steno](docs/why.md): comparison with Kiro, Spec Kit and EGM; where the token savings come from
-- [Contributing](CONTRIBUTING.md): build from source, tests, package layout, design principles
+- [Contributing](CONTRIBUTING.md): build from source, tests, commit messages, design principles
 
 ## License
 

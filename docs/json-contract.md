@@ -2,7 +2,7 @@
 
 **Protocol version: 1**
 
-This document describes every JSON shape that the steno language server (`steno lsp`) and the steno commands run with `--json` return. Editor plugins, scripts and CI jobs can rely on it. Each steno release speaks exactly one protocol version; `steno --version` prints it, for example `0.1.1 (protocol 1)`.
+This document describes every JSON shape that the steno language server (`steno lsp`) and the steno commands run with `--json` return. Editor plugins, scripts and CI jobs can rely on it. Each steno release speaks exactly one protocol version; `steno --version` prints it, for example `0.1.2 (protocol 1)`.
 
 ## Compatibility rules
 
@@ -53,7 +53,7 @@ The result of `initialize`. Only the steno fields are part of the contract.
 | Field | Type | Meaning |
 |---|---|---|
 | `serverInfo.name` | `"steno"` | |
-| `serverInfo.version` | `string` | The steno version, such as `0.1.1`. |
+| `serverInfo.version` | `string` | The steno version, such as `0.1.2`. |
 | `capabilities.experimental.steno.protocolVersion` | `number` | The protocol version. Check it before sending a steno request. |
 
 ### SpecTree
@@ -231,7 +231,7 @@ The server registers no handler for either command. A Client registers `steno.ta
 
 | Where | Value |
 |---|---|
-| `name` | The item's `title` (its `id` when the title is empty) |
+| `name` | The item's `title`, its `id` when the title is empty, or `(untitled)` when it has neither |
 | `detail` | The item's `id` |
 | `range` | `line` to `endLine`, 0-based in the protocol |
 | `children` | The item's `children` |

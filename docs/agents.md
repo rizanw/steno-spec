@@ -30,25 +30,54 @@ Never read a whole spec: run `steno status`, `steno next`, `steno ctx <task>`, `
 If your agent reads neither skills nor `AGENTS.md`, point it at `.agents/skills/steno-spec/SKILL.md`
 when you start.
 
-### Handing a task to the agent
+### Handing work to the agent
 
-To start one task from an editor or a script, name the task first and the spec second, the order
-`steno ctx` takes them in. With Claude Code:
+To start a skill from an editor or a script, name the skill and end with the spec. For one task, the
+task comes first and the spec second, the order `steno ctx` takes them in. With Claude Code:
 
 ```text
-/steno-run T3.1 my-spec     # task T3.1 of my-spec
-/steno-run my-spec          # the next open task of my-spec
-/steno-run                  # with one spec, or one not done: its next task
+/steno-run T3.1 my-spec          # task T3.1 of my-spec
+/steno-run my-spec               # the next open task of my-spec
+/steno-run                       # with one spec, or one not done: its next task
+/steno-design my-spec            # write the design (also steno-brainstorm, steno-spec, steno-tasks)
+/steno-review design my-spec     # review a stage: requirements, design, tasks or drift
+/steno-steer                     # generate steering
 ```
 
-The `steno-run` skill then passes the spec name to every `steno next`, `steno ctx` and `steno done`
-it runs. How the skill is invoked differs by agent (a slash command, a mention or plain text), so
-an editor plugin chooses the form for the agent it targets.
+The skill then passes the spec name to every `steno` command it runs. How a skill is invoked differs
+by agent:
+
+| Agent | Form |
+|---|---|
+| Claude Code, GitHub Copilot Chat | `/steno-run T3.1 my-spec` |
+| Codex CLI | `$steno-run T3.1 my-spec` |
+| Gemini CLI, OpenCode | `Use the steno-run skill with: T3.1 my-spec` |
 
 ### Adding an agent
 
 One line in [`packages/core/src/agents.ts`](../packages/core/src/agents.ts): a key, a label, and the
 folder the agent loads skills from. Set `native: true` if it already reads `.agents/skills/`.
+
+The agents the VS Code extension can hand work to are a separate list, in
+[`packages/vscode/src/agents.ts`](../packages/vscode/src/agents.ts): how to find the agent, and how to
+pass it a call.
+
+## VS Code
+
+The [VS Code extension](../packages/vscode/README.md) shows every spec and steering file in a sidebar,
+puts lint findings on their lines, and lets you approve a phase or tick a task from the tree. It has no
+model in it. To write, review or run something, it sends one of the calls above to the agent you pick:
+Copilot Chat or Claude Code through their extensions, Claude Code, Codex CLI, Gemini CLI or OpenCode in
+a new terminal, or the clipboard for anything else.
+
+It is published on the VS Code Marketplace and on Open VSX, so it also installs in Cursor, Windsurf and
+VSCodium.
+
+### Building another integration
+
+The extension uses nothing private. `steno lsp` is a language server any editor can start, and every
+command takes `--json`; both return the shapes in the [JSON contract](json-contract.md). See
+[`steno lsp`](cli.md#steno-lsp) for what the server offers.
 
 ## EGM (Elephant-Goldfish Model)
 
@@ -91,7 +120,7 @@ For Claude Code, `steno init` also writes each persona as a registered read-only
 
 ### Which to use
 
-A pilot benchmark on one requirements document ([bench/review-pilot](../bench/review-pilot/README.md)) found that steno's reviewers and EGM's each caught all ten planted defects. steno's used under half the tokens and returned far fewer findings on a document with nothing planted. EGM's design reviewer raised deeper risks that steno's did not. The benchmark did not cover the design stage, where EGM is aimed.
+A pilot benchmark on one requirements document ([bench/review-pilot](../bench/review-pilot/README.md)) found that steno's reviewers and EGM's each caught all ten planted defects. It was run before the scope reviewer was added. steno's used under half the tokens and returned far fewer findings on a document with nothing planted. EGM's design reviewer raised deeper risks that steno's did not. The benchmark did not cover the design stage, where EGM is aimed.
 
 ## Coming from Kiro
 

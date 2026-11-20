@@ -50,7 +50,7 @@ export function register(program: Command): void {
     .description('scaffold a new spec (gated: requirements first)')
     .option('-t, --title <title>')
     .option('--bugfix', 'bugfix spec: bugfix.md instead of requirements.md')
-    .option('--brief', 'also create brief.md for a brainstorm phase')
+    .option('--brief', 'start with brief.md, a brainstorm phase before requirements')
     .option('-d, --description <text>', 'what the spec is about, in your own words; written into the first document for the agent to start from')
     .action((slug, opts) => {
       const ctx = g();

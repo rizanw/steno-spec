@@ -29,23 +29,60 @@ To use your local build as the `steno` command:
 ## Before you open a pull request
 
 ```bash
-pnpm test && pnpm lint:skills
+pnpm build && pnpm test && pnpm lint:skills
 ```
+
+The build comes first because the CLI and language server tests start the built `steno` command; against a stale build they fail or test old code.
+
+Keep a pull request to one topic, with its tests and docs in the same change. A fix and an unrelated cleanup are easier to review, and to revert, as two pull requests.
+
+## Commit messages
+
+Commits follow [Conventional Commits](https://www.conventionalcommits.org): a type, an optional scope in brackets, then what the change does.
+
+```text
+feat(vscode): add steering view
+fix: accept IF without THEN in a criterion
+docs: explain quick mode
+```
+
+| Type | Use it for |
+|---|---|
+| `feat` | something a user can now do |
+| `fix` | a bug that is gone |
+| `docs` | documentation only |
+| `test` | tests only |
+| `ci`, `build`, `chore` | workflows, build scripts, dependencies and housekeeping |
+
+The scope names the feature or area, such as `vscode`, `lsp-server`, `review` or `deps`. Leave it out when the change is not about one area.
+
+Pull requests are squashed into one commit on merge, so the pull request title is the one that has to follow this format.
+
+Please leave version numbers alone. A release bumps every package together and is published from a tag.
 
 ## Layout
 
 | Package | What it is |
 |---|---|
-| `packages/core` | parsers, EARS lint, traceability, context packets, state |
-| `packages/cli` | the `steno` command, a thin wrapper over core; every command takes `--json` |
+| `packages/core` | parsers, EARS lint, traceability, context packets, state, the JSON contract |
+| `packages/cli` | the `steno` command and the `steno lsp` language server, a thin layer over core; every command takes `--json` |
 | `packages/skills` | the seven `steno-*` skills and the reviewer personas |
 | `packages/vscode` | the VS Code extension; it bundles its own copy of the CLI and language server |
 
 Adding an agent is one line in [`packages/core/src/agents.ts`](packages/core/src/agents.ts).
 
+## What steno promises
+
+Every change is weighed against these four:
+
+- **Spec first, gated.** Requirements, then design, then tasks, then code. A person approves each stage.
+- **Any agent.** Plain Markdown and one skills folder. No feature may work in only one agent.
+- **Cheap on tokens.** If the CLI can do it, the agent does not. A task gets a packet, never the whole spec.
+- **Checked, not trusted.** Lint gates every stage, every task traces to a requirement, and review runs in a fresh context that never saw the authoring conversation.
+
 ## Design principles
 
-Changes are easier to accept when they keep to these:
+These are the rules in the code that keep those promises. Changes are easier to accept when they keep to them:
 
 1. **The CLI thinks, the agent reads a slice.** Scaffolding, validation, traceability, state and context assembly belong in the CLI, where they cost zero tokens. The agent only sees a compact packet.
 2. **Stable IDs everywhere.** `R1`, `R1.2`, `D-auth`, `T3.1`. Agents reference by ID instead of re-quoting prose.
@@ -53,6 +90,8 @@ Changes are easier to accept when they keep to these:
 4. **One canonical skills folder.** Skills live in `.agents/skills/`; `steno init` links or copies them into each agent's own path. No per-agent prompt forks.
 5. **Review never runs in the context that wrote the document.** Reviewers see only the `steno review` packet. If the harness cannot start a sub-agent, the skill stops instead.
 6. **Core is a library.** Anything that needs spec data calls core or `steno --json`; nothing re-implements parsing.
+7. **No model inside.** The CLI, the language server and the extension make no model call and no network request.
+8. **The JSON contract only grows.** Within one protocol version no field is removed, renamed or retyped and no error code is added, so a client written today keeps working.
 
 ## Code style
 
@@ -64,6 +103,18 @@ Please match the style of the file you are editing, and don't reformat code you 
 
 [examples/link-shortener](examples/link-shortener) is a small project with a finished spec. After `pnpm build`, run
 `steno status`, `steno lint` and `steno ctx T2.2` inside it to see the effect of a change on real spec files.
+
+### The JSON contract
+
+The shapes that `--json` and the language server return are defined once, as `CONTRACT` in
+[`packages/core/src/contract.ts`](packages/core/src/contract.ts), and recorded in a fixture the tests compare against.
+After changing a shape, record it again and update [docs/json-contract.md](docs/json-contract.md):
+
+```bash
+pnpm contract:record
+```
+
+The command refuses a change that would break existing clients. That needs a new protocol version, so open an issue first.
 
 ### The VS Code extension
 

@@ -317,6 +317,8 @@ steno ctx T3 --budget 3000
 |---|---|---|
 | `-b, --budget <tokens>` | `ctxBudget` in `.steno/config.yaml` (1500) | The maximum packet size in tokens. If something has to be cut, the packet's header names it, so the agent can fetch it with `steno show`. |
 
+For a task with subtasks (other than a checkpoint), the packet is a **group packet** instead: the order to work in, not the work itself. It names the first open subtask that is not optional, lists every subtask at any depth as `[ ]` or `[x]` with `(optional)` where it applies, and says how the task gets ticked: the last subtask's `steno done` ticks it too, but an open optional subtask keeps it open until you run `steno done` on the task itself. The agent then runs `steno ctx` on each subtask in turn. A group packet carries no requirements, design or files, and is never trimmed.
+
 ### `steno done <task> [spec]`
 
 Ticks a task off in `tasks.md` and prints the next one. When every sub-task of a task is done, the parent is ticked off automatically. Use `--undo` to reopen a task.

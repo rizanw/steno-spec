@@ -93,6 +93,48 @@ describe('ctx packet: checkpoints', () => {
   });
 });
 
+describe('ctx packet: a task with subtasks', () => {
+  const group = (tasks: string, id: string, budget = 1500) => {
+    const { root, dir } = project();
+    writeFileSync(join(dir, 'tasks.md'), `# Tasks\n\n${tasks}`);
+    return buildCtx(loadSpec(dir), root, id, budget, { steering: loadSteering(root) });
+  };
+  const NESTED = [
+    '- [ ] 1. Auth', '  - [x] 1.1 Store', '    - _Requirements: R1.1_ _Design: D-auth_', '  - [ ] 1.2 Expiry',
+    '    - [ ] 1.2.1 Clock', '    - [ ]* 1.2.2 Metrics', '  - [ ]* 1.3 Extras', '    - [ ] 1.3.1 Banner', '  - [ ] 1.4 Checkpoint — auth', '',
+  ].join('\n');
+
+  it('lists every subtask at any depth and starts at the first open one that is not optional', () => {
+    const p = group(NESTED, 'T1');
+    expect(p.text).toBe([
+      '# T1 Auth',
+      'Run each open subtask that is not optional, in order: `steno ctx T1.2.1`, implement, verify, `steno done T1.2.1`, then the next. Stop at the first that fails verification.',
+      '## Subtasks\n[x] T1.1 Store\n[ ] T1.2.1 Clock\n[ ] T1.2.2 Metrics (optional)\n[ ] T1.3.1 Banner (optional)\n[ ] T1.4 Checkpoint — auth',
+      "## When finished\nThe last subtask's `steno done` ticks T1 as well. While an optional subtask is still open, T1 stays open; `steno done T1` closes it on purpose and ticks those subtasks too.",
+    ].join('\n\n'));
+    expect(p).toMatchObject({ trimmed: [], files: [], budget: 1500, tokens: estimateTokens(p.text) });
+  });
+
+  it('carries no requirements, design or steering, and is not cut to a small budget', () => {
+    const p = group(NESTED, 'T1', 10);
+    expect(p.text).not.toMatch(/## (Requirements|Design|Steering)|part of/);
+    expect(p.text).toContain('[ ] T1.4 Checkpoint — auth');
+    expect(p).toMatchObject({ trimmed: [], budget: 10 });
+  });
+
+  it('gives no run line when every open subtask is optional', () => {
+    const p = group('- [ ] 1. Auth\n  - [x] 1.1 Store\n  - [ ]* 1.2 Extras\n', 'T1');
+    expect(p.text).not.toContain('Run each');
+    expect(p.text).toContain('## Subtasks\n[x] T1.1 Store\n[ ] T1.2 Extras (optional)');
+  });
+
+  it('keeps the Verifies packet for a checkpoint with subtasks', () => {
+    const p = group('- [ ] 1. Auth\n  - [ ] 1.1 Store\n    - _Requirements: R1.1_\n- [ ] 2. Checkpoint — auth\n  - [ ] 2.1 Run the suite\n', 'T2');
+    expect(p.text).toContain('## Verifies\nT1.1 Store');
+    expect(p.text).not.toContain('## Subtasks');
+  });
+});
+
 describe('ctx packet: omitted steering files', () => {
   it('lists an omitted file the packet would include, with its reason, and leaves it out', () => {
     const { root, dir } = project();

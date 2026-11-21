@@ -194,7 +194,7 @@ export function register(program: Command): void {
     });
 
   program.command('ctx <task> [spec]')
-    .description('context packet for one task: only the requirements, design and files it needs')
+    .description('context packet for one task: only the requirements, design and files it needs; for a task with subtasks, the subtasks to run in order')
     .option('-b, --budget <tokens>', 'token budget (default from config)')
     .action((taskId, name, opts) => {
       const ctx = g();

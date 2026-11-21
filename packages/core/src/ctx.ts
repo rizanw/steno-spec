@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Spec, Task, DesignSection } from './types.js';
+import type { Spec, Task, TasksDoc, DesignSection } from './types.js';
 import { reqOf, CRIT_ID } from './ids.js';
 import { findCriterion, findRequirement } from './parse/requirements.js';
 import { findSection } from './parse/design.js';
@@ -99,6 +99,7 @@ export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget
   if (!spec.tasks) throw new Error('tasks.md does not exist yet');
   const task = findTask(spec.tasks, taskId);
   if (!task) throw new Error(`unknown task ${taskId}`);
+  if (task.children.length && !task.checkpoint) return groupCtx(spec.tasks, task, budget);
   const parent = task.parent ? findTask(spec.tasks, task.parent) : undefined;
   const trimmed: string[] = [];
 
@@ -204,6 +205,31 @@ export function buildCtx(spec: Spec, projectRoot: string, taskId: string, budget
     if (tokens <= budget) break;
   }
   return { text, tokens, budget, trimmed: [...new Set([...trimmed, ...omitted])], files };
+}
+
+/**
+ * The packet for a task with subtasks: the order to run them in and nothing else. Each subtask gets its own packet
+ * when the agent reaches it, so this one carries no requirements, design or files and is never trimmed.
+ */
+function groupCtx(doc: TasksDoc, task: Task, budget: number): CtxPacket {
+  // every leaf at any depth, optional when it or a task between it and `task` is marked optional
+  const leaves: { t: Task; optional: boolean }[] = [];
+  const walk = (p: Task, optional: boolean) => {
+    for (const id of p.children) {
+      const c = findTask(doc, id);
+      if (!c) continue;
+      if (c.children.length) walk(c, optional || c.optional);
+      else leaves.push({ t: c, optional: optional || c.optional });
+    }
+  };
+  walk(task, false);
+  const first = leaves.find(l => !l.t.done && !l.optional)?.t;
+  const parts = [`# ${task.id} ${task.title}`];
+  if (first) parts.push(`Run each open subtask that is not optional, in order: \`steno ctx ${first.id}\`, implement, verify, \`steno done ${first.id}\`, then the next. Stop at the first that fails verification.`);
+  parts.push(`## Subtasks\n${leaves.map(({ t, optional }) => `${t.done ? '[x]' : '[ ]'} ${t.id} ${t.title}${optional ? ' (optional)' : ''}`).join('\n')}`);
+  parts.push(`## When finished\nThe last subtask's \`steno done\` ticks ${task.id} as well. While an optional subtask is still open, ${task.id} stays open; \`steno done ${task.id}\` closes it on purpose and ticks those subtasks too.`);
+  const text = parts.join('\n\n');
+  return { text, tokens: estimateTokens(text), budget, trimmed: [], files: [] };
 }
 
 /**

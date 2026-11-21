@@ -8,8 +8,8 @@ Report it privately through GitHub instead: go to the [Security tab](https://git
 
 Include what you can:
 
-- which part is affected: the `steno` command, the language server (`steno lsp`), the VS Code extension or a skill
-- the steno version (`steno --version`), Node version and OS; for the extension, its version and the editor's
+- which part is affected: the `steno` command, the language server (`steno lsp`), the VS Code extension, the Paseo plugin or a skill
+- the steno version (`steno --version`), Node version and OS; for the extension, its version and the editor's; for the Paseo plugin, its version and Paseo's
 - what an attacker can do, and what they need first
 - steps or a small project that reproduces it
 
@@ -21,6 +21,8 @@ A task packet (`steno ctx`, or the language server's `steno/taskPacket`) copies 
 
 The VS Code extension starts only the two programs it ships with, the steno CLI and language server, and makes no network request. In a folder you have not trusted (Restricted Mode) it still reads specs, shows lint findings, and can approve a phase or tick a task, which write to `spec.yaml` and `tasks.md` in that folder. Handing work to a coding agent, choosing the agent and setting up steno are off until you trust the folder, because they start a program from your PATH or install files. A hand-off sends the agent a short skill call with a spec name and a task id, never file contents.
 
+The Paseo plugin runs as trusted code in the Paseo daemon, as every Paseo plugin does. It writes the CLI and language server it ships with to Paseo's plugin data folder and starts them from there, runs `steno --version` from the daemon's PATH to check the CLI your agents use, and makes no network request. Approving a phase or ticking a task writes to `spec.yaml` and `tasks.md`; Set Up steno runs `steno init` in the folder you pick. A hand-off puts the same short skill call in an agent's composer without sending it, or on the clipboard.
+
 ## Supported versions
 
-Fixes go into the latest release only. The npm package and the VS Code extension are released together under one version number.
+Fixes go into the latest release only. The npm packages and the VS Code extension are released together under one version number.

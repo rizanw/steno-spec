@@ -54,7 +54,7 @@ docs: explain quick mode
 | `test` | tests only |
 | `ci`, `build`, `chore` | workflows, build scripts, dependencies and housekeeping |
 
-The scope names the feature or area, such as `vscode`, `lsp-server`, `review` or `deps`. Leave it out when the change is not about one area.
+The scope names the feature or area, such as `vscode`, `paseo`, `lsp-server`, `review` or `deps`. Leave it out when the change is not about one area.
 
 Pull requests are squashed into one commit on merge, so the pull request title is the one that has to follow this format.
 
@@ -68,6 +68,7 @@ Please leave version numbers alone. A release bumps every package together and i
 | `packages/cli` | the `steno` command and the `steno lsp` language server, a thin layer over core; every command takes `--json` |
 | `packages/skills` | the seven `steno-*` skills and the reviewer personas |
 | `packages/vscode` | the VS Code extension; it bundles its own copy of the CLI and language server |
+| `packages/paseo` | the Paseo plugin; it also bundles its own copy of the CLI and language server |
 
 Adding an agent is one line in [`packages/core/src/agents.ts`](packages/core/src/agents.ts).
 
@@ -90,7 +91,7 @@ These are the rules in the code that keep those promises. Changes are easier to 
 4. **One canonical skills folder.** Skills live in `.agents/skills/`; `steno init` links or copies them into each agent's own path. No per-agent prompt forks.
 5. **Review never runs in the context that wrote the document.** Reviewers see only the `steno review` packet. If the harness cannot start a sub-agent, the skill stops instead.
 6. **Core is a library.** Anything that needs spec data calls core or `steno --json`; nothing re-implements parsing.
-7. **No model inside.** The CLI, the language server and the extension make no model call and no network request.
+7. **No model inside.** The CLI, the language server, the extension and the Paseo plugin make no model call and no network request.
 8. **The JSON contract only grows.** Within one protocol version no field is removed, renamed or retyped and no error code is added, so a client written today keeps working.
 
 ## Code style

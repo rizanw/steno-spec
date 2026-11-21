@@ -25,7 +25,8 @@
   <a href="docs/concepts.md">Concepts</a> ·
   <a href="docs/cli.md">CLI reference</a> ·
   <a href="docs/agents.md">Agents &amp; integrations</a> ·
-  <a href="packages/vscode/README.md">VS Code extension</a>
+  <a href="packages/vscode/README.md">VS Code extension</a> ·
+  <a href="packages/paseo/README.md">Paseo plugin</a>
 </p>
 
 ---
@@ -38,8 +39,8 @@
   and `_Requirements:_` footers, linked by stable ids.
 - **Reviewed with fresh context.** `steno-review` starts read-only reviewers that see only the review
   packet, never your conversation.
-- **In your editor too.** The [VS Code extension](#in-vs-code) shows where every spec stands, puts each
-  lint finding on its line and gives you the approvals.
+- **In your editor too.** The [VS Code extension](#in-vs-code) and the [Paseo plugin](#in-paseo) show
+  where every spec stands, list each lint finding and give you the approvals.
 
 ## See it in action
 
@@ -208,6 +209,25 @@ STEERING
 The extension has no model, no chat participant and no network call in it, and it carries its own copy of
 steno. More in the [extension's README](packages/vscode/README.md).
 
+## In Paseo
+
+In [Paseo](https://paseo.sh), the steno plugin adds a **steno** tab to each workspace's Explorer, next to
+the agents that do the writing.
+
+```bash
+paseo plugin install npm:steno-paseo
+```
+
+- **Specs and steering** of the workspace, each spec with its documents, tasks and the next task marked.
+- **Read a document with its lint problems**, approve a phase, mark a task done or reopen it.
+- **Hand work to an agent**: Run Task, Write, Review or Revise puts a short skill call, unsent, in the
+  agent you have open, else the most recent one. You read it and press send.
+- **New Spec, Generate Steering and Set Up steno** from the panel, and every action in the Command Center.
+
+Like the extension, the plugin has no model and no network call in it, and it carries its own copy of
+steno. Your agents still run `steno` from the daemon's `PATH`, so install the CLI there too. More in the
+[plugin's README](packages/paseo/README.md).
+
 ## Build on steno
 
 Another editor or tool can read specs without parsing Markdown:
@@ -225,8 +245,9 @@ grows, so a client written today keeps working.
 - [Getting started](docs/getting-started.md): install, first spec end to end, quick mode, bugfixes
 - [Concepts](docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](docs/cli.md): every command and flag
-- [Agents & integrations](docs/agents.md): supported agents, EGM, coming from Kiro
+- [Agents & integrations](docs/agents.md): supported agents, VS Code, Paseo, EGM, coming from Kiro
 - [VS Code extension](packages/vscode/README.md): the sidebar, approvals, handing work to your agent
+- [Paseo plugin](packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
 - [JSON contract](docs/json-contract.md): every shape `steno lsp` and `--json` return
 - [Why steno](docs/why.md): comparison with Kiro, Spec Kit and EGM; where the token savings come from
 - [Contributing](CONTRIBUTING.md): build from source, tests, commit messages, design principles

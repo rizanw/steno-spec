@@ -60,7 +60,7 @@ folder the agent loads skills from. Set `native: true` if it already reads `.age
 
 The agents the VS Code extension can hand work to are a separate list, in
 [`packages/vscode/src/agents.ts`](../packages/vscode/src/agents.ts): how to find the agent, and how to
-pass it a call.
+pass it a call. The Paseo plugin needs no such list: it hands work to Paseo's own agents.
 
 ## VS Code
 
@@ -73,9 +73,29 @@ a new terminal, or the clipboard for anything else.
 It is published on the VS Code Marketplace and on Open VSX, so it also installs in Cursor, Windsurf and
 VSCodium.
 
-### Building another integration
+## Paseo
 
-The extension uses nothing private. `steno lsp` is a language server any editor can start, and every
+The [Paseo plugin](../packages/paseo/README.md) adds a **steno** tab to each workspace's Explorer in
+[Paseo](https://paseo.sh). It shows the workspace's specs and steering, lists each document's lint
+problems, and lets you approve a phase or tick a task. It has no model in it. To write, review or run
+something, it puts one of the calls above, unsent, in the composer of the agent you have open, else in
+an open New Agent screen, else in the most recent agent, or copies it to the clipboard when there is no
+agent. You read the call and send it.
+
+The plugin carries its own CLI and language server, so the panel works on its own. The agents it hands
+work to run `steno` from the Paseo daemon's `PATH`, so install the CLI where the daemon runs:
+
+```bash
+paseo plugin install npm:steno-paseo
+npm install -g steno-spec
+```
+
+If that `steno` is missing or speaks another protocol, the panel shows a warning bar with the install
+command. **Set Up steno** in the panel runs `steno init` for a folder, with the agents you pick.
+
+## Building another integration
+
+The VS Code extension and the Paseo plugin use nothing private. `steno lsp` is a language server any editor can start, and every
 command takes `--json`; both return the shapes in the [JSON contract](json-contract.md). See
 [`steno lsp`](cli.md#steno-lsp) for what the server offers.
 

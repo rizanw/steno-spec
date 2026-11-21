@@ -102,8 +102,8 @@ type Lenses<T extends Lens> = T[] | null | undefined;
 
 /**
  * Keep only the lenses this extension handles, and give each of them the document's URI so its handler can find
- * the folder's server. The run lens stays only where `runnable` says the tree offers "Run" too: an open task
- * without subtasks of a Spec in `execute`. A lens with no command is kept as is.
+ * the folder's server. The run lens stays only where `runnable` says the tree offers "Run" too: an open task of a
+ * Spec in `execute`, parent tasks included. A lens with no command is kept as is.
  */
 export function keepLenses<T extends Lens>(
   uri: vscode.Uri,

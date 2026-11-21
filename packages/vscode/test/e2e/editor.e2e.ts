@@ -25,7 +25,7 @@ test('an unsaved edit shows its Diagnostic, and reverting it clears it', async (
   await waitFor('the diagnostic to clear after the revert', () => withCode(uri, 'design/unknown-req').length === 0);
 });
 
-test('a done task carries the done lens and only an open leaf task the run lens, each with the document URI', async () => {
+test('a done task carries the done lens and every open task the run lens, each with the document URI', async () => {
   const uri = demoDoc('tasks.md');
   await vscode.window.showTextDocument(await vscode.workspace.openTextDocument(uri));
   const lenses = await waitFor('the done lens on T1.1', async () => {
@@ -37,8 +37,8 @@ test('a done task carries the done lens and only an open leaf task the run lens,
   const [args] = done[0].command!.arguments as [{ uri: vscode.Uri | string }];
   assert.ok(samePath(vscode.Uri.parse(String(args.uri)), uri), 'the middleware adds the document URI');
   const run = lenses.filter(l => l.command?.command === RUN_LENS);
-  assert.deepEqual(run.map(l => l.range.start.line), [5], 'one run lens, above "- [ ] 1.2" (line 6); none on the parent task');
-  const [runArgs] = run[0].command!.arguments as [{ uri: vscode.Uri | string; task: string }];
+  assert.deepEqual(run.map(l => l.range.start.line), [2, 5], 'run lenses above the parent "- [ ] 1." (line 3) and "- [ ] 1.2" (line 6)');
+  const [runArgs] = run[1].command!.arguments as [{ uri: vscode.Uri | string; task: string }];
   assert.ok(samePath(vscode.Uri.parse(String(runArgs.uri)), uri), 'the middleware adds the document URI to the run lens too');
 });
 

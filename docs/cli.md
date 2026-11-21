@@ -317,6 +317,8 @@ steno ctx T3 --budget 3000
 |---|---|---|
 | `-b, --budget <tokens>` | `ctxBudget` in `.steno/config.yaml` (1500) | The maximum packet size in tokens. If something has to be cut, the packet's header names it, so the agent can fetch it with `steno show`. |
 
+For a task with subtasks (other than a checkpoint), the packet is a **group packet** instead: the order to work in, not the work itself. It names the first open subtask that is not optional, lists every subtask at any depth as `[ ]` or `[x]` with `(optional)` where it applies, and says how the task gets ticked: the last subtask's `steno done` ticks it too, but an open optional subtask keeps it open until you run `steno done` on the task itself. The agent then runs `steno ctx` on each subtask in turn. A group packet carries no requirements, design or files, and is never trimmed.
+
 ### `steno done <task> [spec]`
 
 Ticks a task off in `tasks.md` and prints the next one. When every sub-task of a task is done, the parent is ticked off automatically. Use `--undo` to reopen a task.
@@ -365,7 +367,7 @@ What the editor gets:
 
 - **Diagnostics:** the findings of `steno lint` and `steno steer lint` for every spec and steering file, open or not, updated as you type and when files change on disk. The one exception is `steering/no-match`, which only the command reports.
 - **Outline:** requirements, criteria, design sections and tasks of the open document.
-- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task without subtasks and a *Done* marker above each checked one.
+- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task and a *Done* marker above each checked one.
 - **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, approving a stage, and reopening a done spec. All of them read saved files; all but the tree refuse while a document they need has unsaved edits.
 
 The requests, their answers and the protocol version are described in the [JSON contract](json-contract.md).

@@ -37,12 +37,12 @@ export function specActions(spec: TreeSpec): HostAction[] {
 }
 
 /**
- * The actions a task's row offers. A done task can be reopened; an open one marked done, and run when it has
- * no subtasks and its spec is usable and in execute. A parent task is finished through its subtasks.
+ * The actions a task's row offers. A done task can be reopened; an open one marked done, and run when its spec is
+ * usable and in execute. Running a task with subtasks hands the agent the whole group, one subtask after another.
  */
-export function taskActions(spec: TreeSpec, done: boolean, leaf: boolean): HostAction[] {
+export function taskActions(spec: TreeSpec, done: boolean): HostAction[] {
   if (done) return ['reopen'];
-  return leaf && !unusable(spec) && spec.phase === 'execute' ? ['done', 'run'] : ['done'];
+  return !unusable(spec) && spec.phase === 'execute' ? ['done', 'run'] : ['done'];
 }
 
 /** Find a task by id anywhere in the outline. */
@@ -63,5 +63,5 @@ export function runnable(tree: SpecTree | undefined, specName: string, taskId: s
   const spec = tree?.specs.find(s => s.name === specName);
   if (!spec || unusable(spec)) return false;
   const item = findTask(spec.taskItems ?? [], taskId);
-  return item !== undefined && taskActions(spec, item.done === true, item.children.length === 0).includes('run');
+  return item !== undefined && taskActions(spec, item.done === true).includes('run');
 }

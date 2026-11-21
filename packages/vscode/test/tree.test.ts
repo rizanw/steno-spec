@@ -561,17 +561,17 @@ describe('context values for the handoffs', () => {
   });
 
   it('each task menu matches a task row exactly when the task offers its action', () => {
-    fc.assert(fc.property(anySpec, fc.boolean(), fc.boolean(), (s, done, leaf) => {
-      const value = taskContext(s, done, leaf);
-      const actions = taskActions(s, done, leaf);
+    fc.assert(fc.property(anySpec, fc.boolean(), (s, done) => {
+      const value = taskContext(s, done);
+      const actions = taskActions(s, done);
       for (const [command, action] of Object.entries(TASK_MENUS)) expect(menu(command)(value), command).toBe(actions.includes(action));
     }));
   });
 
-  it('gives a parent task plain task.open, so only its subtasks can run', () => {
+  it('lets a parent task run as well as its subtasks', () => {
     const parent = task('T1', { children: [task('T1.1')] });
     const [node] = taskNodes(spec({ taskItems: [parent] }), [parent]);
-    expect(node.contextValue).toBe('task.open');
+    expect(node.contextValue).toBe('task.open.run');
     expect(node.children[0].contextValue).toBe('task.open.run');
   });
 

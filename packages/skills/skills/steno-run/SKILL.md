@@ -22,3 +22,4 @@ The user may name a spec after the task (`T3.1 my-spec`) or a spec alone (`my-sp
 - If a task is impossible or wrong as written, do not improvise. Say which criterion or design section conflicts and propose the spec edit. Spec first, then code.
 - Keep spec ids in commit messages (`T2.1 add session store (R1.1)`), so `steno review --stage drift` can trace later.
 - Optional (`*`) tasks only on request: `steno next --optional`.
+- When the packet lists subtasks, run each open subtask that is not optional, in order (optional ones only on request): `steno ctx`, implement, verify, `steno done` for each. Stop at the first that fails verification. Report once at the end, naming any optional subtask that keeps the parent open; do not close that parent yourself.

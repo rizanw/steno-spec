@@ -5,7 +5,7 @@ import { LENS_DONE, LENS_RUN, taskLenses } from '../src/lsp/lens.js';
 describe('taskLenses', () => {
   const doc = parseTasks([
     '# Tasks', '',
-    '- [ ] 1. Parent',              // unchecked parent: no lens
+    '- [ ] 1. Parent',              // unchecked parent: run
     '  - [ ] 1.1 Leaf',             // unchecked leaf: run
     '  - [x] 1.2 Finished',         // checked: done
     '- [x] 2. Finished parent',     // checked parent: done
@@ -14,8 +14,9 @@ describe('taskLenses', () => {
     '- [x]* 4. Optional done',
   ].join('\n'));
 
-  it('puts a run lens on unchecked leaves and a done lens on every checked task', () => {
+  it('puts a run lens on every unchecked task, parents included, and a done lens on every checked task', () => {
     expect(taskLenses('demo', doc)).toEqual([
+      { line: 3, command: LENS_RUN, title: 'Run T1', args: { spec: 'demo', task: 'T1', optional: false } },
       { line: 4, command: LENS_RUN, title: 'Run T1.1', args: { spec: 'demo', task: 'T1.1', optional: false } },
       { line: 5, command: LENS_DONE, title: 'Done', args: { spec: 'demo', task: 'T1.2', optional: false } },
       { line: 6, command: LENS_DONE, title: 'Done', args: { spec: 'demo', task: 'T2', optional: false } },

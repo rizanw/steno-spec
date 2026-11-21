@@ -71,32 +71,32 @@ describe('specActions', () => {
 });
 
 describe('taskActions', () => {
-  it('reopens a done task in every phase, whatever its subtasks', () => {
-    for (const phase of PHASES) for (const leaf of [true, false]) expect(taskActions(spec({ phase }), true, leaf)).toEqual(['reopen']);
+  it('reopens a done task in every phase', () => {
+    for (const phase of PHASES) expect(taskActions(spec({ phase }), true)).toEqual(['reopen']);
   });
 
-  it('runs an open task without subtasks only in execute, and marks every open task done', () => {
-    for (const phase of PHASES) {
-      expect(taskActions(spec({ phase }), false, true)).toEqual(phase === 'execute' ? ['done', 'run'] : ['done']);
-      expect(taskActions(spec({ phase }), false, false)).toEqual(['done']);
-    }
+  it('runs an open task only in execute, and marks every open task done', () => {
+    for (const phase of PHASES) expect(taskActions(spec({ phase }), false)).toEqual(phase === 'execute' ? ['done', 'run'] : ['done']);
   });
 
   it('does not run a task of a spec the server could not use', () => {
-    expect(taskActions(spec({ unreadable: true }), false, true)).toEqual(['done']);
-    expect(taskActions(spec({ unsupported: true }), false, true)).toEqual(['done']);
+    expect(taskActions(spec({ unreadable: true }), false)).toEqual(['done']);
+    expect(taskActions(spec({ unsupported: true }), false)).toEqual(['done']);
   });
 });
 
 describe('runnable', () => {
-  it('follows the tree: an open leaf task of a spec in execute, nothing it does not know', () => {
+  it('follows the tree: an open task of a spec in execute, nothing it does not know', () => {
     const t = tree({ specs: [spec({ taskItems: [task('T1', { done: true }), task('T2', { children: [task('T2.1')] })] })] });
     expect(runnable(t, 'auth', 'T2.1')).toBe(true);
-    expect(runnable(t, 'auth', 'T2')).toBe(false);
+    expect(runnable(t, 'auth', 'T2')).toBe(true);
     expect(runnable(t, 'auth', 'T1')).toBe(false);
     expect(runnable(t, 'auth', 'T9')).toBe(false);
     expect(runnable(t, 'other', 'T2.1')).toBe(false);
     expect(runnable(undefined, 'auth', 'T2.1')).toBe(false);
     expect(runnable(tree({ specs: [spec({ phase: 'tasks', taskItems: [task('T1')] })] }), 'auth', 'T1')).toBe(false);
+    const parent = [task('T1', { children: [task('T1.1')] })];
+    expect(runnable(tree({ specs: [spec({ phase: 'tasks', taskItems: parent })] }), 'auth', 'T1')).toBe(false);
+    expect(runnable(tree({ specs: [spec({ unreadable: true, taskItems: parent })] }), 'auth', 'T1')).toBe(false);
   });
 });

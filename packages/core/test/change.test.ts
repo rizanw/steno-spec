@@ -42,6 +42,13 @@ describe('applyTaskChange', () => {
     expect(bytes(root, 'tasks.md').toString()).toBe('# Tasks\n\n- [ ] 1. Top\n  - [ ] 1.1 Leaf\n');
   });
 
+  it('leaves the parent open after its last required subtask while an optional one is still open', () => {
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/tasks.md': '# Tasks\n\n- [ ] 1. Top\n  - [x] 1.1 One\n  - [ ] 1.2 Two\n  - [ ]* 1.3 Extra\n' });
+    const r = applyTaskChange(loadProject(root), 'a', 'T1.2', true);
+    expect(r).toMatchObject({ task: 'T1.2', done: true });
+    expect(bytes(root, 'tasks.md').toString()).toBe('# Tasks\n\n- [ ] 1. Top\n  - [x] 1.1 One\n  - [x] 1.2 Two\n  - [ ]* 1.3 Extra\n');
+  });
+
   it('writes only tasks.md when the Phase does not move', () => {
     const root = project({ '.steno/specs/a/spec.yaml': STATE('a'), '.steno/specs/a/tasks.md': '- [ ] 1. A\n- [ ] 2. B\n' });
     const before = bytes(root, 'spec.yaml');

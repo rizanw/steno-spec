@@ -298,6 +298,13 @@ describe('registerHandoffs', () => {
     expect(recorded.clipboard).toEqual(['/steno-run T1 auth', '/steno-run T1 auth']);
   });
 
+  it('runs a task with subtasks like any other task', async () => {
+    const run = setup();
+    const child = new TaskNode(spec(), task('T1.1'), [], false, tasksUri);
+    await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1'), [child], false, tasksUri));
+    expect(recorded.clipboard).toEqual(['/steno-run T1 auth']);
+  });
+
   it('runs the next task naming only the Spec', async () => {
     const run = setup();
     await run(RUN_NEXT_COMMAND, new SpecNode(ROOT_URI, tree(), spec()));
@@ -318,15 +325,13 @@ describe('registerHandoffs', () => {
     ]);
   });
 
-  it('ignores a wrong node, an Unusable Spec, a done or parent task and a lens without its URI', async () => {
+  it('ignores a wrong node, an Unusable Spec, a done task and a lens without its URI', async () => {
     const run = setup();
     const bad = { name: 'old', unsupported: true, phase: 'execute' } as TreeSpec;
     await run(RUN_NEXT_COMMAND, new SpecNode(ROOT_URI, tree(), bad));
     await run(WRITE_COMMAND, { kind: 'spec', folder: ROOT_URI, spec: spec({ phase: 'design' }) });
     await run(STEER_COMMAND, new SpecNode(ROOT_URI, tree(), spec()));
     await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1', { done: true }), [], false, tasksUri));
-    const child = new TaskNode(spec(), task('T1.1'), [], false, tasksUri);
-    await run(RUN_TASK_COMMAND, new TaskNode(spec(), task('T1'), [child], false, tasksUri));
     await run(RUN_TASK_COMMAND, new TaskNode(bad, task('T1'), [], false, tasksUri));
     await run(RUN_TASK_COMMAND, { spec: 'auth', task: 'T1' });
     expect(recorded.clipboard).toEqual([]);

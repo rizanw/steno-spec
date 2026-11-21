@@ -194,7 +194,7 @@ export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposabl
   return [
     vscode.commands.registerCommand(RUN_TASK_COMMAND, async (arg: unknown) => {
       if (arg instanceof TaskNode) {
-        if (arg.done || !arg.taskId || unusable(arg.spec) || arg.children.length > 0 || !arg.resourceUri) return;
+        if (arg.done || !arg.taskId || unusable(arg.spec) || !arg.resourceUri) return;
         const server = pool.get(arg.resourceUri);
         if (server) await handOff(deps, server, { kind: 'run', spec: arg.spec.name, task: arg.taskId });
         return;

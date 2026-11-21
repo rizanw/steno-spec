@@ -439,6 +439,7 @@ describe('steno lsp: task lenses', () => {
     expect(await lenses(c, p.tasks)).toEqual([]);   // only while the document is open
     c.open(p.tasks, text);
     expect(await lenses(c, p.tasks)).toEqual([
+      { range: { start: { line: 2, character: 0 }, end: { line: 2, character: 0 } }, command: { title: 'Run T1', command: 'steno.task.run', arguments: [{ spec: 'demo', task: 'T1', optional: false }] } },
       { range: { start: { line: 3, character: 0 }, end: { line: 3, character: 0 } }, command: { title: 'Run T1.1', command: 'steno.task.run', arguments: [{ spec: 'demo', task: 'T1.1', optional: false }] } },
       { range: { start: { line: 4, character: 0 }, end: { line: 4, character: 0 } }, command: { title: 'Done', command: 'steno.task.done', arguments: [{ spec: 'demo', task: 'T1.2', optional: false }] } },
       { range: { start: { line: 5, character: 0 }, end: { line: 5, character: 0 } }, command: { title: 'Run T2 (optional)', command: 'steno.task.run', arguments: [{ spec: 'demo', task: 'T2', optional: true }] } },

@@ -1,8 +1,15 @@
 {
   "id": "steno",
   "name": "steno",
+  "description": "Spec-driven development in a panel: see where every spec stands, approve each stage and hand tasks to your agents.",
   "icon": "media/icon.png",
-  "media": [],
+  "media": [
+    "screenshots/1-panel-dark.png",
+    "screenshots/2-hand-off-light.png",
+    "screenshots/3-document-dark.png",
+    "screenshots/4-command-center-dark.png",
+    "screenshots/5-panel-light.png"
+  ],
   "requirements": {
     "paseo": ">=0.16.0"
   }

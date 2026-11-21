@@ -44,7 +44,7 @@ function taskRowsOf(spec: TreeSpec, parent: string, depth: number, rows: readonl
     const key = `task:${spec.name}/${task.id}`;
     const row: Row = {
       key, parent, depth, kind: 'task', ...text(task), target: { spec: spec.name, task: task.id },
-      ...act(taskActions(spec, task.done, task.leaf), ['run', 'done']),
+      ...act(taskActions(spec, task.done), ['run', 'done']),
     };
     return [row, ...taskRowsOf(spec, key, depth + 1, task.children)];
   });

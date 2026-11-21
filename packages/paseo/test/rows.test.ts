@@ -160,7 +160,8 @@ describe('the row actions', () => {
     const rows = byKey(specRows(tree([executing, { ...designing, documents: ['tasks.md'], taskItems: [task('T1', 'Early')] }]), none));
     expect(rows.get('task:login/T1.2')).toMatchObject({ actions: ['done', 'run'], primary: 'run' });
     expect(rows.get('task:login/T2')).toMatchObject({ actions: ['done', 'run'], primary: 'run' });
-    expect(rows.get('task:login/T1')).toMatchObject({ actions: ['done'], primary: 'done' });
+    // a task with subtasks runs too: the agent works through them in order
+    expect(rows.get('task:login/T1')).toMatchObject({ actions: ['done', 'run'], primary: 'run' });
     expect(rows.get('task:search/T1')).toMatchObject({ actions: ['done'], primary: 'done' });
     expect(rows.get('task:login/T1.1')!.actions).toEqual(['reopen']);
     expect(rows.get('task:login/T1.1')!.primary).toBeUndefined();

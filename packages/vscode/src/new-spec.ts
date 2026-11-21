@@ -8,7 +8,8 @@ import { chooseProject, projectServers } from './project.js';
 import type { ChangeResult, StructuredError } from './protocol.js';
 import { showRefusal } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { DEFAULT_SPECS_DIR, OPEN_COMMAND } from './tree.js';
+import { DEFAULT_SPECS_DIR } from '@steno/core/host';
+import { OPEN_COMMAND } from './tree.js';
 
 /** The three things the CLI can create; `brief` is the brainstorm-first feature Spec. */
 export type Kind = 'feature' | 'bugfix' | 'brief';

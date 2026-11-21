@@ -3,12 +3,12 @@
 // extension or a new terminal. Anything that can't be delivered ends up on the clipboard with a message saying so.
 import { posix, win32 } from 'node:path';
 import * as vscode from 'vscode';
-import { findOnPath, type AgentAdapter, type Probe } from './agents.js';
-import { render, skillCall, type Handoff } from './calls.js';
+import type { AgentAdapter, Probe } from './agents.js';
+import { DEFAULT_SPECS_DIR, cmdLine, findOnPath, isBatch, render, skillCall, unsafeBatch, unusable, type Handoff } from '@steno/core/host';
 import type { Chooser } from './chooser.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import { chooseProject, projectServers } from './project.js';
-import { DEFAULT_SPECS_DIR, FolderNode, SpecNode, TaskNode, unusable } from './tree.js';
+import { FolderNode, SpecNode, TaskNode } from './tree.js';
 import { guard } from './trust.js';
 
 export interface Deps { chooser: Chooser; probe: Probe }
@@ -42,16 +42,6 @@ export function dirtyFor(open: { path: string; dirty: boolean }[], specDir: stri
     .map(doc => doc.path);
 }
 
-/** A Windows batch file, which only `cmd.exe` can start. */
-function isBatch(program: string): boolean {
-  return /\.(cmd|bat)$/i.test(program);
-}
-
-/** A `.cmd` or `.bat` path that `cmd.exe` would misread inside our quoted command line. */
-function unsafeBatch(program: string, windows: boolean): boolean {
-  return windows && isBatch(program) && /["%]/.test(program);
-}
-
 /**
  * How the terminal starts the agent's program. Normally it runs the program directly with the arguments as a list,
  * so no shell ever parses the call. A Windows `.cmd` or `.bat` shim (how npm installs CLIs) can only be started by
@@ -59,8 +49,7 @@ function unsafeBatch(program: string, windows: boolean): boolean {
  */
 export function terminalOptions(program: string, args: string[], windows: boolean): { shellPath: string; shellArgs: string[] | string } {
   if (!windows || !isBatch(program)) return { shellPath: program, shellArgs: args };
-  const line = [`"${program}"`, ...args.map(a => (a.includes(' ') ? `"${a}"` : a))].join(' ');
-  return { shellPath: 'cmd.exe', shellArgs: `/d /s /c "${line}"` };
+  return { shellPath: 'cmd.exe', shellArgs: `/d /s /c "${cmdLine(program, args)}"` };
 }
 
 /** Human wording for what's being handed off, for the error when no skill call fits. */

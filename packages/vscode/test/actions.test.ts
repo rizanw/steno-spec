@@ -1,13 +1,12 @@
 // Approve, mark done and reopen: offered on the right nodes, sent to the folder's server, refusals shown.
 import { describe, it, expect, beforeEach } from 'vitest';
-import fc from 'fast-check';
 import { readFileSync } from 'node:fs';
 import { Uri, answers, commands, folder, handlers, openDocument, recorded, resetRecorded } from './vscode-stub.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import { SpecNode, TaskNode } from '../src/tree.js';
 import {
-  APPROVE_COMMAND, DONE_LENS_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, canApprove, registerActions,
+  APPROVE_COMMAND, DONE_LENS_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, registerActions,
 } from '../src/actions.js';
 
 beforeEach(() => resetRecorded());
@@ -50,28 +49,6 @@ async function pooled(answer: (method: string, params: unknown, call: number) =>
   sent.length = 0;
   return { pool, sent };
 }
-
-const PHASES = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
-
-describe('canApprove', () => {
-  it('Approve is offered on exactly the approvable Specs', () => {
-    const anySpec = fc.record({
-      name: fc.constant('s'),
-      mode: fc.option(fc.constantFrom('gated', 'quick'), { nil: undefined }),
-      phase: fc.option(fc.constantFrom(...PHASES), { nil: undefined }),
-      unsupported: fc.option(fc.constant(true as const), { nil: undefined }),
-      unreadable: fc.option(fc.constant(true as const), { nil: undefined }),
-    });
-    fc.assert(fc.property(anySpec, s => {
-      const expected = !s.unsupported && !s.unreadable && s.mode === 'gated'
-        && ['brief', 'requirements', 'design', 'tasks'].includes(s.phase ?? '');
-      expect(canApprove(s as TreeSpec)).toBe(expected);
-      // the tree's context value follows the same rule: only a value ending in `.approvable` carries the inline "Approve"
-      const node = new SpecNode(vsUri(ROOT), tree(), s as TreeSpec);
-      expect(/^spec\..*\.approvable$/.test(node.contextValue ?? '')).toBe(expected);
-    }));
-  });
-});
 
 describe('approve', () => {
   it('sends steno/approve with the current phase and shows the phase that follows', async () => {

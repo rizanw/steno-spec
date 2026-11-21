@@ -6,8 +6,7 @@ import {
   type ErrorHandler, type LanguageClientOptions, type ServerOptions,
 } from 'vscode-languageclient/node';
 import { METHODS, TREE_CHANGED, type SpecTree } from './protocol.js';
-import { MAX_EXITS, RestartWindow, WINDOW_MS } from './restart.js';
-import { runnable } from './tree.js';
+import { MAX_EXITS, RestartWindow, WINDOW_MS, runnable } from '@steno/core/host';
 
 /** The part of `LanguageClient` the pool uses, so a test can pass a fake in its place. */
 export interface StenoClient {

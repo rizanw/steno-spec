@@ -2,7 +2,7 @@
 // the user picks. The bundled CLI's `init` does the work; this file only chooses the folder and the agents, and
 // reports what `init` did.
 import { existsSync } from 'node:fs';
-import { posix, win32 } from 'node:path';
+import { parentProject } from '@steno/core/host';
 import * as vscode from 'vscode';
 import { refused, runCli } from './new-spec.js';
 import type { StructuredError } from './protocol.js';
@@ -31,28 +31,6 @@ const TITLE = 'Set up steno';
 export function pickSetUpFolder(candidates: string[], fromEditor?: string): string | undefined {
   if (fromEditor !== undefined && candidates.includes(fromEditor)) return fromEditor;
   return candidates.length === 1 ? candidates[0] : undefined;
-}
-
-/** Windows paths use the win32 rules, everything else posix, whatever the host is. */
-function pathRules(path: string): typeof posix {
-  return /^[A-Za-z]:[\\/]/.test(path) || path.startsWith('\\\\') ? win32 : posix;
-}
-
-/**
- * The nearest folder above `folder` that holds a `.steno` folder, or `undefined` when none does. The walk
- * starts at the folder's parent, so the folder itself never counts, and stops at the file system root.
- */
-export function parentProject(folder: string, exists: (p: string) => boolean): string | undefined {
-  const path = pathRules(folder);
-  let at = path.dirname(folder);
-  let below = folder;
-  // `dirname` of a root is the root itself, which ends the walk
-  while (at !== below) {
-    if (exists(path.join(at, '.steno'))) return at;
-    below = at;
-    at = path.dirname(at);
-  }
-  return undefined;
 }
 
 /**

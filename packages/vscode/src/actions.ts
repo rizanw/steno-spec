@@ -1,24 +1,17 @@
 // The three state changes: approve a Spec's phase, mark a task done, reopen a done task.
 // Each goes to the folder's own server; the server's `steno/treeChanged` notice then redraws the tree.
 import * as vscode from 'vscode';
-import { METHODS, type ChangeResult, type TreeSpec } from './protocol.js';
+import { METHODS, type ChangeResult } from './protocol.js';
 import { showRefusal, showStopped } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { SpecNode, TaskNode, unusable } from './tree.js';
+import { canApprove } from '@steno/core/host';
+import { SpecNode, TaskNode } from './tree.js';
 
 export const APPROVE_COMMAND = 'steno.spec.approve';
 export const MARK_DONE_COMMAND = 'steno.task.markDone';
 export const REOPEN_COMMAND = 'steno.task.reopen';
 /** The done lens's command; the server names it and the lens middleware adds the document's URI. */
 export const DONE_LENS_COMMAND = 'steno.task.done';
-
-/** The phases a gated Spec can approve; `execute` and `done` have nothing left to approve. */
-const APPROVABLE: readonly string[] = ['brief', 'requirements', 'design', 'tasks'];
-
-/** Whether the tree offers "Approve" on this Spec: usable, gated, and in a phase that awaits approval. */
-export function canApprove(spec: TreeSpec): boolean {
-  return !unusable(spec) && spec.mode === 'gated' && spec.phase !== undefined && APPROVABLE.includes(spec.phase);
-}
 
 /**
  * Send one state change to a folder's server. A stopped server gets the stopped message instead, and a

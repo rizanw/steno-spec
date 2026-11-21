@@ -5,7 +5,11 @@
 import * as vscode from 'vscode';
 import type { OutlineItem, SpecTree, TreeSpec, TreeSteering } from './protocol.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { canApprove } from './actions.js';
+import {
+  AGENT_INSTRUCTION_DIRS, AGENT_INSTRUCTION_FILES, DEFAULT_SPECS_DIR, INSTRUCTION_GLOB, ROOT_INSTRUCTIONS,
+  documentRow, instructionRow, specOrder, specRow, steeringOrder, steeringRow, taskRow, taskRows, unusable, type RowIcon, type RowText,
+  specActions, taskActions, type TaskRow,
+} from '@steno/core/host';
 
 const { None, Collapsed } = vscode.TreeItemCollapsibleState;
 
@@ -21,25 +25,18 @@ export const VIEW_ID = 'steno.specs';
 /** The Steering view, as contributed in package.json. */
 export const STEERING_VIEW_ID = 'steno.steering';
 
-/** Where specs live when the server did not say; only a set-up folder reaches the builders below. */
-export const DEFAULT_SPECS_DIR = '.steno/specs';
+/** The codicon VS Code shows for each kind of row. */
+const CODICONS: Record<RowIcon, string> = {
+  spec: 'edit', execute: 'play-circle', done: 'pass-filled', warning: 'warning', document: 'file-text',
+  finished: 'pass', next: 'arrow-right', task: 'circle-large-outline', steering: 'file-text', instruction: 'hubot',
+};
 
-/** The agent instruction files at a folder's root, listed first in the Steering view when the folder has them. */
-const ROOT_INSTRUCTIONS = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'] as const;
-
-/** Instruction files only one agent reads, listed last in the Steering view when the folder has them. */
-const AGENT_INSTRUCTION_FILES = ['.cursorrules', '.github/copilot-instructions.md'] as const;
-
-/** Folders of instruction files only one agent reads: every file in the folder whose name ends with `suffix`. */
-const AGENT_INSTRUCTION_DIRS = [
-  { dir: '.cursor/rules', suffix: '.mdc' },
-  { dir: '.github/instructions', suffix: '.instructions.md' },
-] as const;
-
-/** Every agent instruction file the Steering view lists, as one glob for the watcher that redraws it. */
-const INSTRUCTION_GLOB = `**/{${[
-  ...ROOT_INSTRUCTIONS, ...AGENT_INSTRUCTION_FILES, ...AGENT_INSTRUCTION_DIRS.map(d => `${d.dir}/*${d.suffix}`),
-].join(',')}}`;
+/** Put a row's description, hover and icon on a tree item; the label is already set by the constructor. */
+function show(item: vscode.TreeItem, row: RowText): void {
+  item.description = row.description;
+  item.tooltip = row.tooltip;
+  item.iconPath = new vscode.ThemeIcon(CODICONS[row.icon]);
+}
 
 /** VS Code's built-in rich Markdown editor, from the bundled markdown extension. */
 const MARKDOWN_EDITOR = 'vscode.markdown.editor';
@@ -50,11 +47,6 @@ const MARKDOWN_EDITOR = 'vscode.markdown.editor';
  */
 function open(uri: vscode.Uri, line?: number): vscode.TreeItem['command'] {
   return { command: OPEN_COMMAND, title: 'Open', arguments: line === undefined ? [uri] : [uri, line] };
-}
-
-/** A file name without its `.md`, as the views label documents: `tasks.md` reads `tasks`. */
-function bareName(file: string): string {
-  return file.replace(/\.md$/i, '');
 }
 
 export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode | FileNode;
@@ -86,11 +78,6 @@ export class StoppedNode extends vscode.TreeItem {
   }
 }
 
-/** Whether the server could read this Spec at all. */
-export function unusable(spec: TreeSpec): boolean {
-  return spec.unsupported === true || spec.unreadable === true;
-}
-
 /**
  * A usable Spec's context value: `spec.{phase}`, plus `.approvable` when it can be approved, such as
  * `spec.design.approvable` or `spec.execute`. The menus in package.json match on these patterns, so each
@@ -98,7 +85,7 @@ export function unusable(spec: TreeSpec): boolean {
  */
 export function specContext(spec: TreeSpec): string {
   const base = spec.phase ? `spec.${spec.phase}` : 'spec';
-  return canApprove(spec) ? `${base}.approvable` : base;
+  return specActions(spec).includes('approve') ? `${base}.approvable` : base;
 }
 
 /**
@@ -106,67 +93,9 @@ export function specContext(spec: TreeSpec): string {
  * task is finished through its subtasks, so it gets plain `task.open`.
  */
 export function taskContext(spec: TreeSpec, done: boolean, leaf: boolean): 'task.done' | 'task.open' | 'task.open.run' {
-  if (done) return 'task.done';
-  return leaf && !unusable(spec) && spec.phase === 'execute' ? 'task.open.run' : 'task.open';
-}
-
-/** Find a task by id anywhere in the outline. */
-function findTask(items: readonly OutlineItem[], id: string): OutlineItem | undefined {
-  for (const item of items) {
-    if (item.id === id) return item;
-    const inner = findTask(item.children, id);
-    if (inner) return inner;
-  }
-  return undefined;
-}
-
-/**
- * Whether a folder's tree offers "Run" on this task: the same rule as `task.open.run`, so the run lens and the
- * tree always agree. A Spec or task the tree doesn't know is not runnable.
- */
-export function runnable(tree: SpecTree | undefined, specName: string, taskId: string): boolean {
-  const spec = tree?.specs.find(s => s.name === specName);
-  if (!spec || unusable(spec)) return false;
-  const item = findTask(spec.taskItems ?? [], taskId);
-  return item !== undefined && taskContext(spec, item.done === true, item.children.length === 0) === 'task.open.run';
-}
-
-/** A Spec's icon: a pen while its documents are being written, a play button while its tasks run, a tick once done. */
-function specIcon(spec: TreeSpec): string {
-  if (spec.phase === 'done') return 'pass-filled';
-  if (spec.phase === 'execute') return 'play-circle';
-  return 'edit';
-}
-
-/** "18 of 19 tasks", from the required tasks only. */
-function taskProgress(spec: TreeSpec): string | undefined {
-  const counts = spec.tasks;
-  if (!counts || counts.total === 0) return undefined;
-  return `${counts.done} of ${counts.total} ${counts.total === 1 ? 'task' : 'tasks'}`;
-}
-
-/**
- * The one fact a Spec's row shows beside its title: the phase while it is being written, the required tasks
- * left while they run, nothing once it is done (its icon says so).
- */
-function specDescription(spec: TreeSpec): string | undefined {
-  if (spec.phase === undefined || spec.phase === 'done') return undefined;
-  if (spec.phase !== 'execute') return spec.phase;
-  const counts = spec.tasks;
-  const left = counts ? counts.total - counts.done : 0;
-  if (left <= 0) return 'all tasks done';
-  return `${left} ${left === 1 ? 'task' : 'tasks'} left`;
-}
-
-/**
- * The hover of a Spec: its folder name (the row already shows the title), then `execute | 18 of 19 tasks | gated`,
- * then the next task when there is one.
- */
-function specTooltip(spec: TreeSpec): string {
-  const status = [spec.phase, taskProgress(spec), spec.mode]
-    .filter((part): part is string => typeof part === 'string' && part.length > 0).join(' | ');
-  const next = spec.next ? `next: ${spec.next.id} ${spec.next.title}` : undefined;
-  return [spec.name, status, next].filter(Boolean).join('\n');
+  const actions = taskActions(spec, done, leaf);
+  if (actions.includes('reopen')) return 'task.done';
+  return actions.includes('run') ? 'task.open.run' : 'task.open';
 }
 
 /** One Spec: its title with the one fact `specDescription` picks, or the reason it is Unusable. */
@@ -175,48 +104,15 @@ export class SpecNode extends vscode.TreeItem {
   readonly unusable: boolean;
 
   constructor(readonly folder: vscode.Uri, readonly tree: SpecTree, readonly spec: TreeSpec) {
-    super(spec.title ?? spec.name, Collapsed);
+    const row = specRow(spec);
+    super(row.label, Collapsed);
+    show(this, row);
     this.unusable = unusable(spec);
-    if (this.unusable) {
-      this.label = spec.name;
-      this.description = spec.unsupported ? 'unsupported' : 'unreadable';
-      this.iconPath = new vscode.ThemeIcon('warning');
-      this.tooltip = spec.files?.[0]?.reason;
-      // no contextValue on purpose: an Unusable Spec offers nothing but opening its files
-      return;
-    }
-    this.iconPath = new vscode.ThemeIcon(specIcon(spec));
-    this.description = specDescription(spec);
-    this.tooltip = specTooltip(spec);
+    // no contextValue on purpose: an Unusable Spec offers nothing but opening its files
+    if (this.unusable) return;
     // "Approve", "Write", "Review" and "Run next task" each match the phase part of this value
     this.contextValue = specContext(spec);
   }
-}
-
-/** The phases in the order a Spec moves through them. */
-const PHASE_ORDER = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
-
-/** The phase each spec document is written in; `bugfix.md` takes the place of `requirements.md`. */
-const DOCUMENT_PHASE: Record<string, 'brief' | 'requirements' | 'design' | 'tasks'> = {
-  'brief.md': 'brief', 'requirements.md': 'requirements', 'bugfix.md': 'requirements', 'design.md': 'design', 'tasks.md': 'tasks',
-};
-
-/**
- * Whether a spec document's stage is behind the Spec: approved, or the Spec has moved past its phase. A quick
- * Spec records no approvals, so the phase is what tells for it; a gated one only moves on by approving.
- */
-export function documentDone(spec: TreeSpec, document: string): boolean {
-  const stage = DOCUMENT_PHASE[document];
-  if (stage === undefined) return false;
-  if (stage !== 'brief' && spec.approvals?.[stage] !== undefined) return true;
-  const at = PHASE_ORDER.indexOf(spec.phase as (typeof PHASE_ORDER)[number]);
-  return at > PHASE_ORDER.indexOf(stage);
-}
-
-/** A spec document's label: its name without `.md`, capitalised, so `requirements.md` reads `Requirements`. */
-function documentLabel(document: string): string {
-  const name = bareName(document);
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 /** One spec document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. */
@@ -224,12 +120,11 @@ export class DocNode extends vscode.TreeItem {
   readonly kind = 'doc' as const;
 
   constructor(readonly folder: vscode.Uri, readonly document: string, readonly uri: vscode.Uri,
-    readonly children: TaskNode[] = [], readonly done = false) {
-    super(documentLabel(document), children.length ? Collapsed : None);
+    readonly children: TaskNode[] = [], readonly row: RowText) {
+    super(row.label, children.length ? Collapsed : None);
     this.resourceUri = uri;
-    // not 'file': that one means "the file icon theme's icon", which is the Markdown icon for a .md
-    this.iconPath = new vscode.ThemeIcon(done ? 'pass' : 'file-text');
-    this.tooltip = done ? `${document} · done` : document;
+    // the icon is a codicon, not 'file': that one means "the file icon theme's icon", the Markdown icon for a .md
+    show(this, row);
     this.contextValue = 'doc';
     this.command = open(uri);
   }
@@ -244,16 +139,17 @@ export class TaskNode extends vscode.TreeItem {
 
   constructor(readonly spec: TreeSpec, readonly item: OutlineItem, readonly children: TaskNode[],
     readonly next: boolean, uri?: vscode.Uri) {
-    super(item.title, children.length ? Collapsed : None);
-    this.taskId = item.id ?? '';
-    this.done = item.done === true;
-    this.optional = item.optional === true;
-    this.iconPath = new vscode.ThemeIcon(next ? 'arrow-right' : this.done ? 'pass' : 'circle-large-outline');
-    this.description = [this.optional && 'optional', next && 'next'].filter(Boolean).join(' · ');
-    this.contextValue = taskContext(spec, this.done, children.length === 0);
+    const row = taskRow(item, next);
+    super(row.label, children.length ? Collapsed : None);
+    show(this, row);
+    this.taskId = row.id;
+    this.done = row.done;
+    this.optional = row.optional;
+    // the nodes passed in, not the item's own subtasks, decide whether this task can be run on its own
+    this.contextValue = taskContext(spec, row.done, children.length === 0);
     if (uri) {
       this.resourceUri = uri;
-      this.command = open(uri, item.line);
+      this.command = open(uri, row.line);
     }
   }
 }
@@ -264,15 +160,11 @@ export class TaskNode extends vscode.TreeItem {
  * open at its own line; the builders that only care about the shape leave it out.
  */
 export function taskNodes(spec: TreeSpec, items: OutlineItem[], uri?: vscode.Uri): TaskNode[] {
-  const nextId = spec.next?.id;
-  let marked = false;
-  const build = (item: OutlineItem): TaskNode => {
-    // the flag, and deciding before recursing, keep the mark on the first match in document order
-    const isNext = !marked && item.id !== undefined && item.id === nextId;
-    if (isNext) marked = true;
-    return new TaskNode(spec, item, item.children.map(build), isNext, uri);
-  };
-  return items.map(build);
+  // the rows have the shape of `items`, so the two are walked together
+  const build = (item: OutlineItem, row: TaskRow): TaskNode =>
+    new TaskNode(spec, item, item.children.map((child, i) => build(child, row.children[i])), row.next, uri);
+  const rows = taskRows(spec, items);
+  return items.map((item, i) => build(item, rows[i]));
 }
 
 /** A file of an Unusable Spec, or of any other thing the server could only name. */
@@ -288,42 +180,19 @@ export class FileNode extends vscode.TreeItem {
   }
 }
 
-/** When a steering file reaches the coding agent, in a few words for its row and a sentence for its hover. */
-function inclusionText(entry: TreeSteering): { short: string; long: string } {
-  switch (entry.inclusion) {
-    case 'fileMatch': {
-      const files = entry.pattern ? `: ${entry.pattern.split(',').map(p => p.trim()).join(', ')}` : '';
-      return { short: 'matching files', long: `Given to the agent for a task that touches matching files${files}` };
-    }
-    case 'manual': {
-      const file = entry.path.split('/').pop() ?? entry.path;
-      return { short: 'on request', long: `Never given to the agent on its own; fetch it with \`steno show steering/${file}\`` };
-    }
-    default: return { short: 'always on', long: 'Given to the agent with every task' };
-  }
-}
-
 /** One steering file, by its name, with when it reaches the agent, or the reason it could not be read. */
 export class SteeringNode extends vscode.TreeItem {
   readonly kind = 'steering-file' as const;
   readonly uri: vscode.Uri;
 
   constructor(readonly folder: vscode.Uri, readonly entry: TreeSteering) {
-    super(bareName(entry.path.split('/').pop() ?? entry.path), None);
+    const row = steeringRow(entry);
+    super(row.label, None);
+    show(this, row);
     this.uri = vscode.Uri.joinPath(folder, ...entry.path.split('/'));
     this.resourceUri = this.uri;
     this.command = open(this.uri);
-    if (entry.unreadable) {
-      this.description = 'unreadable';
-      this.tooltip = `${entry.path}: ${entry.reason ?? 'could not be read'}`;
-      this.iconPath = new vscode.ThemeIcon('warning');
-      return;
-    }
-    const when = inclusionText(entry);
-    this.description = when.short;
-    this.tooltip = `${entry.path}\n${when.long}`;
-    this.iconPath = new vscode.ThemeIcon('file-text');
-    this.contextValue = 'steering.file';
+    if (!entry.unreadable) this.contextValue = 'steering.file';
   }
 }
 
@@ -335,10 +204,10 @@ export class InstructionNode extends vscode.TreeItem {
   readonly kind = 'instructions' as const;
 
   constructor(readonly folder: vscode.Uri, readonly file: string, readonly uri: vscode.Uri) {
-    super(file.includes('/') ? file : bareName(file), None);
+    const row = instructionRow(file);
+    super(row.label, None);
+    show(this, row);
     this.resourceUri = uri;
-    this.tooltip = `${file}: instructions your coding agent reads`;
-    this.iconPath = new vscode.ThemeIcon('hubot');
     this.contextValue = 'instructions';
     this.command = open(uri);
   }
@@ -356,7 +225,7 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
   return (spec.documents ?? []).map(document => {
     const uri = vscode.Uri.joinPath(folder, ...dir, spec.name, document);
     const tasks = document === 'tasks.md' ? taskNodes(spec, spec.taskItems ?? [], uri) : [];
-    return new DocNode(folder, document, uri, tasks, documentDone(spec, document));
+    return new DocNode(folder, document, uri, tasks, documentRow(spec, document));
   });
 }
 
@@ -364,15 +233,6 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
 export function shown(servers: readonly FolderServer[]): FolderServer[] {
   // a folder with no tree yet is not shown: its server has not said whether it is a steno project
   return servers.filter(s => s.state === 'stopped' || (s.tree !== undefined && s.tree.notSetUp !== true));
-}
-
-/**
- * The Specs of a tree in the order the Specs view lists them: the ones still in progress first, the done ones
- * last. Each group keeps the server's order, newest `created` first and the ones with no date after, so an
- * undated Spec in progress sits just above the done ones.
- */
-export function specOrder(specs: readonly TreeSpec[]): TreeSpec[] {
-  return [...specs.filter(s => s.phase !== 'done'), ...specs.filter(s => s.phase === 'done')];
 }
 
 /** The items of one folder in the Specs view: its Specs, or the stopped item. */
@@ -404,24 +264,11 @@ async function filesIn(uri: vscode.Uri): Promise<string[]> {
   }
 }
 
-/** A to Z, ignoring case; two names that differ only in case keep a fixed order. */
-function alphabetical(a: string, b: string): number {
-  const la = a.toLowerCase(), lb = b.toLowerCase();
-  if (la !== lb) return la < lb ? -1 : 1;
-  return a < b ? -1 : a > b ? 1 : 0;
-}
-
 /** The given folder-relative files that exist. */
 async function present(folder: vscode.Uri, candidates: readonly string[]): Promise<string[]> {
   const found = await Promise.all(candidates.map(async file =>
     (await exists(vscode.Uri.joinPath(folder, ...file.split('/')))) ? file : undefined));
   return found.filter((file): file is string => file !== undefined);
-}
-
-/** Folder-relative instruction files, A to Z, as nodes. */
-function instructionNodes(folder: vscode.Uri, files: string[]): InstructionNode[] {
-  return [...files].sort(alphabetical)
-    .map(file => new InstructionNode(folder, file, vscode.Uri.joinPath(folder, ...file.split('/'))));
 }
 
 /** The files of the agent instruction folders, by their folder-relative paths. */
@@ -443,11 +290,10 @@ export async function steeringItems(server: FolderServer): Promise<SteeringViewN
   const [root, agentFiles, agentDirFiles] = await Promise.all([
     present(uri, ROOT_INSTRUCTIONS), present(uri, AGENT_INSTRUCTION_FILES), instructionDirFiles(uri),
   ]);
-  const fileName = (entry: TreeSteering) => entry.path.split('/').pop() ?? entry.path;
-  const steering = [...tree.steering]
-    .sort((a, b) => alphabetical(fileName(a), fileName(b)) || alphabetical(a.path, b.path))
-    .map(entry => new SteeringNode(uri, entry));
-  return [...instructionNodes(uri, root), ...steering, ...instructionNodes(uri, [...agentFiles, ...agentDirFiles])];
+  const byPath = new Map(tree.steering.map(entry => [entry.path, entry]));
+  return steeringOrder(tree.steering, root, [...agentFiles, ...agentDirFiles]).map(row => row.kind === 'steering'
+    ? new SteeringNode(uri, byPath.get(row.path)!)
+    : new InstructionNode(uri, row.path, vscode.Uri.joinPath(uri, ...row.path.split('/'))));
 }
 
 /** What both views share: one FolderNode per folder, kept so a refresh can name a subtree the view already holds. */

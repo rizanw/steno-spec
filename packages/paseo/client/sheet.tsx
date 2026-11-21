@@ -6,6 +6,7 @@ import { Icon, Modal } from '@getpaseo/plugin/client/ui';
 import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { Action, PanelSnapshot, Row } from '../shared/contracts';
+import type { Picker } from './commands';
 import { actionLabel, INSTALL_COMMAND } from './model';
 import { Button } from './row';
 
@@ -29,27 +30,33 @@ export function ActionSheet({ row, theme, onClose, onAction }: ActionSheetProps)
   );
 }
 
-/** What a Command Center intent asks the user to pick: the action and the rows that offer it. */
-export interface RowPick { action: Action; rows: Row[] }
+export interface RowPickerProps { picker: Picker | undefined; theme: PluginTheme; onClose(): void; onAction(row: Row, action: Action): void }
 
-export interface RowPickerProps { pick: RowPick | undefined; theme: PluginTheme; onClose(): void; onAction(row: Row, action: Action): void }
-
-/** The rows an intent applies to; tapping one runs the action on it, as its own button would. */
-export function RowPicker({ pick, theme, onClose, onAction }: RowPickerProps) {
+/** The things a Command Center item applies to; choosing one runs the action on it, as its row's own button would. */
+export function RowPicker({ picker, theme, onClose, onAction }: RowPickerProps) {
   const { colors } = theme;
   return (
-    <Modal title={pick ? `${actionLabel(pick.action, undefined)}: pick a row` : ''} open={pick !== undefined} onOpenChange={open => { if (!open) onClose(); }}>
-      <Modal.Content>
-        {(pick?.rows ?? []).map(row => (
-          <Pressable
-            key={row.key} accessibilityRole="button" accessibilityLabel={`${actionLabel(pick!.action, row)} ${row.label}`}
-            onPress={() => { onClose(); onAction(row, pick!.action); }} style={{ paddingVertical: 8, gap: 2 }}
-          >
-            <Text style={{ color: colors.foreground, fontSize: 15 }}>{row.label}</Text>
-            <Text style={{ color: colors.foregroundMuted, fontSize: 12 }}>
-              {[row.target?.spec !== row.label ? row.target?.spec : undefined, actionLabel(pick!.action, row), row.detail].filter(Boolean).join(' · ')}
-            </Text>
-          </Pressable>
+    <Modal title={picker?.title ?? ''} open={picker !== undefined} onOpenChange={open => { if (!open) onClose(); }}>
+      <Modal.Content contentContainerStyle={{ gap: 12 }}>
+        {(picker?.sections ?? []).map(section => (
+          <View key={section.key} style={{ gap: 2 }}>
+            {section.title ? (
+              <Text numberOfLines={1} style={{ color: colors.foregroundMuted, fontSize: 12, fontWeight: '600', paddingBottom: 2 }}>{section.title}</Text>
+            ) : null}
+            {section.entries.map(({ row, label, detail }) => (
+              <Pressable
+                key={row.key} accessibilityRole="button" accessibilityLabel={`${actionLabel(picker!.action, row)}: ${label}`}
+                onPress={() => { onClose(); onAction(row, picker!.action); }}
+                style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => ({
+                  flexDirection: 'row', alignItems: 'baseline', gap: 8, paddingVertical: 6, paddingHorizontal: 8, marginHorizontal: -8, borderRadius: 4,
+                  backgroundColor: hovered || pressed ? colors.surface2 : 'transparent',
+                })}
+              >
+                <Text numberOfLines={1} style={{ flexShrink: 1, color: colors.foreground, fontSize: 14 }}>{label}</Text>
+                {detail ? <Text numberOfLines={1} style={{ flexShrink: 2, color: colors.foregroundMuted, fontSize: 12 }}>{detail}</Text> : null}
+              </Pressable>
+            ))}
+          </View>
         ))}
       </Modal.Content>
     </Modal>

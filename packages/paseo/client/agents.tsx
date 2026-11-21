@@ -11,13 +11,13 @@ import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Platform } from 'react-native';
 import { call, type Handoff } from '../shared/contracts';
 import { openDrafts } from './drafts';
+import { isMacWeb } from './web';
 import { chooseTarget, performHandoff, type AgentInfo, type HandoffResult } from './handoff';
 
-/** The paste shortcut of this client: Paseo's desktop app runs as web, so the Mac is told apart by its user agent. */
+/** The paste shortcut of this client; a phone or tablet has no keyboard shortcut to name. */
 function pasteHint(): string {
   if (Platform.OS !== 'web') return 'paste it';
-  const mac = typeof navigator !== 'undefined' && /Mac/i.test(navigator.userAgent);
-  return mac ? 'press ⌘V' : 'press Ctrl+V';
+  return isMacWeb() ? 'press ⌘V' : 'press Ctrl+V';
 }
 
 interface Probed { info: AgentInfo; composer: PluginComposer | undefined }

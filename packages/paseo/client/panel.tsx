@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { z } from 'zod';
 import { change, panel, restart, type Action, type PanelSnapshot, type Row, type StructuredError } from '../shared/contracts';
-import { rowsOffering } from './commands';
+import { nothingToPick, pickerFor, type Picker } from './commands';
 import { changeFor, performChange, successMessage, type ChangeRequest } from './changes';
 import { ReopenConfirm, Refusal } from './confirm';
 import { useHandoff } from './agents';
@@ -17,7 +17,7 @@ import { actionLabel, allRows, DEFAULT_EXPANDED, opensDocument, parents, toggled
 import { NewSpecForm } from './new-spec';
 import { RowView } from './row';
 import { SetUpForm } from './set-up';
-import { ActionSheet, RowPicker, StatusBars, type RowPick } from './sheet';
+import { ActionSheet, RowPicker, StatusBars } from './sheet';
 
 /** Kept by Paseo with the tab, so a reload or a reconnect reopens the same rows and the same file. */
 const TabState = z.object({ expanded: z.array(z.string()), open: z.string().nullable() });
@@ -39,7 +39,7 @@ export function StenoPanel({ workspaceId, tab, theme, layout, navigation }: Plug
   const [confirming, setConfirming] = useState<ChangeRequest>();
   const answer = useRef<(reopen: boolean) => void>(undefined);
   const [form, setForm] = useState<'newSpec' | 'setUp'>();
-  const [pick, setPick] = useState<RowPick>();
+  const [picker, setPicker] = useState<Picker>();
   const { handOff, probes } = useHandoff(workspaceId, navigation);
 
   /** An error nobody planned for, such as a lost connection: said plainly, with Paseo's own words after it. */
@@ -84,9 +84,9 @@ export function StenoPanel({ workspaceId, tab, theme, layout, navigation }: Plug
     setPendingIntent(undefined);
     if (pendingIntent === 'newSpec' || pendingIntent === 'setUp') { setForm(pendingIntent); return; }
     if (pendingIntent === 'steer') { handOff({ kind: 'steer' }).catch(err => showFailure(err)); return; }
-    const offering = rowsOffering(rows, pendingIntent);
-    if (offering.length) setPick({ action: pendingIntent, rows: offering });
-    else toast.show(`No row offers ${actionLabel(pendingIntent, undefined)} right now.`, { variant: 'info' });
+    const next = pickerFor(pendingIntent, rows);
+    if (next) setPicker(next);
+    else toast.show(nothingToPick(pendingIntent), { variant: 'info' });
   }, [pendingIntent, snapshot, rows, handOff, showFailure, toast]);
 
   const onPress = useCallback((row: Row) => {
@@ -99,7 +99,7 @@ export function StenoPanel({ workspaceId, tab, theme, layout, navigation }: Plug
   const openPath = tabState.open;
   const dialogs = (
     <>
-      <RowPicker pick={pick} theme={theme} onClose={() => setPick(undefined)} onAction={onAction} />
+      <RowPicker picker={picker} theme={theme} onClose={() => setPicker(undefined)} onAction={onAction} />
       <ActionSheet row={sheetRow} theme={theme} onClose={() => setSheetRow(undefined)} onAction={onAction} />
       <ReopenConfirm request={confirming} theme={theme} onAnswer={reopen => { setConfirming(undefined); answer.current?.(reopen); answer.current = undefined; }} />
       <Refusal error={refused} stopped={snapshot.server === 'stopped'} theme={theme} onClose={() => setRefused(undefined)} onRestart={onRestart} />

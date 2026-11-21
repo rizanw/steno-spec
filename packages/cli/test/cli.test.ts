@@ -391,6 +391,17 @@ describe('steno CLI', () => {
     expect(json(steno('approve', 'brief', 'idea', '--json'))).toEqual({ protocolVersion: 1, spec: 'idea', phase: 'requirements', approved: 'brief' });
   });
 
+  it('reopen returns the change result for a done spec and refuses any other', () => {
+    const { dir, steno } = project();
+    steno('init'); steno('quick', 'q');
+    writeFileSync(join(dir, '.steno', 'specs', 'q', 'tasks.md'), '# Tasks\n\n- [x] 1. Build\n');
+    expect(steno('done', '1', 'q').code).toBe(0);
+    expect(JSON.parse(steno('reopen', 'q', '--json').out)).toEqual({ protocolVersion: 1, spec: 'q', phase: 'execute' });
+    const again = steno('reopen', 'q', '--json');
+    expect(again.code).not.toBe(0);
+    expect(JSON.parse(again.out)).toMatchObject({ code: 'invalid-request', field: 'spec' });
+  });
+
   it('new, quick and import return a change result with the files created', () => {
     const { dir, steno } = project();
     steno('init');

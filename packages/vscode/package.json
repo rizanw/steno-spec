@@ -89,6 +89,12 @@
         "icon": "$(discard)"
       },
       {
+        "command": "steno.spec.reopen",
+        "title": "Reopen Spec",
+        "category": "steno",
+        "icon": "$(debug-restart)"
+      },
+      {
         "command": "steno.task.done",
         "title": "Reopen Task",
         "category": "steno"
@@ -185,6 +191,10 @@
           "when": "false"
         },
         {
+          "command": "steno.spec.reopen",
+          "when": "false"
+        },
+        {
           "command": "steno.task.done",
           "when": "false"
         },
@@ -254,6 +264,11 @@
           "command": "steno.spec.review",
           "when": "view == steno.specs && viewItem =~ /^spec\\.(requirements|design|tasks|done)/",
           "group": "inline"
+        },
+        {
+          "command": "steno.spec.reopen",
+          "when": "view == steno.specs && viewItem == spec.done",
+          "group": "1_change"
         },
         {
           "command": "steno.steering.generate",

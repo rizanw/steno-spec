@@ -550,6 +550,19 @@ describe('steno lsp: state changes', () => {
     await c.waitFor(TREE, undefined, 1000, from);
   });
 
+  it('reopens a done spec, and refuses one in another phase', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    expect(await refusal(c.request('steno/specReopen', { spec: 'demo' }))).toMatchObject({ data: { code: 'invalid-request', field: 'spec' } });
+    writeFileSync(join(p.spec, 'spec.yaml'), 'name: demo\nkind: feature\nmode: gated\nphase: done\ncreated: 2026-01-01\napprovals: {}\n');
+    writeFileSync(p.tasks, TASKS.replaceAll('[ ]', '[x]'));
+    const from = c.received.length;
+    expect(await c.request('steno/specReopen', { spec: 'demo' })).toEqual({ protocolVersion: PROTOCOL_VERSION, spec: 'demo', phase: 'execute' });
+    expect(readFileSync(join(p.spec, 'spec.yaml'), 'utf8')).toMatch(/phase: execute/);
+    await c.waitFor(TREE, undefined, 1000, from);
+  });
+
   it('applies two changes sent back to back, one after the other', async () => {
     const p = withTasks();
     const c = client();

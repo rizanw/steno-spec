@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { Spec, SpecState } from './types.js';
 import type { ProjectSnapshot } from './project.js';
 import { PROTOCOL_VERSION, StenoError, type ChangeResult } from './contract.js';
-import { STATE_FILE, derivePhase, stateText, syncDonePhase } from './state.js';
+import { STATE_FILE, derivePhase, parseState, stateText, syncDonePhase } from './state.js';
 import { allTasksDone, parseTasks, setTaskDone } from './parse/tasks.js';
 import { hasErrors, lintSpec } from './lint.js';
 import { specDiagnostics } from './diagnostics.js';
@@ -64,6 +64,13 @@ function writeAll(files: { path: string; text: string; original?: Buffer }[], wr
   }
 }
 
+/** The phase `spec.yaml` holds, which differs from the loaded one when tasks were added to a finished spec. */
+function storedPhase(bytes: Buffer | undefined): string | undefined {
+  if (!bytes) return undefined;
+  const read = parseState(bytes.toString('utf8').replace(/^\uFEFF/, ''));
+  return 'state' in read ? read.state.phase : undefined;
+}
+
 /** Mark a task done or reopen it, with its subtasks, its parents and the Phase, as `steno done [--undo]` does. */
 export function applyTaskChange(snap: ProjectSnapshot, spec: string, task: string, done: boolean, opts: { write?: Writer } = {}): ChangeResult {
   const e = usable(snap, spec);
@@ -75,7 +82,7 @@ export function applyTaskChange(snap: ProjectSnapshot, spec: string, task: strin
   const state = workingState(e);
   const moved = syncDonePhase(state, allTasksDone(parseTasks(text)));
   const files = [{ path: tasksPath, text, original: originals.tasks }];
-  if (moved || e.derived) files.push({ path: statePath, text: stateText(state), original: originals.state });
+  if (moved || e.derived || storedPhase(originals.state) !== state.phase) files.push({ path: statePath, text: stateText(state), original: originals.state });
   writeAll(files, opts.write ?? defaultWriter);
   return { protocolVersion: PROTOCOL_VERSION, spec, phase: state.phase, task, done };
 }
@@ -104,4 +111,17 @@ export function applyApprove(snap: ProjectSnapshot, spec: string, phase: string,
   const statePath = join(e.spec.root, STATE_FILE);
   writeAll([{ path: statePath, text: stateText(state), original: readBytes(statePath) }], opts.write ?? defaultWriter);
   return { protocolVersion: PROTOCOL_VERSION, spec, phase: state.phase, approved: phase as ChangeResult['phase'], ...(forced ? { forced: true as const } : {}) };
+}
+
+/**
+ * Reopen a finished spec, as `steno reopen` does: back to execute, so tasks added to it can be run. Its approvals stay;
+ * once every task is done again, ticking the last one finishes it as before.
+ */
+export function applyReopenSpec(snap: ProjectSnapshot, spec: string, opts: { write?: Writer } = {}): ChangeResult {
+  const e = usable(snap, spec);
+  const state = workingState(e);
+  state.phase = 'execute';
+  const statePath = join(e.spec.root, STATE_FILE);
+  writeAll([{ path: statePath, text: stateText(state), original: readBytes(statePath) }], opts.write ?? defaultWriter);
+  return { protocolVersion: PROTOCOL_VERSION, spec, phase: state.phase };
 }

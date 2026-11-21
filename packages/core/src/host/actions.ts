@@ -3,8 +3,11 @@
 import type { OutlineItem, SpecTree, TreeSpec } from '../contract.js';
 import { unusable } from './rows.js';
 
-/** An action a host offers on a row: approve a phase, mark a task done or reopen it, or hand work to the agent. */
-export type HostAction = 'approve' | 'done' | 'reopen' | 'run' | 'runNext' | 'write' | 'review';
+/**
+ * An action a host offers on a row: approve a phase, mark a task done or reopen it, reopen a finished spec to add
+ * tasks to it, or hand work to the agent.
+ */
+export type HostAction = 'approve' | 'done' | 'reopen' | 'run' | 'runNext' | 'write' | 'review' | 'reopenSpec';
 
 /** The phases a gated spec can approve; `execute` and `done` have nothing left to approve. */
 export const APPROVABLE: readonly string[] = ['brief', 'requirements', 'design', 'tasks'];
@@ -29,6 +32,7 @@ export function specActions(spec: TreeSpec): HostAction[] {
   if (WRITABLE.includes(phase)) actions.push('write');
   if (REVIEWABLE.includes(phase)) actions.push('review');
   if (phase === 'execute') actions.push('runNext');
+  if (phase === 'done') actions.push('reopenSpec');
   return actions;
 }
 

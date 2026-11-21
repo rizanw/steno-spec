@@ -541,6 +541,7 @@ describe('context values for the handoffs', () => {
   // each row menu's command, by the action it stands for
   const SPEC_MENUS: Record<string, HostAction> = {
     'steno.spec.approve': 'approve', 'steno.spec.write': 'write', 'steno.spec.review': 'review', 'steno.spec.runNext': 'runNext',
+    'steno.spec.reopen': 'reopenSpec',
   };
   const TASK_MENUS: Record<string, HostAction> = { 'steno.task.markDone': 'done', 'steno.task.reopen': 'reopen', 'steno.task.run': 'run' };
 

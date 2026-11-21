@@ -3,7 +3,7 @@ import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { basename, join, relative } from 'node:path';
 import {
   traceCriteria, createSpec, importKiroSpec, loadSpec, lintSpec, readDiagnostics, specDiagnostics, scaffoldCurrent, artifactFor,
-  applyTaskChange, applyApprove, buildTree, outlineOf, persistDerived, STATE_FILE, PROTOCOL_VERSION, type ChangeResult, type DocKind, type ProjectSnapshot, loadSeen, saveSeen, sha, traceMatrix, buildCtx, nextTask, findTask, findRequirement, findCriterion,
+  applyTaskChange, applyApprove, applyReopenSpec, buildTree, outlineOf, persistDerived, STATE_FILE, PROTOCOL_VERSION, type ChangeResult, type DocKind, type ProjectSnapshot, loadSeen, saveSeen, sha, traceMatrix, buildCtx, nextTask, findTask, findRequirement, findCriterion,
   findSection, describeTask, kindOf, normTaskId, normReqId, loadSteering, estimateTokens, probe, isGreenfield, requirementsFile, nextReviewRound, saveReviewLog, saveReviewSnapshot,reviewRoundSection, reviewDecisions, reviewSize, reviewGrew, MAX_REVIEW_ROUNDS, type ReviewStage, type Spec, type SpecState, type Request, type LintIssue, type Steering, StenoError,
 } from '@steno/core';
 import { ctxFromOpts, resolveSpec, project, out, fmtIssues, fail, type Ctx } from '../io.js';
@@ -240,6 +240,16 @@ export function register(program: Command): void {
       const nxt = nextTask(loadSpec((entry as { spec: Spec }).spec.root).tasks!);
       out(ctx, r,
         `${opts.undo ? 'reopened' : 'done'} ${id}${nxt ? `\nnext: ${describeTask(nxt)}\n→ steno ctx ${nxt.id}` : '\nall tasks done'}`);
+    });
+
+  program.command('reopen [spec]')
+    .description('reopen a done spec so you can add tasks to it (approvals stay)')
+    .action((name) => {
+      const ctx = g();
+      // check refuses a spec that is not done
+      const { entry, snap } = resolveSpec(ctx, { kind: 'reopenSpec', spec: name });
+      const r = applyReopenSpec(snap, entry.name);
+      out(ctx, r, `reopened ${entry.name}. phase → ${r.phase}\nnext: add tasks to tasks.md, then: steno next ${entry.name}`);
     });
 
   program.command('trace [spec]').description('requirement → design → tasks matrix (--criteria for the per-criterion view)')

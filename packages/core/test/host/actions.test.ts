@@ -44,7 +44,7 @@ describe('specActions', () => {
     expect(at('design')).toEqual(['approve', 'write', 'review']);
     expect(at('tasks')).toEqual(['approve', 'write', 'review']);
     expect(at('execute')).toEqual(['runNext']);
-    expect(at('done')).toEqual(['review']);
+    expect(at('done')).toEqual(['review', 'reopenSpec']);
   });
 
   it('offers no approve in a quick spec, and nothing without a phase', () => {
@@ -54,7 +54,7 @@ describe('specActions', () => {
     expect(at('design')).toEqual(['write', 'review']);
     expect(at('tasks')).toEqual(['write', 'review']);
     expect(at('execute')).toEqual(['runNext']);
-    expect(at('done')).toEqual(['review']);
+    expect(at('done')).toEqual(['review', 'reopenSpec']);
     expect(specActions(spec({ phase: undefined }))).toEqual([]);
   });
 

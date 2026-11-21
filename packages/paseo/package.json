@@ -1,8 +1,26 @@
 {
   "name": "steno-paseo",
   "version": "0.1.2",
-  "private": true,
+  "description": "The steno panel for Paseo: see where every spec stands, approve each stage and hand tasks to your agents.",
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "spec-driven-development",
+    "specs",
+    "ears",
+    "requirements",
+    "coding-agent",
+    "agent-skills"
+  ],
   "license": "MIT",
+  "author": "rizanw",
+  "homepage": "https://github.com/rizanw/steno-spec/tree/main/packages/paseo#readme",
+  "bugs": "https://github.com/rizanw/steno-spec/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizanw/steno-spec.git",
+    "directory": "packages/paseo"
+  },
   "type": "module",
   "files": [
     "paseo-plugin.json",

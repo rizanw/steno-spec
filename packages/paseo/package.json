@@ -1,7 +1,7 @@
 {
   "name": "steno-paseo",
   "version": "0.1.2",
-  "description": "The steno panel for Paseo: see where every spec stands, approve each stage and hand tasks to your agents.",
+  "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
   "keywords": [
     "paseo",
     "paseo-plugin",

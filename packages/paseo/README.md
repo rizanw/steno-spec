@@ -27,6 +27,10 @@
   <a href="https://github.com/rizanw/steno-spec/blob/main/docs/cli.md">CLI reference</a>
 </p>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rizanw/steno-spec/main/packages/paseo/screenshots/2-hand-off-light.png" alt="The steno panel beside an agent in Paseo, with a task handed to the agent">
+</p>
+
 ---
 
 - **Plain Markdown specs, any agent.** `requirements.md`, `design.md` and `tasks.md`, with EARS

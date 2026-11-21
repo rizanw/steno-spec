@@ -7,7 +7,7 @@ import type { ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { Action, PanelSnapshot, Row } from '../shared/contracts';
 import type { Picker } from './commands';
-import { actionLabel, INSTALL_COMMAND } from './model';
+import { actionLabel, agentStenoWarning } from './model';
 import { Button } from './row';
 
 export interface ActionSheetProps { row: Row | undefined; theme: PluginTheme; onClose(): void; onAction(row: Row, action: Action): void }
@@ -87,11 +87,7 @@ export function StatusBars({ snapshot, state, theme, onRestart }: StatusBarsProp
       </Bar>,
     );
   }
-  if (snapshot && !snapshot.agentSteno.matches) {
-    const text = snapshot.agentSteno.found
-      ? `The steno your coding agents run speaks ${snapshot.agentSteno.protocol === undefined ? 'an unknown protocol' : `protocol ${snapshot.agentSteno.protocol}`}, not this plugin's. Install the current one: ${INSTALL_COMMAND}`
-      : `Your coding agents have no steno command. Install it: ${INSTALL_COMMAND}`;
-    bars.push(<Bar key="agent-steno" theme={theme} color={colors.statusWarning} icon="TriangleAlert" text={text} />);
-  }
+  const warning = snapshot ? agentStenoWarning(snapshot.agentSteno) : undefined;
+  if (warning) bars.push(<Bar key="agent-steno" theme={theme} color={colors.statusWarning} icon="TriangleAlert" text={warning} />);
   return <>{bars}</>;
 }

@@ -14,7 +14,7 @@ const snapshot = () => ({
   steeringRows: [{ key: 'h:steering', depth: 0, kind: 'header', label: 'Steering', actions: ['steer'] }],
   diagnostics: { '.steno/specs/demo/design.md': [{ file: 'design.md', line: 3, severity: 'error', rule: 'trace/uncovered', message: 'no section' }] },
   server: 'running',
-  agentSteno: { found: true, protocol: 1, matches: true },
+  agentSteno: { found: true, protocol: 1, version: '0.1.3', matches: true, bundled: '0.1.3' },
 });
 
 describe('the panel snapshot', () => {

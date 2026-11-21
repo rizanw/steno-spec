@@ -77,16 +77,24 @@ describe("the agents' steno", () => {
   const env = { path: '/bin', windows: false };
   const exists = (p: string) => p === '/bin/steno';
   const answers = (output: string) => (_: Launch) => ({ output: Promise.resolve(output), kill: () => {} });
+  const bundled = '0.1.3';
+  const check = (output: string) => checkAgentSteno({ env, exists, protocol: 1, version: bundled, run: answers(output) });
 
   it('is missing when PATH has no steno', async () => {
-    expect(await checkAgentSteno({ env, exists: () => false, run: answers('') })).toEqual({ found: false, matches: false });
+    expect(await checkAgentSteno({ env, exists: () => false, version: bundled, run: answers('') })).toEqual({ found: false, matches: false, bundled });
   });
 
   it('matches when it names the same protocol, and not when it names another or none', async () => {
-    expect(await checkAgentSteno({ env, exists, protocol: 1, run: answers('0.1.2 (protocol 1)\n') })).toEqual({ found: true, protocol: 1, matches: true });
-    expect(await checkAgentSteno({ env, exists, protocol: 1, run: answers('0.9.0 (protocol 2)\n') })).toEqual({ found: true, protocol: 2, matches: false });
-    expect(await checkAgentSteno({ env, exists, protocol: 1, run: answers('0.0.9\n') })).toEqual({ found: true, matches: false });
-    expect(await checkAgentSteno({ env, exists, protocol: 1, run: answers('') })).toEqual({ found: true, matches: false });
+    expect(await check('0.1.3 (protocol 1)\n')).toEqual({ found: true, protocol: 1, version: '0.1.3', matches: true, bundled });
+    expect(await check('0.9.0 (protocol 2)\n')).toEqual({ found: true, protocol: 2, version: '0.9.0', matches: false, bundled });
+    expect(await check('0.0.9\n')).toEqual({ found: true, version: '0.0.9', matches: false, bundled });
+    expect(await check('')).toEqual({ found: true, matches: false, bundled });
+  });
+
+  it('does not match an older version of the same protocol, so skills never call a command it lacks', async () => {
+    expect(await check('0.1.1 (protocol 1)\n')).toMatchObject({ protocol: 1, version: '0.1.1', matches: false });
+    expect(await check('0.1.10 (protocol 1)\n')).toMatchObject({ version: '0.1.10', matches: true });
+    expect(await check('0.2.0 (protocol 1)\n')).toMatchObject({ matches: true });
   });
 
   it('counts a steno that hangs as a mismatch after 5 s and stops it', async () => {
@@ -98,7 +106,7 @@ describe("the agents' steno", () => {
     await vi.advanceTimersByTimeAsync(4_999);
     expect(result).toBeUndefined();
     await vi.advanceTimersByTimeAsync(1);
-    expect(result).toEqual({ found: true, matches: false });
+    expect(result).toMatchObject({ found: true, matches: false });
     expect(kill).toHaveBeenCalled();
   });
 
@@ -108,7 +116,7 @@ describe("the agents' steno", () => {
     expect(versionLaunch('C:\\100%\\steno.cmd', true)).toBeUndefined();
     const run = vi.fn(answers('0.1.2 (protocol 1)'));
     const winEnv = { path: 'C:\\100%', pathExt: '.CMD', windows: true };
-    expect(await checkAgentSteno({ env: winEnv, exists: () => true, protocol: 1, run })).toEqual({ found: true, matches: false });
+    expect(await checkAgentSteno({ env: winEnv, exists: () => true, protocol: 1, run })).toMatchObject({ found: true, matches: false });
     expect(run).not.toHaveBeenCalled();
   });
 });

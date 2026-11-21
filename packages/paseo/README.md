@@ -55,8 +55,8 @@ The panel works on its own. Your agents call `steno` from their skills, and they
 npm install -g steno-spec
 ```
 
-If the `steno` on that `PATH` is missing or speaks a different protocol from the plugin, the panel
-shows a warning bar with this command.
+If the `steno` on that `PATH` is missing, older than the one the plugin carries, or speaks a different
+protocol, the panel shows a warning bar with the command that installs the plugin's version.
 
 Then open a workspace and pick the **steno** tab in the Explorer. For a folder with no `.steno/`,
 choose **Set Up steno** and pick the coding agents that should get the steno skills.
@@ -126,7 +126,7 @@ steno: language server started: <name> <version>
 | steno is missing from `paseo plugin ls` | Turn plugins on in Settings → Plugins, then install again. |
 | `cli failed` or `language server failed` in the log | `paseo plugin update steno`, then `paseo plugin reload steno`. If it persists, [open an issue](https://github.com/rizanw/steno-spec/issues) with the log. |
 | `could not unpack the bundled programs` | Check that `~/.paseo/plugin-data/` is writable. |
-| A warning bar naming `npm install -g steno-spec` | Your agents' `steno` is missing or a different protocol. Install or update it on the daemon's `PATH`. |
+| A warning bar naming `npm install -g steno-spec@<version>` | Your agents' `steno` is missing, older than the plugin's or a different protocol. Run that command where the daemon runs. |
 | The panel says the steno server stopped | It crashed five times in a row. Choose **Restart steno Server**, and check the log if it stops again. |
 | The install fails on `npm:` | npm must be on the daemon's `PATH`, with access to the npm registry. |
 

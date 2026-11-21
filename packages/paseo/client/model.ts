@@ -1,6 +1,7 @@
 // What the panel decides without drawing anything: which rows show, what each action is called, which icon a row
 // gets. Kept free of React Native so it can be tested directly.
 import type { Action, PanelSnapshot, Phase, Row, RowIcon } from '../shared/contracts';
+import { atLeast } from '../shared/version';
 
 export const ACTION_LABELS: Record<Action, string> = {
   approve: 'Approve', done: 'Mark Done', reopen: 'Reopen', run: 'Run Task', runNext: 'Run Next Task',
@@ -58,8 +59,20 @@ export function needsMore(row: Row, expands: boolean): boolean {
   return row.actions.some(a => !buttons.includes(a) && !(a === 'open' && !expands));
 }
 
-/** The command that installs a `steno` the agents can run, named in the warning bar. */
-export const INSTALL_COMMAND = 'npm install -g steno-spec';
+/** The command that installs a `steno` the agents can run, pinned to the version the plugin bundles. */
+export const installCommand = (version: string): string => `npm install -g steno-spec@${version}`;
+
+/** What the warning bar says about the agents' `steno`, or nothing when it matches. */
+export function agentStenoWarning(agentSteno: PanelSnapshot['agentSteno']): string | undefined {
+  const { found, protocol, version, matches, bundled } = agentSteno;
+  if (matches) return undefined;
+  const install = installCommand(bundled);
+  if (!found) return `Your coding agents have no steno command. Install it: ${install}`;
+  if (version !== undefined && !atLeast(version, bundled)) {
+    return `The steno your coding agents run is ${version}, older than this plugin's ${bundled}. Install the current one: ${install}`;
+  }
+  return `The steno your coding agents run speaks ${protocol === undefined ? 'an unknown protocol' : `protocol ${protocol}`}, not this plugin's. Install the current one: ${install}`;
+}
 
 /** Both headers start open, so a first look shows every spec and steering file without a tap. */
 export const DEFAULT_EXPANDED = ['specs', 'steering'];

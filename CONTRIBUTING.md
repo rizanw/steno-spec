@@ -171,7 +171,7 @@ narrow window, in a light and a dark theme. The rest is covered by `pnpm test`.
 
 - [ ] Specs, documents and tasks show in the server's order; rows expand and collapse.
 - [ ] Every text and icon follows the theme; nothing is black on dark.
-- [ ] In a narrow window, the "more" button on each row offers the same actions as on desktop.
+- [ ] A row has the "more" button only when an action has no button of its own, and its sheet lists every action, in a narrow window too.
 - [ ] A document, a steering file and an instruction file open read-only, with their lint problems and the row's actions.
 - [ ] Approve a phase; a phase with a lint error is refused and lists each problem.
 - [ ] Mark a task done and reopen it; declining the reopen changes nothing.

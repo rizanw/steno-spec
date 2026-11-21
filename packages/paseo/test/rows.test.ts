@@ -184,6 +184,15 @@ describe('the row actions', () => {
     for (const row of rows.values()) if (row.kind === 'spec') expect(row.actions).not.toContain('approve');
   });
 
+  it('on a spec whose phase document is written: Review is the button and Write waits in the sheet', () => {
+    const brief: TreeSpec = { name: 'idea', mode: 'gated', phase: 'brief', documents: ['brief.md'], written: true };
+    const rows = byKey(specRows(tree([{ ...designing, written: true }, brief]), none));
+    expect(rows.get('spec:search')).toMatchObject({ actions: ['write', 'review'], primary: 'review', target: { written: true } });
+    expect(byKey(specRows(tree([designing]), none)).get('spec:search')!.target).not.toHaveProperty('written');
+    expect(rows.get('spec:idea')!.actions).toEqual(['write']);
+    expect(rows.get('spec:idea')!.primary).toBeUndefined();
+  });
+
   it('offers Open on every steering and instruction row, unreadable ones included', () => {
     const rows = steeringRows(tree([], { steering: [{ path: '.steno/steering/x.md', unreadable: true }] }), ['AGENTS.md'], []);
     for (const row of rows.slice(1)) expect(row).toMatchObject({ actions: ['open'], primary: 'open' });

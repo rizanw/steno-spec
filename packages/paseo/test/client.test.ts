@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ChangeOutcome, Row } from '../shared/contracts';
 import { changeFor, performChange, refusalProblems, successMessage, type ChangeRequest } from '../client/changes';
-import { actionLabel, toggled, visibleRows } from '../client/model';
+import { actionLabel, needsMore, rowButtons, toggled, visibleRows } from '../client/model';
 
 const row = (key: string, parent?: string, extra: Partial<Row> = {}): Row =>
   ({ key, parent, depth: 0, kind: 'task', label: key, actions: [], ...extra });
@@ -30,6 +30,35 @@ describe('what an action is called', () => {
     expect(actionLabel('review', spec('done'))).toBe('Review Drift');
     expect(actionLabel('write', spec())).toBe('Write This Phase');
     expect(actionLabel('approve', spec('tasks'))).toBe('Approve');
+  });
+
+  it('calls Write a revision once the phase\'s document is written', () => {
+    const written = row('spec:a', undefined, { kind: 'spec', target: { spec: 'a', phase: 'tasks', written: true } });
+    expect(actionLabel('write', written)).toBe('Revise Tasks');
+    expect(actionLabel('review', written)).toBe('Review Tasks');
+  });
+});
+
+describe('the buttons on a row', () => {
+  const row = (actions: Row['actions'], primary?: Row['primary']): Row => ({ key: 'k', depth: 1, kind: 'document', label: 'L', actions, ...(primary ? { primary } : {}) });
+
+  it('shows no more button when every action already has a button', () => {
+    const tasksDoc = row(['approve', 'open'], 'approve');
+    expect(rowButtons(tasksDoc, true)).toEqual(['open', 'approve']);
+    expect(needsMore(tasksDoc, true)).toBe(false);
+  });
+
+  it('shows no more button when tapping the row does the only other action', () => {
+    expect(rowButtons(row(['approve', 'open'], 'approve'), false)).toEqual(['approve']);
+    expect(needsMore(row(['approve', 'open'], 'approve'), false)).toBe(false);
+    expect(needsMore(row(['open'], 'open'), false)).toBe(false);
+    expect(needsMore(row(['done'], 'done'), false)).toBe(false);
+  });
+
+  it('shows the more button when an action has no button', () => {
+    expect(needsMore(row(['write', 'review'], 'review'), true)).toBe(true);
+    expect(needsMore(row(['approve', 'review'], 'approve'), true)).toBe(true);
+    expect(needsMore(row(['done', 'run'], 'run'), false)).toBe(true);
   });
 });
 

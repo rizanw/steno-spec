@@ -26,7 +26,8 @@ export const Row = z.object({
   key: z.string(), parent: z.string().optional(), depth: z.number().int().min(0),
   kind: z.enum(['header', 'spec', 'document', 'task', 'steering', 'instruction', 'notice']),
   label: z.string(), detail: z.string().optional(), tooltip: z.string().optional(), icon: RowIcon.optional(),
-  target: z.object({ spec: z.string(), task: z.string().optional(), phase: Phase.optional() }).optional(),
+  // `written`: the phase's document is already filled in, so writing it again revises it
+  target: z.object({ spec: z.string(), task: z.string().optional(), phase: Phase.optional(), written: z.literal(true).optional() }).optional(),
   path: z.string().optional(),
   problems: z.object({ errors: z.number().int().min(0), warnings: z.number().int().min(0) }).optional(),
   actions: z.array(Action), primary: Action.optional(),

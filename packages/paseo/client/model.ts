@@ -16,11 +16,12 @@ const PHASE_WORDS: Record<Phase, string> = {
 /**
  * An action's name on one row. Write and Review name the phase they work on, such as Write Tasks: "This Phase"
  * means nothing to someone looking at a row whose phase they have not checked. Review of a finished spec is its
- * drift check, hence Review Drift.
+ * drift check, hence Review Drift. Once the phase's document is written, Write revises it, hence Revise Tasks.
  */
 export function actionLabel(action: Action, row: Row | undefined): string {
   const phase = row?.target?.phase;
-  if (phase && (action === 'write' || action === 'review')) return `${action === 'write' ? 'Write' : 'Review'} ${PHASE_WORDS[phase]}`;
+  if (phase && action === 'review') return `Review ${PHASE_WORDS[phase]}`;
+  if (phase && action === 'write') return `${row?.target?.written ? 'Revise' : 'Write'} ${PHASE_WORDS[phase]}`;
   return ACTION_LABELS[action];
 }
 
@@ -35,6 +36,27 @@ export const ROW_ICONS: Record<RowIcon, string> = {
   spec: 'FilePen', execute: 'CirclePlay', done: 'CircleCheck', warning: 'TriangleAlert', document: 'FileText',
   finished: 'Check', next: 'ArrowRight', task: 'Circle', steering: 'FileText', instruction: 'Bot',
 };
+
+/**
+ * The actions a row shows as buttons, in order. Tapping a row opens its file, so Open gets no button of its own,
+ * except on a row that expands when tapped, such as the tasks document: there the button is the only way to read it.
+ * `expands` is whether anything folds under the row.
+ */
+export function rowButtons(row: Row, expands: boolean): Action[] {
+  const out: Action[] = [];
+  if (row.actions.includes('open') && expands && row.primary !== 'open') out.push('open');
+  if (row.primary && (row.primary !== 'open' || expands)) out.push(row.primary);
+  return out;
+}
+
+/**
+ * Whether a row needs the "more" button: only when an action has no other way in. An Open that tapping the row
+ * already does counts as reachable, so a row whose every action is a button or the tap itself gets no sheet.
+ */
+export function needsMore(row: Row, expands: boolean): boolean {
+  const buttons = rowButtons(row, expands);
+  return row.actions.some(a => !buttons.includes(a) && !(a === 'open' && !expands));
+}
 
 /** The command that installs a `steno` the agents can run, named in the warning bar. */
 export const INSTALL_COMMAND = 'npm install -g steno-spec';

@@ -84,14 +84,14 @@ approve: no skill and no agent can do it for you.
 | Read a document | Tap it. Its lint problems are listed above the text. Documents open read-only; your agent edits them. |
 | Move a spec on | **Approve** on the document of the current phase. A lint error stops it and is listed. |
 | Tick off a task | **Mark Done** on the task. **Reopen** asks before it changes anything. |
-| Hand work to an agent | **Run Task**, **Run Next Task**, **Write** or **Review**. The skill call lands unsent in the agent you have open, else in an open New Agent screen, else in the most recent agent. With no agent, it is copied to the clipboard. |
+| Hand work to an agent | **Run Task**, **Run Next Task**, **Write**, **Review** or **Revise** (Write, once the document is written). The skill call lands unsent in the agent you have open, else in an open New Agent screen, else in the most recent agent. With no agent, it is copied to the clipboard. |
 | Start something new | **New Spec** on the Specs header, or **Generate Steering** on the Steering header. |
 | Set up a folder | **Set Up steno** on a folder without `.steno/`, and choose which coding agents get the skills. |
 
 Every action is also in the Command Center: press ⌘K (Ctrl+K on Windows and Linux) and type
 `steno`. An item such as **Approve…** opens the panel with a list of what it applies to.
 
-In a narrow window, the **more** button on each row offers the same actions.
+A row whose actions don't all fit as buttons has a **more** button (•••) with the rest.
 
 ## Update and uninstall
 

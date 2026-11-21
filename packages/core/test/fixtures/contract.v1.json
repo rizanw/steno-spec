@@ -172,6 +172,10 @@
         },
         "optional": true
       },
+      "written": {
+        "type": "true",
+        "optional": true
+      },
       "unsupported": {
         "type": "true",
         "optional": true

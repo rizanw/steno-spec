@@ -56,8 +56,10 @@ function rowsOfSpec(tree: SpecTree, spec: TreeSpec, diagnostics: ReadonlyMap<str
   const own: Row = {
     key, parent: SPECS_KEY, depth: 1, kind: 'spec', ...text(specRow(spec)),
     // the phase names the spec's Write and Review actions, such as Write Tasks
-    target: { spec: spec.name, ...(spec.phase ? { phase: spec.phase } : {}) },
-    ...act(specActions(spec).filter(a => a !== 'approve'), ['runNext', 'write']),
+    target: { spec: spec.name, ...(spec.phase ? { phase: spec.phase } : {}), ...(spec.written ? { written: true as const } : {}) },
+    // once the phase's document is written, writing it again is rarely wanted: Review becomes the button and Write
+    // waits in the sheet. A brief has no review, so a written one gets no button.
+    ...act(specActions(spec).filter(a => a !== 'approve'), spec.written ? ['runNext', 'review'] : ['runNext', 'write']),
   };
   // core's row already carries the reason in its hover; an unusable spec has nothing below it to act on
   if (unusable(spec)) return [own];

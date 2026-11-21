@@ -50,7 +50,7 @@ export const CONTRACT = {
       tasks: opt({ ref: 'TaskCounts' }),
       next: opt({ nullable: { object: { id: req('string'), title: req('string') } } }),
       documents: opt({ array: 'string' }),
-      taskItems: opt({ array: { ref: 'OutlineItem' } }),
+      taskItems: opt({ array: { ref: 'OutlineItem' } }), written: opt('true'),
       unsupported: opt('true'), unreadable: opt('true'),
       files: opt({ array: { object: { file: req('string'), reason: req('string') } } }),
     },

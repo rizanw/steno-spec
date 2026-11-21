@@ -5,7 +5,7 @@ import { Icon } from '@getpaseo/plugin/client/ui';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { Action, Row } from '../shared/contracts';
-import { ACTION_ICONS, actionLabel, ROW_ICONS } from './model';
+import { ACTION_ICONS, actionLabel, needsMore, ROW_ICONS, rowButtons } from './model';
 import { NoticeView } from './notice';
 
 /** A labelled button, for dialogs and status bars where a word says more than an icon. */
@@ -104,12 +104,9 @@ export function RowView({ row, theme, compact, expanded, onPress, onAction, onMo
         {errors ? <Text style={{ flexShrink: 0, color: colors.statusDanger, fontSize: 12 }}>{`${errors} error${errors === 1 ? '' : 's'}`}</Text> : null}
         {warnings ? <Text style={{ flexShrink: 0, color: colors.statusWarning, fontSize: 12 }}>{`${warnings} warning${warnings === 1 ? '' : 's'}`}</Text> : null}
       </Pressable>
-      {/* Tapping a row opens its file, so Open gets no button of its own, except on a row that expands when tapped,
-          such as the tasks document: there the button is the only way to read the file. */}
-      {row.actions.includes('open') && expanded !== undefined && row.primary !== 'open' ? <ActionButton action="open" row={row} theme={theme} onPress={() => onAction('open')} /> : null}
-      {row.primary && (row.primary !== 'open' || expanded !== undefined) ? <ActionButton action={row.primary} row={row} theme={theme} onPress={() => onAction(row.primary!)} /> : null}
-      {/* every action stays one tap away in the sheet, which is how a narrow window reaches the ones without a button */}
-      {row.actions.length > 1 ? (
+      {rowButtons(row, expanded !== undefined).map(action => <ActionButton key={action} action={action} row={row} theme={theme} onPress={() => onAction(action)} />)}
+      {/* the sheet holds the actions with no button; a row whose every action has a button needs none */}
+      {needsMore(row, expanded !== undefined) ? (
         <IconButton icon="Ellipsis" label="More actions" theme={theme} onPress={onMore} />
       ) : null}
     </View>

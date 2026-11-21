@@ -15,9 +15,9 @@ test('the tree loads the folder\'s Spec with its documents and tasks', async () 
   assert.deepEqual(spec.children.map(c => c.label), ['Requirements', 'Design', 'Tasks']);
   assert.equal(spec.contextValue, 'spec.execute', 'a Spec in execute offers "Run next task"');
   assert.equal(find(items, 'Add the session store')?.contextValue, 'task.done');
-  // an open task without subtasks of a Spec in execute offers "Run"; its parent only "Mark done"
+  // any open task of a Spec in execute offers "Run", a parent task as well as its subtasks
   assert.equal(find(items, 'Add logout')?.contextValue, 'task.open.run');
-  assert.equal(find(items, 'Sessions')?.contextValue, 'task.open');
+  assert.equal(find(items, 'Sessions')?.contextValue, 'task.open.run');
   // steering has a view of its own, so the Specs view holds only Specs
   assert.ok(items.every(i => i.contextValue?.startsWith('spec')), 'only Specs at the root');
   // no steering file and no AGENTS.md yet: the Steering view is empty and shows its "Generate steering" message

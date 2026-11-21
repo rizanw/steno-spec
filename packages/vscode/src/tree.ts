@@ -89,11 +89,11 @@ export function specContext(spec: TreeSpec): string {
 }
 
 /**
- * A task's context value. Only an open task without subtasks of a usable Spec in `execute` can be run; a parent
- * task is finished through its subtasks, so it gets plain `task.open`.
+ * A task's context value. Any open task of a usable Spec in `execute` can be run, a parent task included: the
+ * agent then works through its subtasks in order.
  */
-export function taskContext(spec: TreeSpec, done: boolean, leaf: boolean): 'task.done' | 'task.open' | 'task.open.run' {
-  const actions = taskActions(spec, done, leaf);
+export function taskContext(spec: TreeSpec, done: boolean): 'task.done' | 'task.open' | 'task.open.run' {
+  const actions = taskActions(spec, done);
   if (actions.includes('reopen')) return 'task.done';
   return actions.includes('run') ? 'task.open.run' : 'task.open';
 }
@@ -145,8 +145,7 @@ export class TaskNode extends vscode.TreeItem {
     this.taskId = row.id;
     this.done = row.done;
     this.optional = row.optional;
-    // the nodes passed in, not the item's own subtasks, decide whether this task can be run on its own
-    this.contextValue = taskContext(spec, row.done, children.length === 0);
+    this.contextValue = taskContext(spec, row.done);
     if (uri) {
       this.resourceUri = uri;
       this.command = open(uri, row.line);

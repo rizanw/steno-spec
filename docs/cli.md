@@ -365,7 +365,7 @@ What the editor gets:
 
 - **Diagnostics:** the findings of `steno lint` and `steno steer lint` for every spec and steering file, open or not, updated as you type and when files change on disk. The one exception is `steering/no-match`, which only the command reports.
 - **Outline:** requirements, criteria, design sections and tasks of the open document.
-- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task without subtasks and a *Done* marker above each checked one.
+- **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task and a *Done* marker above each checked one.
 - **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, approving a stage, and reopening a done spec. All of them read saved files; all but the tree refuse while a document they need has unsaved edits.
 
 The requests, their answers and the protocol version are described in the [JSON contract](json-contract.md).

@@ -8,16 +8,15 @@ if (!named.includes(LENS_RUN) || !named.includes(LENS_DONE)) throw new Error('le
 
 export interface TaskLens { line: number; command: string; title: string; args: { spec: string; task: string; optional: boolean } }
 
-/** A run lens above each unchecked task without subtasks, a done lens above each checked task; `line` is 1-based. */
+/** A run lens above each unchecked task, parents included, a done lens above each checked task; `line` is 1-based. */
 export function taskLenses(spec: string, doc: TasksDoc): TaskLens[] {
-  return doc.tasks.flatMap((t): TaskLens[] => {
-    if (!t.done && t.children.length) return [];
+  return doc.tasks.map((t): TaskLens => {
     const suffix = t.optional ? ' (optional)' : '';
-    return [{
+    return {
       line: t.line,
       command: t.done ? LENS_DONE : LENS_RUN,
       title: (t.done ? 'Done' : `Run ${t.id}`) + suffix,
       args: { spec, task: t.id, optional: t.optional },
-    }];
+    };
   });
 }

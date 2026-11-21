@@ -216,7 +216,7 @@ Exit codes of the CLI: 0 on success, 2 for lint errors and for `lint-blocked`, 1
 
 ### Task lenses
 
-`textDocument/codeLens` on an open `tasks.md` returns one lens above each task without subtasks: a run lens for an unchecked task and a done lens for a checked one. The steno fields sit in the lens's `command`:
+`textDocument/codeLens` on an open `tasks.md` returns one lens above each task, parents included: a run lens for an unchecked task and a done lens for a checked one. The steno fields sit in the lens's `command`:
 
 | Where | Value |
 |---|---|

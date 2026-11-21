@@ -299,4 +299,20 @@ describe('the lens middleware', () => {
     pool.setTree(pool.all()[0], { ...tree('execute'), specs: [{ name: 'auth', unreadable: true, taskItems: [item] }] } as SpecTree);
     expect(runnable('auth', 'T1')).toBe(false);
   });
+
+  it('keeps the run lens of a parent task the tree can run', async () => {
+    const handlers: ClientHandlers[] = [];
+    const create: CreateClient = (_f, _p, _s, h) => {
+      handlers.push(h);
+      return { start: async () => {}, stop: async () => {}, sendRequest: async <T>() => undefined as T, onNotification: () => ({ dispose: () => {} }) };
+    };
+    const pool = new ServerPool(SERVER, create);
+    await pool.start(folder('/work/a'));
+    const [{ runnable }] = handlers;
+    const child: OutlineItem = { kind: 'task', id: 'T1.1', title: 'T1.1', line: 4, endLine: 4, children: [] };
+    const parent: OutlineItem = { kind: 'task', id: 'T1', title: 'T1', line: 3, endLine: 4, children: [child] };
+    pool.setTree(pool.all()[0], { protocolVersion: 1, specs: [{ name: 'auth', phase: 'execute', taskItems: [parent] }], steering: [] } as SpecTree);
+    const out = keepLenses(uri, [lens('steno.task.run', { spec: 'auth', task: 'T1', optional: false })], runnable);
+    expect(out!.map(l => l.command!.arguments)).toEqual([[{ spec: 'auth', task: 'T1', optional: false, uri }]]);
+  });
 });

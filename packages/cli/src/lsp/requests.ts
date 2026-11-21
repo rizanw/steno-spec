@@ -3,7 +3,7 @@ import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LSPErrorCodes, ResponseError, SymbolKind, type CodeLens, type Connection, type DocumentSymbol } from 'vscode-languageserver/node';
 import {
-  applyApprove, applyTaskChange, buildCtx, buildTree, check, diskSource, loadProject, outlineOf, parseTasks, PROTOCOL_VERSION, StenoError,
+  applyApprove, applyReopenSpec, applyTaskChange, buildCtx, buildTree, check, diskSource, loadProject, outlineOf, parseTasks, PROTOCOL_VERSION, StenoError,
   STATE_FILE, toStructuredError, type ChangeResult, type DocKind, type OutlineItem, type Request, type SpecEntry, type SpecTree, type TaskPacket,
 } from '@steno/core';
 import { unsaved, type Session } from './session.js';
@@ -11,7 +11,7 @@ import { taskLenses } from './lens.js';
 
 const METHODS = {
   specTree: 'steno/specTree', taskPacket: 'steno/taskPacket',
-  taskDone: 'steno/taskDone', taskReopen: 'steno/taskReopen', approve: 'steno/approve',
+  taskDone: 'steno/taskDone', taskReopen: 'steno/taskReopen', approve: 'steno/approve', specReopen: 'steno/specReopen',
 } as const;
 
 const KIND_BY_FILE: Record<string, DocKind> = {
@@ -102,14 +102,14 @@ export type Changed = (written: string[]) => void;
  * One state change, run synchronously to the end: load from disk, `check`, apply, then `changed` (reload and notice).
  * The library reads the next message only after this returns, so changes apply one at a time in order of arrival.
  */
-function applyChange(s: Session, req: Extract<Request, { kind: 'done' | 'reopen' | 'approve' }>, changed: Changed): ChangeResult {
+function applyChange(s: Session, req: Extract<Request, { kind: 'done' | 'reopen' | 'approve' | 'reopenSpec' }>, changed: Changed): ChangeResult {
   const { snap, entry } = checked(s, req);
   const dir = (entry as Extract<SpecEntry, { spec: unknown }>).spec.root;
   // no force: the server offers no equivalent of `steno approve --force`
-  const r = req.kind === 'approve'
-    ? applyApprove(snap, entry.name, req.phase!)
+  const r = req.kind === 'approve' ? applyApprove(snap, entry.name, req.phase!)
+    : req.kind === 'reopenSpec' ? applyReopenSpec(snap, entry.name)
     : applyTaskChange(snap, entry.name, req.task!, req.kind === 'done');
-  changed(req.kind === 'approve' ? [join(dir, STATE_FILE)] : [join(dir, 'tasks.md'), join(dir, STATE_FILE)]);
+  changed(req.kind === 'approve' || req.kind === 'reopenSpec' ? [join(dir, STATE_FILE)] : [join(dir, 'tasks.md'), join(dir, STATE_FILE)]);
   return r;
 }
 
@@ -136,6 +136,7 @@ export function registerRequests(conn: Connection, session: () => Session, chang
   conn.onRequest(METHODS.taskDone, (p: Params) => answer(() => applyChange(session(), { kind: 'done', spec: p?.spec, task: p?.task }, changed)));
   conn.onRequest(METHODS.taskReopen, (p: Params) => answer(() => applyChange(session(), { kind: 'reopen', spec: p?.spec, task: p?.task }, changed)));
   conn.onRequest(METHODS.approve, (p: Params) => answer(() => applyChange(session(), { kind: 'approve', spec: p?.spec, phase: p?.phase }, changed)));
+  conn.onRequest(METHODS.specReopen, (p: Params) => answer(() => applyChange(session(), { kind: 'reopenSpec', spec: p?.spec }, changed)));
   conn.onCodeLens(p => {
     const path = toPath(p.textDocument.uri);
     return path ? codeLenses(session(), path) : [];

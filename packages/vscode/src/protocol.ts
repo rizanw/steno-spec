@@ -7,6 +7,7 @@ export const METHODS = {
   taskDone: 'steno/taskDone',
   taskReopen: 'steno/taskReopen',
   approve: 'steno/approve',
+  specReopen: 'steno/specReopen',
 } as const;
 
 /** The server's notice that a folder's spec tree changed. */

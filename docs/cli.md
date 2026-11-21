@@ -321,6 +321,12 @@ steno ctx T3 --budget 3000
 
 Ticks a task off in `tasks.md` and prints the next one. When every sub-task of a task is done, the parent is ticked off automatically. Use `--undo` to reopen a task.
 
+### `steno reopen [spec]`
+
+Moves a done spec back to execute, so you can add tasks to it and run them. Its approvals and finished tasks stay, and ticking the last task finishes it again. Only a done spec can be reopened.
+
+You rarely need it: a done spec that already has new, unticked tasks in `tasks.md` counts as in execute without it. Use it to reopen a spec before you write the new tasks.
+
 ---
 
 ## Getting a second opinion
@@ -360,7 +366,7 @@ What the editor gets:
 - **Diagnostics:** the findings of `steno lint` and `steno steer lint` for every spec and steering file, open or not, updated as you type and when files change on disk. The one exception is `steering/no-match`, which only the command reports.
 - **Outline:** requirements, criteria, design sections and tasks of the open document.
 - **Task lenses:** in an open `tasks.md`, a *Run* marker above each unchecked task without subtasks and a *Done* marker above each checked one.
-- **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, and approving a stage. All of them read saved files; the last four refuse while a document they need has unsaved edits.
+- **steno requests:** the spec tree, a task's context packet, marking a task done or reopening it, approving a stage, and reopening a done spec. All of them read saved files; all but the tree refuse while a document they need has unsaved edits.
 
 The requests, their answers and the protocol version are described in the [JSON contract](json-contract.md).
 

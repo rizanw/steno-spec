@@ -20,7 +20,7 @@ This document describes every JSON shape that the steno language server (`steno 
 | The language server handshake (`initialize`) | [Handshake](#handshake) |
 | `steno/specTree` request, `steno list --json` | [SpecTree](#spectree) |
 | `steno/taskPacket` request, `steno ctx <task> --json` | [TaskPacket](#taskpacket) |
-| `steno/taskDone`, `steno/taskReopen` and `steno/approve` requests; `steno done`, `steno approve`, `steno new`, `steno quick` and `steno import` with `--json` | [ChangeResult](#changeresult) |
+| `steno/taskDone`, `steno/taskReopen`, `steno/approve` and `steno/specReopen` requests; `steno done`, `steno approve`, `steno reopen`, `steno new`, `steno quick` and `steno import` with `--json` | [ChangeResult](#changeresult) |
 | `steno lint --json`, `steno steer lint --json` | [DiagnosticList](#diagnosticlist) |
 | `steno show requirements\|design\|tasks --json` | [Outline](#outline) |
 | Any refused request, and any failed command run with `--json` | [StructuredError](#structurederror) |
@@ -39,6 +39,7 @@ The server also sends the `steno/treeChanged` notification when a spec or steeri
 | `steno/taskDone` | `{ spec, task }` | ChangeResult |
 | `steno/taskReopen` | `{ spec, task }` | ChangeResult |
 | `steno/approve` | `{ spec, phase }`; `phase` is `brief`, `requirements`, `design` or `tasks` | ChangeResult |
+| `steno/specReopen` | `{ spec }`; the spec must be in phase `done`, and moves back to `execute` | ChangeResult |
 
 A refused request is answered with a protocol error whose code is `RequestFailed` (-32803) and whose `data` is the [StructuredError](#structurederror).
 

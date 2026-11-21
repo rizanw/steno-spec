@@ -60,15 +60,25 @@ function parseCached<T>(path: string, text: string, parse: (t: string) => T): T 
   return doc;
 }
 
+/**
+ * The phase a spec is really in. Only ticking or unticking a task moves the stored phase between execute and done, so
+ * a finished spec that gets new tasks written into tasks.md would stay done with work open: every reader would say
+ * "all tasks done" and offer no way to run them. Such a spec reads as execute; the next change saves it so.
+ */
+function livePhase(state: SpecState, tasks: TasksDoc | undefined): SpecState {
+  return state.phase === 'done' && tasks && !allTasksDone(tasks) ? { ...state, phase: 'execute' } : state;
+}
+
 /** A spec from its state and the text of each document present (by file name). */
 export function buildSpec(dir: string, state: SpecState, files: Record<string, string>): Spec {
   const reqFile = requirementsFile(state);
   const reqRaw = files[reqFile];
+  const tasks = files['tasks.md'] ? parseCached<TasksDoc>(join(dir, 'tasks.md'), files['tasks.md'], parseTasks) : undefined;
   return {
-    root: dir, state, files,
+    root: dir, state: livePhase(state, tasks), files,
     requirements: reqRaw ? parseCached<RequirementsDoc>(join(dir, reqFile), reqRaw, parseRequirements) : undefined,
     design: files['design.md'] ? parseCached<DesignDoc>(join(dir, 'design.md'), files['design.md'], parseDesign) : undefined,
-    tasks: files['tasks.md'] ? parseCached<TasksDoc>(join(dir, 'tasks.md'), files['tasks.md'], parseTasks) : undefined,
+    tasks,
     brief: files['brief.md'],
   };
 }

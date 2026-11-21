@@ -12,7 +12,8 @@ import { findTask } from './parse/tasks.js';
 export type Request = { kind: 'read' | 'lint'; spec?: string; task?: string }
   | { kind: 'packet'; spec?: string; task?: string; budget?: unknown }
   | { kind: 'done' | 'reopen'; spec?: string; task?: string }
-  | { kind: 'approve'; spec?: string; phase?: string };
+  | { kind: 'approve'; spec?: string; phase?: string }
+  | { kind: 'reopenSpec'; spec?: string };
 
 export interface CheckOptions { cli: boolean; unsaved?: (paths: string[]) => string | undefined }
 
@@ -99,11 +100,18 @@ export function check(req: Request, snap: ProjectSnapshot, opts: CheckOptions): 
     if (reason) throw new StenoError('invalid-request', reason, { field: 'phase', spec: entry.name, reason });
   }
 
+  // 6. invalid-request: only a finished spec can be reopened
+  if (req.kind === 'reopenSpec' && isUsable(entry) && entry.spec.state.phase !== 'done') {
+    const reason = `${entry.name} is in phase ${entry.spec.state.phase}; only a done spec can be reopened`;
+    throw new StenoError('invalid-request', reason, { field: 'spec', spec: entry.name, reason });
+  }
+
   // 7. unsaved-edits: the files a change writes and, for approve and a packet, every spec document
   if (opts.unsaved && isUsable(entry) && req.kind !== 'read' && req.kind !== 'lint') {
     const dir = entry.spec.root;
     const paths = req.kind === 'done' || req.kind === 'reopen'
       ? [join(dir, 'tasks.md'), join(dir, STATE_FILE)]
+      : req.kind === 'reopenSpec' ? [join(dir, STATE_FILE)]
       : [...ARTIFACTS.map(f => join(dir, f)), ...(req.kind === 'approve' ? [join(dir, STATE_FILE)] : [])];
     const hit = opts.unsaved(paths);
     if (hit) throw new StenoError('unsaved-edits', `${hit} has unsaved edits; save it first`, { spec: entry.name, file: hit });

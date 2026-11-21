@@ -1,4 +1,4 @@
-// The three state changes: approve a Spec's phase, mark a task done, reopen a done task.
+// The state changes: approve a Spec's phase, mark a task done, reopen a done task, reopen a finished Spec.
 // Each goes to the folder's own server; the server's `steno/treeChanged` notice then redraws the tree.
 import * as vscode from 'vscode';
 import { METHODS, type ChangeResult } from './protocol.js';
@@ -10,6 +10,7 @@ import { SpecNode, TaskNode } from './tree.js';
 export const APPROVE_COMMAND = 'steno.spec.approve';
 export const MARK_DONE_COMMAND = 'steno.task.markDone';
 export const REOPEN_COMMAND = 'steno.task.reopen';
+export const REOPEN_SPEC_COMMAND = 'steno.spec.reopen';
 /** The done lens's command; the server names it and the lens middleware adds the document's URI. */
 export const DONE_LENS_COMMAND = 'steno.task.done';
 
@@ -66,11 +67,23 @@ async function reopen(pool: ServerPool, server: FolderServer, spec: string, task
   await change(pool, server, METHODS.taskReopen, { spec, task });
 }
 
+/** Reopen a finished Spec so tasks can be added to it, after the user confirms it in a modal. */
+async function reopenSpec(pool: ServerPool, node: SpecNode): Promise<void> {
+  const { spec } = node;
+  if (spec.phase !== 'done') return;
+  const server = pool.get(node.folder);
+  if (!server) return;
+  const choice = await vscode.window.showWarningMessage(`Reopen ${spec.name}?`, { modal: true, detail: 'steno moves the spec back to execution so you can add tasks; its approvals and finished tasks stay.' }, 'Reopen');
+  if (choice !== 'Reopen') return;
+  const result = await change(pool, server, METHODS.specReopen, { spec: spec.name });
+  if (result) void vscode.window.showInformationMessage(`${spec.name} is open again. Add tasks to tasks.md, then run them.`);
+}
+
 /** What the done lens passes once the middleware has added the document's URI. */
 interface DoneLensArgs { spec?: unknown; task?: unknown; uri?: unknown }
 
 /**
- * The four commands. None is in the command palette, and the approve handler acts only on a `SpecNode`,
+ * The row commands. None is in the command palette, and the approve handler acts only on a `SpecNode`,
  * which nothing outside this bundle can build: an approval starts only from the tree's "Approve".
  */
 export function registerActions(pool: ServerPool): vscode.Disposable[] {
@@ -85,6 +98,9 @@ export function registerActions(pool: ServerPool): vscode.Disposable[] {
       if (!(node instanceof TaskNode) || !node.done || !node.taskId) return;
       const server = taskServer(pool, node);
       if (server) await reopen(pool, server, node.spec.name, node.taskId);
+    }),
+    vscode.commands.registerCommand(REOPEN_SPEC_COMMAND, async (node: unknown) => {
+      if (node instanceof SpecNode) await reopenSpec(pool, node);
     }),
     vscode.commands.registerCommand(DONE_LENS_COMMAND, async (args?: DoneLensArgs) => {
       if (!args || typeof args.spec !== 'string' || typeof args.task !== 'string' || !(args.uri instanceof vscode.Uri)) return;

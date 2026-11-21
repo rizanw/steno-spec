@@ -19,8 +19,9 @@ function project(files: Record<string, string>, opts: { config?: string; steno?:
   }
   return root;
 }
+// a done spec has every task ticked; one with an open task would read as in execute
 const sp = (name: string, phase = 'execute', mode = 'gated') => ({
-  [`.steno/specs/${name}/spec.yaml`]: STATE(name, phase, mode), [`.steno/specs/${name}/tasks.md`]: TASKS,
+  [`.steno/specs/${name}/spec.yaml`]: STATE(name, phase, mode), [`.steno/specs/${name}/tasks.md`]: phase === 'done' ? TASKS.replace('[ ]', '[x]') : TASKS,
 });
 const BROKEN = { '.steno/specs/bad/spec.yaml': 'formatVersion: 9\nname: bad\n' };
 
@@ -88,6 +89,14 @@ describe('check: one case per step', () => {
     expect(refusal(gated, { kind: 'approve', spec: 'g', phase: 'design' })).toBeUndefined();
     const quick = project(sp('q', 'execute', 'quick'));
     expect(refusal(quick, { kind: 'approve', spec: 'q', phase: 'tasks' })).toMatchObject({ code: 'invalid-request', reason: expect.stringMatching(/quick spec/) });
+  });
+
+  it('step 6: only a finished spec can be reopened', () => {
+    const root = project({
+      ...sp('d', 'done'), ...sp('e', 'execute'),
+    });
+    expect(refusal(root, { kind: 'reopenSpec', spec: 'd' })).toBeUndefined();
+    expect(refusal(root, { kind: 'reopenSpec', spec: 'e' })).toMatchObject({ code: 'invalid-request', field: 'spec', reason: expect.stringMatching(/only a done spec/) });
   });
 
   it('step 7: unsaved edits in a file the change writes or, for approve and packet, any spec document', () => {

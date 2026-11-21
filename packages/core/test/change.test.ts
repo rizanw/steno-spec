@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  applyTaskChange, applyApprove, defaultWriter, loadProject, parseTasks, parseState, setTaskDone, StenoError, type Writer,
+  applyTaskChange, applyApprove, applyReopenSpec, defaultWriter, loadProject, parseTasks, parseState, setTaskDone, StenoError, type Writer,
 } from '../src/index.js';
 
 const STATE = (name: string, phase = 'execute', approvals = 'approvals: {}\n') =>
@@ -78,6 +78,43 @@ describe('applyTaskChange', () => {
     applyTaskChange(loadProject(root), 'a', 'T1', true);
     const st = parseState(bytes(root, 'spec.yaml').toString());
     expect(st).toMatchObject({ state: { name: 'a', phase: 'execute', created: today, approvals: { requirements: today, design: today, tasks: today } } });
+  });
+});
+
+describe('a finished spec that gets new tasks', () => {
+  const added = '# Tasks\n\n- [x] 1. Old\n- [ ] 2. New\n- [ ] 3. Newer\n';
+
+  it('reads as in execute while a required task is open, and as done once only optional ones are', () => {
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'done'), '.steno/specs/a/tasks.md': added });
+    const entry = loadProject(root).specs[0] as { spec: { state: { phase: string } } };
+    expect(entry.spec.state.phase).toBe('execute');
+    const optional = project({ '.steno/specs/a/spec.yaml': STATE('a', 'done'), '.steno/specs/a/tasks.md': '- [x] 1. Old\n- [ ]* 2. Maybe\n' });
+    expect((loadProject(optional).specs[0] as { spec: { state: { phase: string } } }).spec.state.phase).toBe('done');
+  });
+
+  it('saves execute with the first task change, and done again once the last task is ticked', () => {
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'done'), '.steno/specs/a/tasks.md': added });
+    expect(applyTaskChange(loadProject(root), 'a', 'T2', true)).toMatchObject({ phase: 'execute' });
+    expect(bytes(root, 'spec.yaml').toString()).toMatch(/phase: execute/);
+    expect(applyTaskChange(loadProject(root), 'a', 'T3', true)).toMatchObject({ phase: 'done' });
+    expect(bytes(root, 'spec.yaml').toString()).toMatch(/phase: done/);
+  });
+});
+
+describe('applyReopenSpec', () => {
+  it('moves a finished spec back to execute and keeps its approvals', () => {
+    const approvals = 'approvals:\n  requirements: 2026-01-01\n  design: 2026-01-02\n  tasks: 2026-01-03\n';
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'done', approvals), '.steno/specs/a/tasks.md': '- [x] 1. A\n' });
+    expect(applyReopenSpec(loadProject(root), 'a')).toEqual({ protocolVersion: 1, spec: 'a', phase: 'execute' });
+    const read = parseState(bytes(root, 'spec.yaml').toString());
+    expect(read).toMatchObject({ state: { phase: 'execute', approvals: { requirements: '2026-01-01', design: '2026-01-02', tasks: '2026-01-03' } } });
+  });
+
+  it('leaves spec.yaml unchanged when its write fails', () => {
+    const root = project({ '.steno/specs/a/spec.yaml': STATE('a', 'done'), '.steno/specs/a/tasks.md': '- [x] 1. A\n' });
+    const before = bytes(root, 'spec.yaml');
+    expect(thrown(() => applyReopenSpec(loadProject(root), 'a', { write: failOn(1) }))).toMatchObject({ code: 'failed' });
+    expect(bytes(root, 'spec.yaml')).toEqual(before);
   });
 });
 

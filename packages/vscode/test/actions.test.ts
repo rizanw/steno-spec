@@ -6,7 +6,7 @@ import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import { SpecNode, TaskNode } from '../src/tree.js';
 import {
-  APPROVE_COMMAND, DONE_LENS_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, registerActions,
+  APPROVE_COMMAND, DONE_LENS_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, REOPEN_SPEC_COMMAND, registerActions,
 } from '../src/actions.js';
 
 beforeEach(() => resetRecorded());
@@ -49,6 +49,21 @@ async function pooled(answer: (method: string, params: unknown, call: number) =>
   sent.length = 0;
   return { pool, sent };
 }
+
+describe('reopen a spec', () => {
+  it('asks in a modal, sends steno/specReopen once confirmed, and nothing for a spec that is not done', async () => {
+    const { sent } = await pooled(() => ({ protocolVersion: 1, spec: 'auth', phase: 'execute' }));
+    const done = new SpecNode(vsUri(ROOT), tree(), spec({ phase: 'done' }));
+    await commands.executeCommand(REOPEN_SPEC_COMMAND, done);
+    expect(recorded.modal).toEqual(['Reopen auth?']);
+    expect(sent).toEqual([]);
+    answers.message = 'Reopen';
+    await commands.executeCommand(REOPEN_SPEC_COMMAND, done);
+    expect(sent).toEqual([{ method: 'steno/specReopen', params: { spec: 'auth' } }]);
+    await commands.executeCommand(REOPEN_SPEC_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec({ phase: 'execute' })));
+    expect(sent).toHaveLength(1);
+  });
+});
 
 describe('approve', () => {
   it('sends steno/approve with the current phase and shows the phase that follows', async () => {

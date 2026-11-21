@@ -42,7 +42,7 @@ Every gated stage ends the same way. The first two steps loop back to the same d
 
 After the last task, a drift review compares the finished code with the spec.
 
-A spec's phase lives in `spec.yaml`. Through the gated stages only an approval moves it forward, and only when `steno lint` has no errors for that file (unless `steno approve --force`). Finishing the last task moves the spec from execute to done, and reopening a task moves it back.
+A spec's phase lives in `spec.yaml`. Through the gated stages only an approval moves it forward, and only when `steno lint` has no errors for that file (unless `steno approve --force`). Finishing the last task moves the spec from execute to done, and reopening a task moves it back. A done spec that gets new, unticked tasks in `tasks.md` counts as in execute again, and `steno reopen` moves a done spec back before you write them.
 Approving writes nothing; the next file's skeleton is written by `steno scaffold` when its phase skill starts, so a file exists only once the phase has begun, and the agent still never starts from a blank page.
 
 Two modes:

@@ -99,6 +99,7 @@ STEERING
 - **Steering** shows each steering file with when it reaches the agent: always on, matching files, or on request.
 - **Lint findings** appear on their line in the editor and in the Problems panel, for every spec and steering file, as you or your agent edit.
 - **Approve This Phase**, **Mark Task Done** and **Reopen Task** sit on the rows of the tree. Approving is refused while lint reports errors, and the findings are listed.
+- **Reopen Spec** is in a finished spec's right-click menu, to add tasks to it. A finished spec that already has new, unticked tasks is back in execution without it.
 
 ## Hand work to your agent
 

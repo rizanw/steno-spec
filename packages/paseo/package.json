@@ -1,8 +1,26 @@
 {
   "name": "steno-paseo",
   "version": "0.1.2",
-  "private": true,
+  "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
+  "keywords": [
+    "paseo",
+    "paseo-plugin",
+    "spec-driven-development",
+    "specs",
+    "ears",
+    "requirements",
+    "coding-agent",
+    "agent-skills"
+  ],
   "license": "MIT",
+  "author": "rizanw",
+  "homepage": "https://github.com/rizanw/steno-spec/tree/main/packages/paseo#readme",
+  "bugs": "https://github.com/rizanw/steno-spec/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizanw/steno-spec.git",
+    "directory": "packages/paseo"
+  },
   "type": "module",
   "files": [
     "paseo-plugin.json",
@@ -12,7 +30,8 @@
     "client/",
     "server/",
     "shared/",
-    "media/"
+    "media/",
+    "screenshots/"
   ],
   "scripts": {
     "build": "node scripts/build.mjs && pnpm run typecheck",

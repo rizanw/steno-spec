@@ -1,8 +1,15 @@
 {
   "id": "steno",
   "name": "steno",
+  "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
   "icon": "media/icon.png",
-  "media": [],
+  "media": [
+    "screenshots/1-panel-dark.png",
+    "screenshots/2-hand-off-light.png",
+    "screenshots/3-document-dark.png",
+    "screenshots/4-command-center-dark.png",
+    "screenshots/5-panel-light.png"
+  ],
   "requirements": {
     "paseo": ">=0.16.0"
   }

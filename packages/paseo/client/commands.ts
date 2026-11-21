@@ -13,6 +13,7 @@ export const PICKED_ITEMS: readonly { action: Action; title: string; icon: strin
   { action: 'approve', title: 'Approve…', icon: 'Check' },
   { action: 'done', title: 'Mark Task Done…', icon: 'CircleCheck' },
   { action: 'reopen', title: 'Reopen Task…', icon: 'Undo2' },
+  { action: 'reopenSpec', title: 'Reopen Spec…', icon: 'RotateCcw' },
   { action: 'run', title: 'Run Task…', icon: 'Play' },
   { action: 'runNext', title: 'Run Next Task…', icon: 'FastForward' },
   { action: 'write', title: 'Write This Phase…', icon: 'Pencil' },
@@ -25,7 +26,7 @@ export const rowsOffering = (rows: readonly Row[], action: Action): Row[] => row
 
 /** What the picker asks, worded for the person choosing rather than after the panel's rows. */
 const PICKER_TITLES: Partial<Record<Action, string>> = {
-  approve: 'Approve a phase', done: 'Mark a task done', reopen: 'Reopen a task', run: 'Run a task',
+  approve: 'Approve a phase', done: 'Mark a task done', reopen: 'Reopen a task', reopenSpec: 'Reopen a finished spec', run: 'Run a task',
   runNext: 'Run the next task', write: 'Write a phase', review: 'Review a phase', open: 'Open a document',
 };
 
@@ -34,6 +35,7 @@ const NOTHING_TO_PICK: Partial<Record<Action, string>> = {
   approve: 'Nothing to approve: no spec has a phase waiting for approval.',
   done: 'Nothing to mark done: no spec in execution has an open task.',
   reopen: 'Nothing to reopen: no task is done yet.',
+  reopenSpec: 'Nothing to reopen: no spec is finished.',
   run: 'Nothing to run: no spec in execution has an open task.',
   runNext: 'Nothing to run: no spec in execution has a task left.',
   write: 'Nothing to write: no spec has a phase left to write.',

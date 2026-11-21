@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ChangeOutcome, Row } from '../shared/contracts';
-import { changeFor, performChange, refusalProblems, successMessage, type ChangeRequest } from '../client/changes';
+import { changeFor, performChange, refusalProblems, reopenWording, successMessage, type ChangeRequest } from '../client/changes';
 import { actionLabel, needsMore, rowButtons, toggled, visibleRows } from '../client/model';
 
 const row = (key: string, parent?: string, extra: Partial<Row> = {}): Row =>
@@ -79,6 +79,17 @@ describe('a change from the panel', () => {
     await performChange({ kind: 'done', spec: 'a', task: 'T1' }, confirm, send);
     expect(confirm).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(2);
+  });
+
+  it('asks before reopening a finished spec, and says how to go on once it is open', async () => {
+    const spec = row('spec:a', undefined, { kind: 'spec', target: { spec: 'a', phase: 'done' } });
+    const request = changeFor(spec, 'reopenSpec')!;
+    expect(request).toEqual({ kind: 'reopenSpec', spec: 'a' });
+    const send = vi.fn(async () => ok);
+    expect(await performChange(request, async () => false, send)).toBeUndefined();
+    expect(send).not.toHaveBeenCalled();
+    expect(reopenWording(request).title).toBe('Reopen a?');
+    expect(successMessage(request, { protocolVersion: 1, spec: 'a', phase: 'execute' })).toBe('a is open again. Add tasks to tasks.md, then run them.');
   });
 
   it('builds the request from the row it was started on', () => {

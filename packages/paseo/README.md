@@ -84,6 +84,7 @@ approve: no skill and no agent can do it for you.
 | Read a document | Tap it. Its lint problems are listed above the text. Documents open read-only; your agent edits them. |
 | Move a spec on | **Approve** on the document of the current phase. A lint error stops it and is listed. |
 | Tick off a task | **Mark Done** on the task. **Reopen** asks before it changes anything. |
+| Add work to a finished spec | **Reopen Spec** in the spec's "more" menu, then add tasks to `tasks.md`. A finished spec that already has new, unticked tasks is back in execution without it. |
 | Hand work to an agent | **Run Task**, **Run Next Task**, **Write**, **Review** or **Revise** (Write, once the document is written). The skill call lands unsent in the agent you have open, else in an open New Agent screen, else in the most recent agent. With no agent, it is copied to the clipboard. |
 | Start something new | **New Spec** on the Specs header, or **Generate Steering** on the Steering header. |
 | Set up a folder | **Set Up steno** on a folder without `.steno/`, and choose which coding agents get the skills. |

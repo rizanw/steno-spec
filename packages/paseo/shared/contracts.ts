@@ -14,7 +14,7 @@ export const RowIcon = z.enum(['spec', 'execute', 'done', 'warning', 'document',
 export type RowIcon = z.infer<typeof RowIcon>;
 
 /** Core's row actions, then the plugin's own: generate steering, open a file, create a spec, set the folder up. */
-export const HOST_ACTIONS = ['approve', 'done', 'reopen', 'run', 'runNext', 'write', 'review'] as const;
+export const HOST_ACTIONS = ['approve', 'done', 'reopen', 'run', 'runNext', 'write', 'review', 'reopenSpec'] as const;
 export const Action = z.enum([...HOST_ACTIONS, 'steer', 'open', 'newSpec', 'setUp']);
 export type Action = z.infer<typeof Action>;
 
@@ -96,7 +96,7 @@ export const readFile = defineRpc({ name: 'steno.read', input: z.object({ worksp
 
 export const change = defineRpc({
   name: 'steno.change',
-  input: z.object({ workspaceId, kind: z.enum(['approve', 'done', 'reopen']), spec: z.string(), phase: Phase.optional(), task: z.string().optional() }),
+  input: z.object({ workspaceId, kind: z.enum(['approve', 'done', 'reopen', 'reopenSpec']), spec: z.string(), phase: Phase.optional(), task: z.string().optional() }),
   output: ChangeOutcome,
 });
 

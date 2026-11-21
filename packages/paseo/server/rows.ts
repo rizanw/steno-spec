@@ -58,7 +58,9 @@ function rowsOfSpec(tree: SpecTree, spec: TreeSpec, diagnostics: ReadonlyMap<str
     // the phase names the spec's Write and Review actions, such as Write Tasks
     target: { spec: spec.name, ...(spec.phase ? { phase: spec.phase } : {}), ...(spec.written ? { written: true as const } : {}) },
     // once the phase's document is written, writing it again is rarely wanted: Review becomes the button and Write
-    // waits in the sheet. A brief has no review, so a written one gets no button.
+    // waits in the sheet. A brief has no review, so a written one gets no button. A finished spec gets no button
+    // either: Reopen and the drift review wait in its sheet, so a list of finished specs stays quiet. A spec with open
+    // tasks is never shown as finished; core reads it as in execute, where Run Next is the button.
     ...act(specActions(spec).filter(a => a !== 'approve'), spec.written ? ['runNext', 'review'] : ['runNext', 'write']),
   };
   // core's row already carries the reason in its hover; an unusable spec has nothing below it to act on

@@ -173,13 +173,13 @@ describe('the row actions', () => {
     expect(rows.get('doc:search/requirements.md')).toMatchObject({ actions: ['open'], primary: 'open' });
   });
 
-  it('on a spec: Run Next Task in execute, Write This Phase while writing, nothing once done or unusable', () => {
+  it('on a spec: Run Next Task in execute, Write This Phase while writing, Reopen only in the sheet once done, nothing when unusable', () => {
     const brief: TreeSpec = { name: 'idea', mode: 'gated', phase: 'brief', documents: ['brief.md'] };
     const rows = byKey(specRows(tree([executing, designing, brief, finished, broken]), none));
     expect(rows.get('spec:login')).toMatchObject({ actions: ['runNext'], primary: 'runNext' });
     expect(rows.get('spec:search')).toMatchObject({ actions: ['write', 'review'], primary: 'write' });
     expect(rows.get('spec:idea')).toMatchObject({ actions: ['write'], primary: 'write' });
-    expect(rows.get('spec:export')!.actions).toEqual(['review']);
+    expect(rows.get('spec:export')!.actions).toEqual(['review', 'reopenSpec']);
     expect(rows.get('spec:export')!.primary).toBeUndefined();
     expect(rows.get('spec:legacy')!.actions).toEqual([]);
     for (const row of rows.values()) if (row.kind === 'spec') expect(row.actions).not.toContain('approve');

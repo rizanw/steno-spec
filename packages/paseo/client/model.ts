@@ -5,7 +5,7 @@ import type { Action, PanelSnapshot, Phase, Row, RowIcon } from '../shared/contr
 export const ACTION_LABELS: Record<Action, string> = {
   approve: 'Approve', done: 'Mark Done', reopen: 'Reopen', run: 'Run Task', runNext: 'Run Next Task',
   write: 'Write This Phase', review: 'Review This Phase', steer: 'Generate Steering', open: 'Open',
-  newSpec: 'New Spec', setUp: 'Set Up',
+  newSpec: 'New Spec', setUp: 'Set Up', reopenSpec: 'Reopen Spec',
 };
 
 /** Each phase as the Write and Review actions name it. */
@@ -28,7 +28,7 @@ export function actionLabel(action: Action, row: Row | undefined): string {
 /** Lucide names for each action, matching the codicons of the VS Code view's inline buttons. */
 export const ACTION_ICONS: Record<Action, string> = {
   approve: 'Check', done: 'CircleCheck', reopen: 'Undo2', run: 'Play', runNext: 'FastForward', write: 'Pencil',
-  review: 'Eye', steer: 'Sparkles', open: 'FileText', newSpec: 'Plus', setUp: 'Wrench',
+  review: 'Eye', steer: 'Sparkles', open: 'FileText', newSpec: 'Plus', setUp: 'Wrench', reopenSpec: 'RotateCcw',
 };
 
 /** Lucide names for core's row icons, chosen to read like the VS Code tree's codicons. */

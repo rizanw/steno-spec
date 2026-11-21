@@ -9,7 +9,7 @@ Spec-driven development for any coding agent, cheap on tokens. Work moves throug
 ```bash
 pnpm install                          # Node ≥ 22, pnpm version pinned in package.json
 pnpm build                            # MUST run before pnpm test (tests start the built CLI)
-pnpm test                             # MUST pass before committing (vitest: core, cli, vscode)
+pnpm test                             # MUST pass before committing (vitest: core, cli, vscode, paseo)
 pnpm lint:skills                      # MUST pass: each SKILL.md ≤ 80 lines and ≤ 1200 tokens
 pnpm contract:record                  # after changing a JSON shape
 pnpm --filter steno-vscode test:e2e   # extension tests inside a real VS Code
@@ -26,11 +26,12 @@ packages/cli/src/lsp/                  → The `steno lsp` language server
 packages/cli/test/cli.test.ts          → Flags, exit codes, --json output
 packages/skills/skills/<name>/SKILL.md → The skills (edit here, never an installed copy)
 packages/vscode/src/                   → The VS Code extension
+packages/paseo/{client,server,shared}/ → The Paseo plugin (client panel, daemon side, shared contracts)
 docs/                                  → User docs (update with any visible change)
 examples/link-shortener/               → A finished spec to try a change on
 ```
 
-Generated, never edit: `packages/cli/{bin,skills}/`, `packages/cli/{README,LICENSE,JSON-CONTRACT}.md`, `packages/vscode/{dist,skills,media}/`, `packages/vscode/LICENSE`.
+Generated, never edit: `packages/cli/{bin,skills}/`, `packages/cli/{README,LICENSE,JSON-CONTRACT}.md`, `packages/vscode/{dist,skills,media}/`, `packages/vscode/LICENSE`, `packages/paseo/server/vendor/`, `packages/paseo/client/vendor/`, `packages/paseo/media/`.
 
 ## Code patterns
 
@@ -90,7 +91,7 @@ The spec you work from is scaffolding. Its IDs and term spellings belong in `.st
 ## Workflow
 
 1. Research: find the core module that owns the behaviour and read its test.
-2. Change: logic in `packages/core`, wiring in `packages/cli` or `packages/vscode`.
+2. Change: logic in `packages/core`, wiring in `packages/cli`, `packages/vscode` or `packages/paseo`.
 3. Test: add cases beside the existing ones.
 4. Document: `docs/` and the command's `--help`.
 5. Verify: `pnpm build && pnpm test && pnpm lint:skills`.
@@ -99,14 +100,14 @@ The spec you work from is scaffolding. Its IDs and term spellings belong in `.st
 ## Commit titles
 
 - Conventional Commits: `feat(vscode): add steering view`, `fix: accept IF without THEN`, `docs: explain quick mode`.
-- Types: `feat`, `fix`, `docs`, `test`, `ci`, `build`, `chore`. The scope is optional and names the feature or area, such as `vscode`, `lsp-server`, `review`, `deps`.
+- Types: `feat`, `fix`, `docs`, `test`, `ci`, `build`, `chore`. The scope is optional and names the feature or area, such as `vscode`, `paseo`, `lsp-server`, `review`, `deps`.
 - One topic per pull request. Anything larger than a small fix starts as an issue.
 - Do not bump versions, tag or publish. The maintainer cuts releases.
 
 ## Critical rules
 
 1. Nothing outside `packages/core` parses spec Markdown.
-2. No model call, tokenizer library or network request in the CLI, the server or the extension.
+2. No model call, tokenizer library or network request in the CLI, the server, the extension or the Paseo plugin.
 3. Within one protocol version the JSON contract only grows: no field removed, renamed or retyped, no new error code. A breaking change raises `PROTOCOL_VERSION`.
 4. The CLI and the language server return the same tree, diagnostics and packet for the same project.
 5. A skill never names one harness's tools and stays within the size limit.

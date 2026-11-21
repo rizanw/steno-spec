@@ -1,0 +1,9 @@
+{
+  "id": "steno",
+  "name": "steno",
+  "icon": "media/icon.png",
+  "media": [],
+  "requirements": {
+    "paseo": ">=0.16.0"
+  }
+}

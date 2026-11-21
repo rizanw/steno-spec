@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { buildTree, taskCounts, loadProject, parseTasks, outlineOf, PROTOCOL_VERSION } from '../src/index.js';
+import { tasksTemplate } from '../src/templates.js';
 
 const STATE = 'name: a\ntitle: Alpha\nkind: feature\nmode: gated\nphase: execute\ncreated: 2026-01-01\napprovals:\n  requirements: 2026-01-02\n  design: 2026-01-03\n';
 const TASKS = '# T\n\n- [ ] 1. Group\n  - [x] 1.1 One\n  - [ ] 1.2 Two\n- [x]* 2. Opt\n- [ ]* 3. Opt2\n';
@@ -74,6 +75,22 @@ describe('buildTree', () => {
     });
     expect(buildTree(loadProject(root)).specs.map(s => s.name))
       .toEqual(['new-a', 'new-b', 'mid', 'old', 'broken', 'derived', 'no-date']);
+  });
+
+  it('says the current phase\'s document is written once it has items and no placeholder or empty section left', () => {
+    const at = (phase: string) => STATE.replace('phase: execute', `phase: ${phase}`);
+    const root = project({
+      '.steno/specs/fresh/spec.yaml': at('tasks').replace('name: a', 'name: fresh'), '.steno/specs/fresh/tasks.md': tasksTemplate('Fresh'),
+      '.steno/specs/filled/spec.yaml': at('tasks').replace('name: a', 'name: filled'), '.steno/specs/filled/tasks.md': TASKS,
+      '.steno/specs/half/spec.yaml': at('brief').replace('name: a', 'name: half'), '.steno/specs/half/brief.md': '# B\n\n## Problem\nSlow.\n\n## Decision\n',
+      '.steno/specs/bare/spec.yaml': at('design').replace('name: a', 'name: bare'), '.steno/specs/bare/design.md': '# D\n',
+      '.steno/specs/none/spec.yaml': at('design').replace('name: a', 'name: none'),
+      // the tasks are written, but execute writes no document, so there is nothing to call written
+      '.steno/specs/running/spec.yaml': at('execute').replace('name: a', 'name: running'), '.steno/specs/running/tasks.md': TASKS,
+    });
+    const specs = new Map(buildTree(loadProject(root)).specs.map(s => [s.name, s]));
+    expect(specs.get('filled')!.written).toBe(true);
+    for (const name of ['fresh', 'half', 'bare', 'none', 'running']) expect(specs.get(name), name).not.toHaveProperty('written');
   });
 
   it('marks a snapshot that is not set up', () => {

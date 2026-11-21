@@ -19,6 +19,12 @@ If you use VS Code, the [extension](../packages/vscode/README.md) adds a sidebar
 code --install-extension rzndwb.steno-vscode
 ```
 
+If you use [Paseo](https://paseo.sh), the [plugin](../packages/paseo/README.md) adds a steno panel to each workspace with the same views and approvals. It also carries its own copy of steno, but the agents it hands work to run the CLI above, so install both where the Paseo daemon runs:
+
+```bash
+paseo plugin install npm:steno-paseo
+```
+
 Check it:
 
 ```bash
@@ -100,11 +106,11 @@ changed since last status: requirements.md
 next: run the steno-spec skill (tell your agent: "write the requirements for <slug>"); it scaffolds and fills requirements.md, then: steno lint && steno approve requirements
 ```
 
-In VS Code the same facts are in the steno sidebar: each spec with its phase or the tasks left, and each lint finding on its line.
+In VS Code the same facts are in the steno sidebar: each spec with its phase or the tasks left, and each lint finding on its line. In Paseo they are in the steno tab of the workspace's Explorer.
 
 ## 5. Approve, design, approve, plan
 
-Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve This Phase** on the spec in VS Code) and the agent moves on:
+Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve This Phase** on the spec in VS Code, or **Approve** on the document in Paseo) and the agent moves on:
 
 | You say | What happens |
 |---|---|
@@ -190,6 +196,7 @@ steno new shared-budgets --brief
 - [Tutorial](../examples/link-shortener/TUTORIAL.md): build a feature on the example project, with a finished spec to compare against
 - [Concepts](concepts.md): what the IDs, lint rules and packets are doing
 - [CLI reference](cli.md): every command and flag
-- [Agents & integrations](agents.md): other agents, VS Code, EGM, coming from Kiro
+- [Agents & integrations](agents.md): other agents, VS Code, Paseo, EGM, coming from Kiro
 - [VS Code extension](../packages/vscode/README.md): the sidebar, approvals, handing work to your agent
+- [Paseo plugin](../packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
 - [JSON contract](json-contract.md): what `steno lsp` and `--json` return, for building on steno

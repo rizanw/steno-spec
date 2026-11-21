@@ -4,8 +4,9 @@ import type { TasksDoc } from './types.js';
 import { PROTOCOL_VERSION, type SpecTree, type TaskCounts, type TreeSpec, type TreeSteering } from './contract.js';
 import type { ProjectSnapshot, SpecEntry } from './project.js';
 import { isLeaf, nextTask } from './parse/tasks.js';
-import { ARTIFACTS } from './spec.js';
-import { taskOutline } from './outline.js';
+import { ARTIFACTS, artifactFor } from './spec.js';
+import { outlineOf, taskOutline, type DocKind } from './outline.js';
+import { lintEmptySections, lintPlaceholders } from './lint.js';
 
 /** Tasks without subtasks: `total` and `done` for required ones, `optionalTotal` and `optionalDone` for optional ones. */
 export function taskCounts(doc?: TasksDoc): TaskCounts {
@@ -15,6 +16,17 @@ export function taskCounts(doc?: TasksDoc): TaskCounts {
     if (t.optional) { out.optionalTotal++; if (t.done) out.optionalDone++; } else { out.total++; if (t.done) out.done++; }
   }
   return out;
+}
+
+/**
+ * Whether the document a phase is spent writing has been filled in: it has items of its kind (requirements, design
+ * sections, tasks, brief headings) and no template placeholder or empty section left. A fresh skeleton is not written,
+ * so a host can still offer writing it as the main action.
+ */
+export function isWritten(file: string, text: string | undefined): boolean {
+  if (text === undefined) return false;
+  return outlineOf(file.replace(/\.md$/, '') as DocKind, text).length > 0
+    && !lintPlaceholders(text, file).length && !lintEmptySections(text, file).length;
 }
 
 function treeSpec(snap: ProjectSnapshot, e: SpecEntry): TreeSpec {
@@ -33,6 +45,8 @@ function treeSpec(snap: ProjectSnapshot, e: SpecEntry): TreeSpec {
     documents: ARTIFACTS.filter(f => files[f] !== undefined),
     taskItems: tasks ? taskOutline(tasks, files['tasks.md'] ?? '') : [],
   });
+  const current = artifactFor(state);
+  if (current && isWritten(current, files[current])) out.written = true;
   return out;
 }
 

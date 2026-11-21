@@ -86,6 +86,7 @@ A usable spec has every field except `unsupported`, `unreadable` and `files`. A 
 | `next?` | `{ id: string; title: string } \| null` | The task `steno next` would report; `null` when none is left. |
 | `documents?` | `string[]` | File names, such as `design.md`. |
 | `taskItems?` | `OutlineItem[]` | Every task of `tasks.md`, nested as in the [Outline](#outlineitem), each with `done` and `optional`; `[]` when the spec has no tasks. |
+| `written?` | `true` | The document the current phase writes (brief, requirements, design or tasks) is filled in: it has items of its kind and no template placeholder or empty section left. Absent for a fresh skeleton, a missing document, and in `execute` and `done`. |
 | `unsupported?` | `true` | The spec's `spec.yaml` has a format this steno does not support. |
 | `unreadable?` | `true` | A file of the spec cannot be opened, is not UTF-8 text or cannot be parsed. |
 | `files?` | `{ file: string; reason: string }[]` | Each file that makes the spec unusable, with why. |

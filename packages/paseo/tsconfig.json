@@ -1,0 +1,18 @@
+{
+  // Paseo compiles both entries itself, so this only typechecks. Run scripts/build.mjs first: server code
+  // imports the generated server/vendor/host.mjs and its declarations.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "types": ["react", "node"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  "include": ["index.client.tsx", "index.server.ts", "client", "server", "shared", "vendor-src", "test", "vitest.config.ts"]
+}

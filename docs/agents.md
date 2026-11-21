@@ -90,8 +90,8 @@ paseo plugin install npm:steno-paseo
 npm install -g steno-spec
 ```
 
-If that `steno` is missing or speaks another protocol, the panel shows a warning bar with the install
-command. **Set Up steno** in the panel runs `steno init` for a folder, with the agents you pick.
+If that `steno` is missing, older than the copy the plugin carries, or speaks another protocol, the panel
+shows a warning bar with the command that installs the plugin's version. **Set Up steno** in the panel runs `steno init` for a folder, with the agents you pick.
 
 ## Building another integration
 

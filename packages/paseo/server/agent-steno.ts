@@ -1,14 +1,19 @@
-// Whether the `steno` the workspace's agents would run speaks the bundled server's protocol. Paseo's agents inherit
-// the daemon's environment, so the daemon's PATH is theirs. The panel only warns: its own server is bundled and every
-// action keeps working, but an agent handed a skill would run a `steno` that may not understand it.
+// Whether the `steno` the workspace's agents would run speaks the bundled server's protocol and is at least the bundled
+// CLI's version. Paseo's agents inherit the daemon's environment, so the daemon's PATH is theirs. The panel only warns:
+// its own server is bundled and every action keeps working, but an agent handed a skill would run a `steno` that may
+// not understand it. The protocol alone is not enough: an older CLI of the same protocol lacks commands that newer
+// skills call.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cmdLine, findOnPath, isBatch, PROTOCOL_VERSION, unsafeBatch, type Env } from './vendor/host.mjs';
+import { atLeast } from '../shared/version';
+import { VERSION } from './vendor/programs';
 
-export interface AgentSteno { found: boolean; protocol?: number; matches: boolean }
+/** What the agents' `steno` said about itself, and `bundled`, the CLI version the panel tells them to install. */
+export interface AgentSteno { found: boolean; protocol?: number; version?: string; matches: boolean; bundled: string }
 
 /** Until the check answers nothing is known to be wrong, so the panel shows no warning. */
-export const UNCHECKED: AgentSteno = { found: false, matches: true };
+export const UNCHECKED: AgentSteno = { found: false, matches: true, bundled: VERSION };
 
 /** How long `steno --version` may take before it counts as not matching. */
 export const VERSION_TIMEOUT_MS = 5_000;
@@ -26,12 +31,19 @@ export interface CheckOptions {
   timeoutMs?: number;
   /** the protocol to match; the bundled server's unless a test says otherwise */
   protocol?: number;
+  /** the lowest version that matches; the bundled CLI's unless a test says otherwise */
+  version?: string;
 }
 
 /** The protocol a `steno --version` line names, as in `0.1.2 (protocol 1)`. */
 export function versionProtocol(text: string): number | undefined {
   const m = /\(protocol (\d+)\)/.exec(text);
   return m ? Number(m[1]) : undefined;
+}
+
+/** The version a `steno --version` line starts with, as in `0.1.2 (protocol 1)`. */
+export function versionNumber(text: string): string | undefined {
+  return /^\s*(\d+\.\d+\.\d+)/.exec(text)?.[1];
 }
 
 /**
@@ -60,20 +72,23 @@ function runLaunch(launch: Launch): Running {
   return { output, kill: () => { child.kill(); } };
 }
 
-/** Find `steno` on the daemon's PATH and say whether it is there and speaks the expected protocol. */
+/** Find `steno` on the daemon's PATH and say whether it is there, speaks the expected protocol and is recent enough. */
 export async function checkAgentSteno(options: CheckOptions = {}): Promise<AgentSteno> {
   const env = options.env ?? daemonEnv();
   const expected = options.protocol ?? PROTOCOL_VERSION;
+  const bundled = options.version ?? VERSION;
   const program = findOnPath('steno', env, options.exists ?? existsSync);
-  if (!program) return { found: false, matches: false };
+  if (!program) return { found: false, matches: false, bundled };
   const launch = versionLaunch(program, env.windows);
-  if (!launch) return { found: true, matches: false };
+  if (!launch) return { found: true, matches: false, bundled };
   let running: Running;
-  try { running = (options.run ?? runLaunch)(launch); } catch { return { found: true, matches: false }; }
+  try { running = (options.run ?? runLaunch)(launch); } catch { return { found: true, matches: false, bundled }; }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timedOut = new Promise<undefined>(resolve => { timer = setTimeout(() => { running.kill(); resolve(undefined); }, options.timeoutMs ?? VERSION_TIMEOUT_MS); });
   const output = await Promise.race([running.output.catch(() => ''), timedOut]);
   clearTimeout(timer);
   const protocol = output === undefined ? undefined : versionProtocol(output);
-  return { found: true, ...(protocol === undefined ? {} : { protocol }), matches: protocol === expected };
+  const version = output === undefined ? undefined : versionNumber(output);
+  const matches = protocol === expected && version !== undefined && atLeast(version, bundled);
+  return { found: true, ...(protocol === undefined ? {} : { protocol }), ...(version === undefined ? {} : { version }), matches, bundled };
 }

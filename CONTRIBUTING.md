@@ -181,4 +181,4 @@ narrow window, in a light and a dark theme. The rest is covered by `pnpm test`.
 - [ ] Set up an empty folder; a folder inside a steno project is refused and names it.
 - [ ] Every ⌘K item works, and one with nothing to apply to says so.
 - [ ] Kill the server five times: the stopped bar shows, and Restart steno Server clears it.
-- [ ] With a `steno` of another version on PATH, the warning bar names the install command.
+- [ ] With an older `steno` on PATH, the warning bar names both versions and the install command with the plugin's version.

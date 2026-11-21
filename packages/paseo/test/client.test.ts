@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ChangeOutcome, Row } from '../shared/contracts';
 import { changeFor, performChange, refusalProblems, reopenWording, successMessage, type ChangeRequest } from '../client/changes';
-import { actionLabel, needsMore, rowButtons, toggled, visibleRows } from '../client/model';
+import { actionLabel, agentStenoWarning, needsMore, rowButtons, toggled, visibleRows } from '../client/model';
 
 const row = (key: string, parent?: string, extra: Partial<Row> = {}): Row =>
   ({ key, parent, depth: 0, kind: 'task', label: key, actions: [], ...extra });
@@ -18,6 +18,22 @@ describe('which rows show', () => {
   it('toggles a key in and out', () => {
     expect(toggled(['specs'], 'spec:a')).toEqual(['specs', 'spec:a']);
     expect(toggled(['specs', 'spec:a'], 'specs')).toEqual(['spec:a']);
+  });
+});
+
+describe("the warning about the agents' steno", () => {
+  const bundled = '0.1.3';
+  const install = 'npm install -g steno-spec@0.1.3';
+
+  it('says nothing when it matches', () => {
+    expect(agentStenoWarning({ found: true, protocol: 1, version: '0.1.3', matches: true, bundled })).toBeUndefined();
+  });
+
+  it('names the exact version to install, whatever is wrong', () => {
+    expect(agentStenoWarning({ found: false, matches: false, bundled })).toBe(`Your coding agents have no steno command. Install it: ${install}`);
+    expect(agentStenoWarning({ found: true, protocol: 1, version: '0.1.1', matches: false, bundled })).toContain(`is 0.1.1, older than this plugin's 0.1.3. Install the current one: ${install}`);
+    expect(agentStenoWarning({ found: true, protocol: 2, version: '0.9.0', matches: false, bundled })).toContain(`speaks protocol 2, not this plugin's. Install the current one: ${install}`);
+    expect(agentStenoWarning({ found: true, matches: false, bundled })).toContain('an unknown protocol');
   });
 });
 

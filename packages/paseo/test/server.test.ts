@@ -100,7 +100,7 @@ describe('the panel stream', () => {
     const stop = new AbortController();
     // a check that answers at once and a 1 ms window both signal long before the server is up
     await streamPanel(pool, { workspaceId: 'ws', directory: project(), signal: stop.signal, push: async s => { events.push(s); } },
-      { throttleMs: 1, log: () => {}, checkAgentSteno: async () => ({ found: false, matches: false }) });
+      { throttleMs: 1, log: () => {}, checkAgentSteno: async () => ({ found: false, matches: false, bundled: '0.1.3' }) });
     stop.abort();
     pool.dispose();
     expect(events[0].server).toBe('running');

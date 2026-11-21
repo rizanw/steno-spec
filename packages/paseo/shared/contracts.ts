@@ -61,7 +61,7 @@ export const PanelSnapshot = z.object({
   specRows: z.array(Row), steeringRows: z.array(Row),
   diagnostics: z.record(z.string(), z.array(Diagnostic)),
   server: ServerState,
-  agentSteno: z.object({ found: z.boolean(), protocol: z.number().optional(), matches: z.boolean() }),
+  agentSteno: z.object({ found: z.boolean(), protocol: z.number().optional(), version: z.string().optional(), matches: z.boolean(), bundled: z.string() }),
   intent: Action.optional(),
 });
 export type PanelSnapshot = z.infer<typeof PanelSnapshot>;

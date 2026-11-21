@@ -73,9 +73,9 @@ describe('setting a folder up', () => {
 describe("the agents' steno", () => {
   afterEach(() => { vi.useRealTimers(); });
 
-  const BIN = join('/', 'bin');
-  const env = { path: BIN, windows: false };
-  const exists = (p: string) => p === join(BIN, 'steno');
+  // posix paths on every host: `env` says not Windows, so `findOnPath` joins with `/` even on a Windows runner
+  const env = { path: '/bin', windows: false };
+  const exists = (p: string) => p === '/bin/steno';
   const answers = (output: string) => (_: Launch) => ({ output: Promise.resolve(output), kill: () => {} });
 
   it('is missing when PATH has no steno', async () => {

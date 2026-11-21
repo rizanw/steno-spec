@@ -79,6 +79,9 @@ export async function streamPanel(pool: ServerPool, stream: PanelStream, options
   const release = server.hold();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let agentSteno = UNCHECKED;
+  // until the first push no change is sent on its own: the throttle window is shorter than a server's start, so a
+  // signal before the first tree would otherwise push a `starting` snapshot with no rows ahead of the full one
+  let opened = false;
 
   const send = () => {
     if (signal.aborted) return;
@@ -88,7 +91,7 @@ export async function streamPanel(pool: ServerPool, stream: PanelStream, options
     push(snapshot).catch(() => {});
   };
   const changed = () => {
-    if (signal.aborted || timer) return;
+    if (!opened || signal.aborted || timer) return;
     timer = setTimeout(() => { timer = undefined; send(); }, throttleMs);
   };
 
@@ -100,7 +103,7 @@ export async function streamPanel(pool: ServerPool, stream: PanelStream, options
   watchInstructions(directory, changed, signal);
 
   await firstTree(server);
-  // the first push is the full state; a window opened while waiting is covered by it
-  if (timer) { clearTimeout(timer); timer = undefined; }
+  // the first push is the full state, so every signal that came while waiting is covered by it
+  opened = true;
   send();
 }

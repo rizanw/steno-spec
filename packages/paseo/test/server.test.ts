@@ -9,6 +9,7 @@ import * as contracts from '../shared/contracts';
 import { ChangeOutcome, PanelSnapshot } from '../shared/contracts';
 import { applyChange, STOPPED_MESSAGE } from '../server/changes';
 import { createPool } from '../server/pool';
+import { streamPanel } from '../server/snapshot';
 
 const example = fileURLToPath(new URL('../../../examples/link-shortener', import.meta.url));
 
@@ -91,6 +92,19 @@ describe('the panel stream', () => {
     const pushes = logs.filter(line => line.startsWith('steno: panel ws:'));
     expect(pushes).toHaveLength(first.events.length + second.events.length);
     expect(pushes[0]).toMatch(/^steno: panel ws: \d+ rows, server running$/);
+  }, 30_000);
+
+  it('sends nothing before the server has a tree, however soon a change arrives', async () => {
+    const pool = createPool({ log: () => {} });
+    const events: PanelSnapshot[] = [];
+    const stop = new AbortController();
+    // a check that answers at once and a 1 ms window both signal long before the server is up
+    await streamPanel(pool, { workspaceId: 'ws', directory: project(), signal: stop.signal, push: async s => { events.push(s); } },
+      { throttleMs: 1, log: () => {}, checkAgentSteno: async () => ({ found: false, matches: false }) });
+    stop.abort();
+    pool.dispose();
+    expect(events[0].server).toBe('running');
+    expect(row(events[0], 'spec:link-expiry')).toBeDefined();
   }, 30_000);
 
   it('gathers a burst of changes into one push', async () => {

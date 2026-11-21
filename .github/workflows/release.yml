@@ -1,8 +1,8 @@
 name: Release
 
-# Push a tag matching both package versions (e.g. v0.2.0) to publish steno-spec to npm with provenance and the
-# VS Code extension to the VS Code Marketplace and Open VSX, all from the one tag.
-# Auth is trusted publishing (OIDC) for all three with no stored token.
+# Push a tag matching every package version (e.g. v0.2.0) to publish steno-spec and the Paseo plugin (steno-paseo)
+# to npm with provenance and the VS Code extension to the VS Code Marketplace and Open VSX, all from the one tag.
+# Auth is trusted publishing (OIDC) everywhere with no stored token.
 #
 # An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take
 # only major.minor.patch). A pre-release goes to npm under `next` and to both registries with --pre-release.
@@ -24,16 +24,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # before anything is built or published: a wrong tag stops the release here
-      - name: Check the tag and both versions
+      - name: Check the tag and every version
         id: release
         run: |
           version="${GITHUB_REF_NAME#v}"
           cli=$(node -p "require('./packages/cli/package.json').version")
           ext=$(node -p "require('./packages/vscode/package.json').version")
+          paseo=$(node -p "require('./packages/paseo/package.json').version")
           fail() { echo "::error::$1"; exit 1; }
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $GITHUB_REF_NAME is not v<major>.<minor>.<patch>"
           [ "$version" = "$cli" ] || fail "tag $GITHUB_REF_NAME != packages/cli version $cli"
           [ "$version" = "$ext" ] || fail "tag $GITHUB_REF_NAME != packages/vscode version $ext"
+          [ "$version" = "$paseo" ] || fail "tag $GITHUB_REF_NAME != packages/paseo version $paseo"
           minor=$(echo "$version" | cut -d. -f2)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if (( minor % 2 == 1 )); then
@@ -55,6 +57,9 @@ jobs:
       # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is.
       - run: pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
         working-directory: packages/cli
+      # The plugin bundles everything it runs and declares no dependencies; Paseo provides its host modules.
+      - run: pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+        working-directory: packages/paseo
       # one .vsix, packaged once: both registries get this exact file. vsce only publishes a file as a
       # pre-release if it was packaged as one, so the flag goes on the package step too.
       - name: Package the extension

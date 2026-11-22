@@ -187,16 +187,16 @@ implementation detail in requirements, and requirements that no design section o
 Your agent writes the spec. A plugin lets you see where every spec stands, read the lint findings and
 approve each stage without leaving your editor.
 
-| Plugin | Where it shows | Install | Hands work to |
-|---|---|---|---|
-| [VS Code](packages/vscode/README.md) | Specs and Steering views in the sidebar, lint findings on their line, a run lens above each open task | `code --install-extension rzndwb.steno-vscode` | Copilot Chat, Claude Code, Codex, Gemini CLI or OpenCode |
-| [Paseo](packages/paseo/README.md) | A **steno** tab in each workspace's Explorer, beside the agents | `paseo plugin install npm:steno-paseo` | The agent you have open, unsent until you press send |
-| Orca | In progress | Not released yet | |
+| Plugin | Install |
+|---|---|
+| [VS Code](packages/vscode/README.md) | `code --install-extension rzndwb.steno-vscode` |
+| [Paseo](packages/paseo/README.md) | `paseo plugin install npm:steno-paseo` |
+| Orca | In progress |
 
 The VS Code and Paseo plugins both let you approve a phase, tick a task off or reopen it, and hand
-writing, reviewing or a task to an agent. A hand-off is a short skill call like
-`/steno-run T2.1 link-expiry`; file contents never go along. The VS Code extension is on Open VSX too,
-so it also installs in Cursor, Windsurf and VSCodium.
+writing, reviewing or a task to an agent. When you hand work over, the agent gets a short skill call
+such as `/steno-run T2.1 link-expiry` and never the contents of your files. The VS Code extension is on
+Open VSX too, so it also installs in Cursor, Windsurf and VSCodium.
 
 None of the plugins has a model or talks to the network, and each one brings its own copy of steno.
 In Paseo, your agents run the `steno` on the daemon's `PATH`, so install the CLI there as well.

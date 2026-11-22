@@ -5,7 +5,7 @@ import type { Readable, Writable } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { relative, sep } from 'node:path';
 import {
-  createMessageConnection, RestartWindow, StreamMessageReader, StreamMessageWriter,
+  createMessageConnection, RestartWindow, StreamMessageReader, StreamMessageWriter, TreeFetcher,
   type Diagnostic, type MessageConnection, type SpecTree,
 } from './vendor/host.mjs';
 import type { ServerState } from '../shared/contracts';
@@ -81,8 +81,8 @@ export class FolderServer {
   private child?: ServerProcess;
   private connection?: MessageConnection;
   private started: Promise<void> = Promise.resolve();
-  private loading = false;
-  private owed = false;
+  // one per folder for its whole life, across restarts, so a notice owed to the old server is still served
+  private readonly fetcher = new TreeFetcher<SpecTree>(() => this.loadTree(), tree => { this.tree = tree; this.emit(); });
   private subscribers = 0;
   private cancelIdle?: () => void;
 
@@ -137,6 +137,7 @@ export class FolderServer {
   /** Shut the server down for good; its exit is not a crash. */
   dispose(): void {
     this.cancelIdle?.();
+    this.fetcher.dispose();
     const connection = this.connection;
     const child = this.child;
     this.child = undefined;
@@ -172,7 +173,7 @@ export class FolderServer {
     child.stdin?.on('error', () => {});
     const connection = createMessageConnection(new StreamMessageReader(child.stdout!), new StreamMessageWriter(child.stdin!));
     connection.onError(() => {});
-    connection.onNotification(TREE_CHANGED, () => void this.loadTree());
+    connection.onNotification(TREE_CHANGED, () => this.fetcher.request());
     connection.onNotification(PUBLISH_DIAGNOSTICS, (params: { uri: string; diagnostics: LspDiagnostic[] }) => {
       if (this.connection !== connection) return;
       const converted = convertDiagnostics(this.directory, params);
@@ -208,7 +209,7 @@ export class FolderServer {
       connection.sendNotification('initialized', {}).catch(() => {});
       this.state = 'running';
       this.emit();
-      void this.loadTree();
+      this.fetcher.request();
     });
     this.started.catch(() => {});
   }
@@ -233,24 +234,12 @@ export class FolderServer {
     this.emit();
   }
 
-  /** Fetch the tree with at most one request in flight; notices during a fetch collapse into one more. */
-  private async loadTree(): Promise<void> {
-    if (this.loading) { this.owed = true; return; }
-    this.loading = true;
-    try {
-      do {
-        this.owed = false;
-        const connection = this.connection;
-        if (!connection) break;
-        // a failed fetch keeps the last tree
-        try {
-          const tree = await connection.sendRequest<SpecTree>(SPEC_TREE);
-          if (tree && connection === this.connection) { this.tree = tree; this.emit(); }
-        } catch { /* keep the last tree */ }
-      } while (this.owed);
-    } finally {
-      this.loading = false;
-    }
+  /** The current server's tree, or nothing when the server went away or was replaced while it answered. */
+  private async loadTree(): Promise<SpecTree | undefined> {
+    const connection = this.connection;
+    if (!connection) return undefined;
+    const tree = await connection.sendRequest<SpecTree>(SPEC_TREE);
+    return connection === this.connection ? tree : undefined;
   }
 
   private armIdle(): void {

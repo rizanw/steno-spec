@@ -17,13 +17,15 @@ class FakeServer extends EventEmitter {
   initialized = false;
   treeRequests = 0;
   killed = false;
+  /** while set, a tree request waits for it before answering */
+  gate?: Promise<void>;
 
   constructor(public tree: SpecTree) {
     super();
     this.conn = createMessageConnection(new StreamMessageReader(this.stdin), new StreamMessageWriter(this.stdout));
     this.conn.onRequest('initialize', (params: FakeServer['initialize']) => { this.initialize = params; return { capabilities: {} }; });
     this.conn.onNotification('initialized', () => { this.initialized = true; });
-    this.conn.onRequest(SPEC_TREE, () => { this.treeRequests++; return this.tree; });
+    this.conn.onRequest(SPEC_TREE, async () => { this.treeRequests++; const answer = this.tree; await this.gate; return answer; });
     this.conn.onRequest('shutdown', () => null);
     this.conn.listen();
   }
@@ -110,6 +112,39 @@ describe('the server pool', () => {
     await until(() => server.tree!.specs[0].name === 'v2');
     expect(server.state).toBe('running');
     expect(started[1].treeRequests).toBe(1);
+  });
+
+  it('ignores a tree the replaced server answers after a restart', async () => {
+    setUp();
+    const server = pool.serverFor(DIR);
+    await server.settled();
+    let open!: () => void;
+    started[0].gate = new Promise(r => { open = r; });
+    started[0].tree = tree('stale');
+    void started[0].conn.sendNotification(TREE_CHANGED);
+    await until(() => started[0].treeRequests === 2);
+    pool.restart(DIR);
+    open();
+    await until(() => server.tree!.specs[0].name === 'v2');
+    expect(server.tree!.specs[0].name).toBe('v2');
+  });
+
+  it('applies no tree that arrives after the server was disposed', async () => {
+    setUp();
+    const server = pool.serverFor(DIR);
+    await server.settled();
+    let open!: () => void;
+    started[0].gate = new Promise(r => { open = r; });
+    started[0].tree = tree('late');
+    void started[0].conn.sendNotification(TREE_CHANGED);
+    await until(() => started[0].treeRequests === 2);
+    let changes = 0;
+    server.onChange(() => { changes++; });
+    server.dispose();
+    open();
+    await new Promise(r => setTimeout(r, 50));
+    expect(server.tree!.specs[0].name).toBe('v1');
+    expect(changes).toBe(0);
   });
 
   it('stops on the fifth crash within three minutes, and only Restart starts it again', async () => {

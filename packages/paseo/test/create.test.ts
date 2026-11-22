@@ -44,6 +44,43 @@ describe('creating a spec with the bundled CLI', () => {
   }, 30_000);
 });
 
+describe('a CLI run that goes wrong', () => {
+  const refusal = { protocolVersion: 1, code: 'exists', message: 'spec login exists' };
+  const exit = (code: number | null, stdout: string, stderr = ''): RunCli => async () => ({ code, stdout, stderr });
+
+  it('passes a refusal on exit 1 through unchanged', async () => {
+    const log = vi.fn();
+    expect(await newSpec(temp(), { kind: 'feature', name: 'login', writer: 'me' }, exit(1, JSON.stringify(refusal)), log))
+      .toEqual({ ok: false, error: refusal });
+    expect(log).not.toHaveBeenCalled();
+  });
+
+  it('reads a refusal on exit 3 as a failure naming the exit code', async () => {
+    const outcome = await newSpec(temp(), { kind: 'feature', name: 'login', writer: 'me' }, exit(3, JSON.stringify(refusal)), vi.fn());
+    expect(outcome).toMatchObject({ ok: false, error: { code: 'failed', message: 'steno exited with code 3' } });
+  });
+
+  it('shows a crash as its first line and writes all of standard error to the plugin log', async () => {
+    const stderr = 'TypeError: boom\n    at main (cli.mjs:1:1)\n    at run (cli.mjs:2:2)\n';
+    const log = vi.fn();
+    const outcome = await setUp(temp(), [], exit(70, '', stderr), () => false, log);
+    expect(outcome).toEqual({ ok: false, error: expect.objectContaining({ code: 'failed', message: 'steno exited with code 70: TypeError: boom' }) });
+    expect(log).toHaveBeenCalledOnce();
+    expect(log.mock.calls[0][0]).toContain('at run (cli.mjs:2:2)');
+  });
+
+  it("throws the message when the agent list fails, and logs the CLI's standard error", async () => {
+    const log = vi.fn();
+    await expect(listAgents(temp(), exit(70, '', 'Error: no agents\n  at x'), log)).rejects.toThrow('steno exited with code 70: Error: no agents');
+    expect(log.mock.calls[0][0]).toContain('at x');
+  });
+
+  it('answers a new spec with its name and phase only', async () => {
+    const run = vi.fn<RunCli>(async () => ({ code: 0, stdout: JSON.stringify({ spec: 'login', phase: 'requirements', created: ['a.md'] }), stderr: '' }));
+    expect(await newSpec(temp(), { kind: 'feature', name: 'login', writer: 'me' }, run)).toEqual({ ok: true, spec: 'login', phase: 'requirements' });
+  });
+});
+
 describe('setting a folder up', () => {
   it('lists the agents the CLI can set up', async () => {
     const { agents } = await listAgents(temp());

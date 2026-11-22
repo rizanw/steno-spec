@@ -29,10 +29,11 @@ export async function workspaceDirectory(paseo: PluginHandlerContext['paseo'], w
 export interface SnapshotExtras { agentSteno?: AgentSteno; intent?: Action }
 
 /** One snapshot from the server's last tree and diagnostics and the instruction files on disk now. */
-export function buildSnapshot(server: FolderServer, extras: SnapshotExtras = {}): PanelSnapshot {
+export async function buildSnapshot(server: FolderServer, extras: SnapshotExtras = {}): Promise<PanelSnapshot> {
+  const found = await listInstructions(server.directory);
+  // read after the listing, so a tree or diagnostics that changed while it ran are the ones drawn
   const { tree, diagnostics, directory } = server;
   const enclosing = tree?.notSetUp ? parentProject(directory, existsSync) : undefined;
-  const found = listInstructions(directory);
   return {
     specRows: tree ? specRows(tree, diagnostics, enclosing) : [],
     steeringRows: tree ? steeringRows(tree, found.root, found.agent) : [],
@@ -83,16 +84,20 @@ export async function streamPanel(pool: ServerPool, stream: PanelStream, options
   // signal before the first tree would otherwise push a `starting` snapshot with no rows ahead of the full one
   let opened = false;
 
-  const send = () => {
+  // listing the instruction files takes a moment, so one send waits for the last: a slow listing must not push
+  // an older snapshot after a newer one
+  let sending = Promise.resolve();
+  const send = () => sending = sending.then(async () => {
     if (signal.aborted) return;
-    const snapshot = buildSnapshot(server, { agentSteno, intent: options.intents?.take(workspaceId) });
+    const snapshot = await buildSnapshot(server, { agentSteno, intent: options.intents?.take(workspaceId) });
+    if (signal.aborted) return;
     log(`steno: panel ${workspaceId}: ${snapshot.specRows.length + snapshot.steeringRows.length} rows, server ${snapshot.server}`);
     // a push that fails means the subscriber is gone; its abort cleans up
     push(snapshot).catch(() => {});
-  };
+  }).catch(() => {});
   const changed = () => {
     if (!opened || signal.aborted || timer) return;
-    timer = setTimeout(() => { timer = undefined; send(); }, throttleMs);
+    timer = setTimeout(() => { timer = undefined; void send(); }, throttleMs);
   };
 
   const off = server.onChange(changed);
@@ -105,5 +110,5 @@ export async function streamPanel(pool: ServerPool, stream: PanelStream, options
   await firstTree(server);
   // the first push is the full state, so every signal that came while waiting is covered by it
   opened = true;
-  send();
+  await send();
 }

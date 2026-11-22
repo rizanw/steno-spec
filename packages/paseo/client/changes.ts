@@ -1,6 +1,7 @@
 // Approve, done, reopen and reopening a spec as the panel runs them: which request a row's action makes, the
 // confirmation either reopen needs before anything is sent, and the words for each outcome. No React here, so the rules are tested directly.
 import type { Action, ChangeOutcome, ChangeResult, Diagnostic, Row, StructuredError } from '../shared/contracts';
+import { reopenedMessage, reopenWording as wordingFor } from './vendor/host.mjs';
 
 export interface ChangeRequest { kind: 'approve' | 'done' | 'reopen' | 'reopenSpec'; spec: string; phase?: ChangeResult['phase']; task?: string }
 
@@ -29,12 +30,9 @@ export async function performChange(
   return send(request);
 }
 
-/** The question and its explanation, for a task or a whole spec. */
+/** The question and its explanation, for a task or a whole spec, in the words every host uses. */
 export function reopenWording(request: ChangeRequest): { title: string; body: string } {
-  if (request.kind === 'reopenSpec') {
-    return { title: `Reopen ${request.spec}?`, body: 'steno moves the spec back to execution so you can add tasks; its approvals and finished tasks stay.' };
-  }
-  return { title: `Reopen ${request.task ?? ''} of ${request.spec}?`, body: 'steno marks the task open again; the code it wrote stays as it is.' };
+  return wordingFor(request.kind === 'reopenSpec' ? { spec: request.spec } : { spec: request.spec, task: request.task ?? '' });
 }
 
 const PHASE_NAMES: Record<ChangeResult['phase'], string> = {
@@ -44,8 +42,8 @@ const PHASE_NAMES: Record<ChangeResult['phase'], string> = {
 /** The toast after a change the server accepted. */
 export function successMessage(request: ChangeRequest, result: ChangeResult): string {
   if (request.kind === 'done') return `${request.task} of ${result.spec} is done.`;
-  if (request.kind === 'reopen') return `${request.task} of ${result.spec} is open again.`;
-  if (request.kind === 'reopenSpec') return `${result.spec} is open again. Add tasks to tasks.md, then run them.`;
+  if (request.kind === 'reopen') return reopenedMessage({ spec: result.spec, task: request.task ?? '' });
+  if (request.kind === 'reopenSpec') return reopenedMessage({ spec: result.spec });
   const approved = request.phase ? `${PHASE_NAMES[request.phase]} approved.` : 'Approved.';
   return result.phase === 'done' ? `${approved} ${result.spec} is finished.` : `${approved} ${result.spec} moves on to ${PHASE_NAMES[result.phase].toLowerCase()}.`;
 }

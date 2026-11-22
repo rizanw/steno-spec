@@ -1,14 +1,7 @@
-// `steno.call`: the skill call text for a hand-off, worded for the agent that will receive it. Claude takes a
-// slash command and Codex a dollar one; any other agent gets a plain sentence, which every agent understands.
-import { render, skillCall, type CallForm, type Handoff } from './vendor/host.mjs';
+// `steno.call`: the skill call text for a hand-off, worded by core's `callForm` for the agent that will receive it.
+import { callForm, render, skillCall, type Handoff } from './vendor/host.mjs';
 
 export type CallOutcome = { ok: true; text: string; plain: string } | { ok: false; message: string };
-
-export function callForm(provider: string | undefined): CallForm {
-  if (provider === 'claude') return 'slash';
-  if (provider === 'codex') return 'dollar';
-  return 'plain';
-}
 
 /** The call for `provider`, and the plain form for the clipboard; no call when core has none for this hand-off. */
 export function buildCall(handoff: Handoff, provider?: string): CallOutcome {

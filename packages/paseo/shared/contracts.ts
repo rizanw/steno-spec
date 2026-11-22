@@ -1,7 +1,7 @@
 // Every RPC and subscription between the plugin's client and server, as Zod contracts both sides import. Paseo
 // validates each call and event against them, so a shape changed here changes on both sides at once. The client
-// bundle cannot reach core, so the enums core owns are written out here; server/agreement.ts checks them against
-// core's types. Nothing in this file may import from server/: Paseo refuses a shared module that reaches server code.
+// reaches only core's browser-safe rules (client/vendor/host.mjs), which hold no Zod schemas, so the enums core owns
+// are written out here; server/agreement.ts checks them against core's types. Nothing in this file may import from server/: Paseo refuses a shared module that reaches server code.
 import { defineRpc, defineSubscription } from '@getpaseo/plugin';
 import { z } from 'zod';
 
@@ -82,11 +82,11 @@ export const ChangeOutcome = z.discriminatedUnion('ok', [
 export type ChangeOutcome = z.infer<typeof ChangeOutcome>;
 
 /** What a run of the bundled CLI gave: for `new`, the spec and the phase it starts in; for `init`, neither. */
-export const CliOutcome = z.discriminatedUnion('ok', [
+export const RpcOutcome = z.discriminatedUnion('ok', [
   z.object({ ok: z.literal(true), spec: z.string().optional(), phase: Phase.optional() }),
   z.object({ ok: z.literal(false), error: StructuredError }),
 ]);
-export type CliOutcome = z.infer<typeof CliOutcome>;
+export type RpcOutcome = z.infer<typeof RpcOutcome>;
 
 const nothing = z.object({});
 
@@ -115,7 +115,7 @@ export const newSpec = defineRpc({
     workspaceId, kind: z.enum(['feature', 'bugfix']), name: z.string(), title: z.string().optional(),
     writer: z.enum(['agent', 'brainstorm', 'me']), description: z.string().optional(),
   }),
-  output: CliOutcome,
+  output: RpcOutcome,
 });
 
 export const listAgents = defineRpc({
@@ -123,7 +123,7 @@ export const listAgents = defineRpc({
   output: z.object({ agents: z.array(z.object({ key: z.string(), label: z.string() })) }),
 });
 
-export const setUp = defineRpc({ name: 'steno.set-up', input: z.object({ workspaceId, agents: z.array(z.string()) }), output: CliOutcome });
+export const setUp = defineRpc({ name: 'steno.set-up', input: z.object({ workspaceId, agents: z.array(z.string()) }), output: RpcOutcome });
 
 export const intent = defineRpc({ name: 'steno.intent', input: z.object({ workspaceId, action: Action }), output: nothing });
 

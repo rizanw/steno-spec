@@ -134,6 +134,11 @@ agents found on your machine:
 | Claude Code, Codex CLI, Gemini CLI, OpenCode (terminal) | started in a new terminal in the project folder |
 | Copy to clipboard | always available, and used whenever a call can't be delivered |
 
+A terminal agent that steno started is still running? Running a task or writing a phase asks whether
+to send the call to it or start a new one. A new session starts with a clean context; the running
+one keeps what it has read. Reviews and steering always start a new session, so a review never sees
+the conversation that wrote what it checks.
+
 ## Requirements
 
 VS Code 1.125 or later, on macOS, Linux or Windows. The bundled server and CLI are the `steno-spec`

@@ -108,6 +108,42 @@ async function viaExtension(
   }
 }
 
+/**
+ * The last terminal steno started for each agent in each folder. Only these are ever reused: steno runs the agent
+ * as the terminal's own program, so while the terminal has not exited the agent is still there to read the call.
+ * A terminal the user opened could hold a shell, a server or a prompt waiting for an answer, so it is never typed into.
+ */
+const started = new Map<string, vscode.Terminal>();
+const startedKey = (agent: AgentAdapter, server: FolderServer): string => `${agent.id} ${server.folder.uri.toString()}`;
+
+/** The agent's terminal in this folder that is still open with the agent running, if steno started one. */
+export function runningTerminal(agent: AgentAdapter, server: FolderServer): vscode.Terminal | undefined {
+  const key = startedKey(agent, server);
+  const terminal = started.get(key);
+  if (terminal && terminal.exitStatus === undefined && vscode.window.terminals.includes(terminal)) return terminal;
+  started.delete(key);
+  return undefined;
+}
+
+/**
+ * Whether this handoff may go to an agent that is already running. A review must start fresh, so it never reads the
+ * conversation that wrote what it reviews, and steering is generated from the project, not from a session.
+ */
+export const mayReuse = (h: Handoff): boolean => h.kind === 'run' || h.kind === 'write';
+
+const SEND = (label: string) => `Send to the running ${label}`;
+const START = (label: string) => `Start a new ${label}`;
+
+/**
+ * Types the call into the agent's running terminal and presses Enter. The two are sent apart: an agent that reads
+ * one burst of input as a paste would take the Enter as a new line in its prompt rather than as sending it.
+ */
+function intoTerminal(terminal: vscode.Terminal, text: string): void {
+  terminal.sendText(text, false);
+  terminal.sendText('\r', false);
+  terminal.show();
+}
+
 /** Starts the agent's program in a new terminal in the handoff's folder, with the call as its first prompt. */
 function viaTerminal(
   agent: AgentAdapter,
@@ -125,6 +161,7 @@ function viaTerminal(
       cwd: server.folder.uri,
       ...terminalOptions(program, via.args(text), probe.env.windows),
     });
+    started.set(startedKey(agent, server), terminal);
     terminal.show();
     return undefined;
   } catch {
@@ -167,6 +204,19 @@ export async function handOff(deps: Deps, server: FolderServer, h: Handoff): Pro
     save = choice === SAVE;
   }
 
+  // an agent steno started here is still running: the user picks between it and a fresh session
+  const running = typeof agent.via === 'object' && 'program' in agent.via && mayReuse(h) ? runningTerminal(agent, server) : undefined;
+  let reuse: vscode.Terminal | undefined;
+  if (running) {
+    const items = [SEND(agent.label), START(agent.label)].map(label => ({ label }));
+    const picked = await vscode.window.showQuickPick(items, {
+      title: `${agent.label} is already running in ${server.folder.name}`,
+      placeHolder: 'A new session starts with a clean context; the running one keeps what it has read',
+    });
+    if (!picked) return;
+    if (picked.label === SEND(agent.label)) reuse = running;
+  }
+
   // every prompt is answered: from here on the handoff goes ahead
   if (!saved) await deps.chooser.save(agent);
   if (save) await Promise.all(documents.filter(d => dirty.has(d.uri.fsPath)).map(d => d.save()));
@@ -175,6 +225,10 @@ export async function handOff(deps: Deps, server: FolderServer, h: Handoff): Pro
   const { via } = agent;
   if (via === 'clipboard') {
     await toClipboard(text, PASTE);
+    return;
+  }
+  if (reuse) {
+    intoTerminal(reuse, text);
     return;
   }
   const fallback = 'extension' in via

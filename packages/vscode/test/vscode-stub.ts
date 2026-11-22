@@ -82,8 +82,8 @@ export const recorded: {
   saved: string[];
   /** the status bar items created */
   statusItems: StatusBarItem[];
-  /** the terminals created, with the options they were given and whether they were shown */
-  terminals: { options: TerminalOptions; shown: boolean }[];
+  /** the terminals created, with the options they were given, whether they were shown and the text typed into them */
+  terminals: StubTerminal[];
   /** what was written to the clipboard, in order */
   clipboard: string[];
   /** the URIs `env.openExternal` was asked to open */
@@ -108,6 +108,7 @@ export function resetRecorded(): void {
   recorded.inputs.length = 0;
   recorded.statusItems.length = 0;
   recorded.terminals.length = 0;
+  window.terminals.length = 0;
   recorded.clipboard.length = 0;
   recorded.external.length = 0;
   installed.clear();
@@ -212,10 +213,18 @@ export const window = {
   },
   createTerminal: (options: TerminalOptions) => {
     if (failures.createTerminal) throw new Error('no terminal');
-    const entry = { options, shown: false };
+    const entry: StubTerminal = {
+      options, shown: false, typed: [], exitStatus: undefined,
+      show() { entry.shown = true; },
+      sendText(text: string) { entry.typed.push(text); },
+      dispose() { const at = window.terminals.indexOf(entry); if (at >= 0) window.terminals.splice(at, 1); },
+    };
     recorded.terminals.push(entry);
-    return { show: () => { entry.shown = true; }, dispose: () => {} };
+    window.terminals.push(entry);
+    return entry;
   },
+  /** the open terminals, as VS Code lists them: a closed one is gone from the list */
+  terminals: [] as StubTerminal[],
   registerTreeDataProvider: (viewId: string, provider: unknown) => {
     recorded.views[viewId] = provider;
     return { dispose: () => { delete recorded.views[viewId]; } };
@@ -237,6 +246,12 @@ export const commands = {
 };
 
 export interface TerminalOptions { name?: string; cwd?: Uri | string; shellPath?: string; shellArgs?: string[] | string }
+/** A created terminal. Set `exitStatus` to stand for the agent having quit; call `dispose` to close it. */
+export interface StubTerminal {
+  options: TerminalOptions; shown: boolean; typed: string[]; exitStatus: { code: number | undefined } | undefined;
+  show(): void; sendText(text: string, shouldExecute?: boolean): void; dispose(): void;
+}
+export type Terminal = StubTerminal;
 
 export const env = {
   uriScheme: 'vscode',

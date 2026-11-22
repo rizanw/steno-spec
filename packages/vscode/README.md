@@ -5,7 +5,8 @@
 <h1 align="center">steno spec for VS Code</h1>
 
 <p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rzndwb.steno-vscode" alt="Marketplace version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://vsmarketplacebadges.dev/version-short/rzndwb.steno-vscode.svg?label=VS%20Marketplace" alt="Marketplace version"></a>
+  <a href="https://open-vsx.org/extension/rzndwb/steno-vscode"><img src="https://img.shields.io/open-vsx/v/rzndwb/steno-vscode?label=Open%20VSX" alt="Open VSX version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/rizanw/steno-spec/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>

@@ -58,7 +58,7 @@ describe('host entry point', () => {
     expect(existsSync(join(PACKAGE, ui.types))).toBe(true);
     expect(outsideImports(file, PACKAGE, new Set())).toEqual([]);
     const mod = await import(pathToFileURL(file).href);
-    for (const name of ['REQUESTS', 'TREE_CHANGED', 'reopenWording', 'reopenedMessage', 'specsDir', 'steeringDir', 'documentPath', 'callForm', 'render', 'skillCall']) {
+    for (const name of ['REQUESTS', 'TREE_CHANGED', 'reopenWording', 'reopenedMessage', 'specsDir', 'steeringDir', 'documentPath', 'callForm', 'render', 'skillCall', 'atLeast']) {
       expect(mod, name).toHaveProperty(name);
     }
     // nothing from the process rules or the CLI runs, which are for the host's Node side

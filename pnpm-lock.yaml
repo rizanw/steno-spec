@@ -223,6 +223,15 @@ importers:
         specifier: ^4.0.0
         version: 4.0.3
 
+  packages/host:
+    dependencies:
+      '@steno/core':
+        specifier: workspace:*
+        version: link:../core
+      vscode-jsonrpc:
+        specifier: ^10.0.0
+        version: 10.0.0
+
   packages/paseo:
     devDependencies:
       '@getpaseo/plugin':

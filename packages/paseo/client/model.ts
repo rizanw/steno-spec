@@ -1,7 +1,7 @@
 // What the panel decides without drawing anything: which rows show, what each action is called, which icon a row
 // gets. Kept free of React Native so it can be tested directly.
 import type { Action, PanelSnapshot, Phase, Row, RowIcon } from '../shared/contracts';
-import { atLeast } from '../shared/version';
+import { atLeast } from './vendor/host.mjs';
 
 export const ACTION_LABELS: Record<Action, string> = {
   approve: 'Approve', done: 'Mark Done', reopen: 'Reopen', run: 'Run Task', runNext: 'Run Next Task',

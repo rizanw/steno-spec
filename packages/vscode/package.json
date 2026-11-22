@@ -2,7 +2,7 @@
   "name": "steno-vscode",
   "displayName": "steno spec",
   "description": "Shorthand specs for any coding agent: requirements \u2192 design \u2192 tasks \u2192 execute, each stage linted and approved first.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "license": "MIT",
   "publisher": "rzndwb",

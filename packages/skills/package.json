@@ -1,6 +1,6 @@
 {
   "name": "@steno/skills",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Canonical steno skills (Agent Skills spec) and reviewer personas.",
   "type": "module",

@@ -14,10 +14,10 @@ function project(files: Record<string, string>): string {
   return dir;
 }
 
-const until = async (check: () => boolean, ms = 5_000) => {
+const until = async (check: () => boolean | Promise<boolean>, ms = 5_000) => {
   const end = Date.now() + ms;
-  while (!check() && Date.now() < end) await new Promise(r => setTimeout(r, 10));
-  expect(check()).toBe(true);
+  while (!(await check()) && Date.now() < end) await new Promise(r => setTimeout(r, 10));
+  expect(await check()).toBe(true);
 };
 // fs.watch on macOS starts listening a moment after it returns, so a write in that moment goes unreported
 const settle = () => new Promise(r => setTimeout(r, 200));
@@ -26,20 +26,20 @@ let stop: AbortController | undefined;
 afterEach(() => stop?.abort());
 
 describe('the instruction files', () => {
-  it('lists the root files apart from those only one agent reads', () => {
+  it('lists the root files apart from those only one agent reads', async () => {
     const dir = project({
       'CLAUDE.md': '', 'AGENTS.md': '', 'README.md': '', '.cursorrules': '', '.github/copilot-instructions.md': '',
       '.github/instructions/api.instructions.md': '', '.github/instructions/notes.md': '', '.cursor/rules/style.mdc': '',
     });
-    const found = listInstructions(dir);
+    const found = await listInstructions(dir);
     expect(found.root.sort()).toEqual(['AGENTS.md', 'CLAUDE.md']);
     expect(found.agent.sort()).toEqual([
       '.cursor/rules/style.mdc', '.cursorrules', '.github/copilot-instructions.md', '.github/instructions/api.instructions.md',
     ]);
   });
 
-  it('lists nothing in an empty folder', () => {
-    expect(listInstructions(project({}))).toEqual({ root: [], agent: [] });
+  it('lists nothing in an empty folder', async () => {
+    expect(await listInstructions(project({}))).toEqual({ root: [], agent: [] });
   });
 
   it('sees a rule in a folder created after the watch started', async () => {
@@ -51,7 +51,7 @@ describe('the instruction files', () => {
     mkdirSync(join(dir, '.cursor', 'rules'), { recursive: true });
     await until(() => changes > 0);
     writeFileSync(join(dir, '.cursor', 'rules', 'x.mdc'), 'rule');
-    await until(() => listInstructions(dir).agent.includes('.cursor/rules/x.mdc'));
+    await until(async () => (await listInstructions(dir)).agent.includes('.cursor/rules/x.mdc'));
     await settle();
     // the new file is reported by the watch on the new folder, not only found by listing
     const before = changes;

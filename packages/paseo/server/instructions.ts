@@ -1,25 +1,25 @@
 // The agent instruction files the steering list shows, found the way the VS Code extension finds them, and the
 // watches that say when that set may have changed. Paseo gives a plugin no file watcher, so this uses fs.watch
 // on the few folders the files live in: none of them recursive, which some platforms cannot do.
-import { existsSync, readdirSync, statSync, watch, type FSWatcher } from 'node:fs';
+import { statSync, watch, type FSWatcher } from 'node:fs';
+import { readdir, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import { AGENT_INSTRUCTION_DIRS, AGENT_INSTRUCTION_FILES, ROOT_INSTRUCTIONS } from './vendor/host.mjs';
+import {
+  AGENT_INSTRUCTION_DIRS, AGENT_INSTRUCTION_FILES, ROOT_INSTRUCTIONS, listInstructions as listWith,
+  type FolderReader, type InstructionFiles,
+} from './vendor/host.mjs';
 
-/** The instruction files present, as workspace paths: `root` at the top of the list, `agent` at its end. */
-export interface InstructionFiles { root: string[]; agent: string[] }
+export type { InstructionFiles };
 
 const at = (directory: string, path: string) => join(directory, ...path.split('/'));
 
-/** The files of a folder, or none when it does not exist. */
-function filesIn(dir: string): string[] {
-  try { return readdirSync(dir, { withFileTypes: true }).filter(e => e.isFile()).map(e => e.name); } catch { return []; }
-}
-
-export function listInstructions(directory: string): InstructionFiles {
-  const present = (files: readonly string[]) => files.filter(file => existsSync(at(directory, file)));
-  const inDirs = AGENT_INSTRUCTION_DIRS.flatMap(({ dir, suffix }) =>
-    filesIn(at(directory, dir)).filter(name => name.endsWith(suffix)).map(name => `${dir}/${name}`));
-  return { root: present(ROOT_INSTRUCTIONS), agent: [...present(AGENT_INSTRUCTION_FILES), ...inDirs] };
+/** Core's listing over the disk: a missing folder or a read error lists nothing for it. */
+export function listInstructions(directory: string): Promise<InstructionFiles> {
+  const reader: FolderReader = {
+    exists: path => stat(at(directory, path)).then(() => true, () => false),
+    files: dir => readdir(at(directory, dir), { withFileTypes: true }).then(es => es.filter(e => e.isFile()).map(e => e.name), () => []),
+  };
+  return listWith(reader);
 }
 
 // `.cursor` is watched too, though no file is listed from it: creating `.cursor/rules` inside an existing `.cursor`

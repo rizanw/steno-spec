@@ -1,7 +1,7 @@
 // Every RPC and subscription between the plugin's client and server, as Zod contracts both sides import. Paseo
 // validates each call and event against them, so a shape changed here changes on both sides at once. The client
-// bundle cannot reach core, so the enums core owns are written out here; server/agreement.ts checks them against
-// core's types. Nothing in this file may import from server/: Paseo refuses a shared module that reaches server code.
+// reaches only core's browser-safe rules (client/vendor/host.mjs), which hold no Zod schemas, so the enums core owns
+// are written out here; server/agreement.ts checks them against core's types. Nothing in this file may import from server/: Paseo refuses a shared module that reaches server code.
 import { defineRpc, defineSubscription } from '@getpaseo/plugin';
 import { z } from 'zod';
 

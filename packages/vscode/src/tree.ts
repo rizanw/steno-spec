@@ -50,7 +50,7 @@ function open(uri: vscode.Uri, line?: number): vscode.TreeItem['command'] {
 }
 
 export type Node = FolderNode | StoppedNode | SpecNode | DocNode | TaskNode | FileNode;
-export type SteeringViewNode = FolderNode | SteeringNode | InstructionNode;
+type SteeringViewNode = FolderNode | SteeringNode | InstructionNode;
 
 /** One workspace folder, shown only when the window has two or more shown folders. */
 export class FolderNode extends vscode.TreeItem {

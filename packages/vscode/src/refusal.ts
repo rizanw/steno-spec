@@ -1,7 +1,7 @@
 // Every refusal the user sees: one function reads the structured error, wherever it came from, and shows it
 // the way its code asks for. A request to a stopped server gets its own message with "Restart".
 import * as vscode from 'vscode';
-import type { StructuredError } from './protocol.js';
+import { readRefusal } from '@steno/core/host';
 import type { FolderServer, ServerPool } from './servers.js';
 import { OPEN_COMMAND } from './tree.js';
 
@@ -11,21 +11,12 @@ export const SAVE_AND_RETRY = 'Save and retry';
 /** The choice that starts a stopped server again. */
 export const RESTART = 'Restart';
 
-/** Whether a value has the shape of a structured error: a string `code` and a string `message`. */
-function isStructured(value: unknown): value is StructuredError {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
-  return typeof v.code === 'string' && typeof v.message === 'string';
-}
-
 /**
- * The structured error a refusal carries: the `data` of a `ResponseError` from the server, or the error itself
- * when it is one already, as the CLI's parsed standard output is. Anything else has none.
+ * Put a failed CLI run's standard error in the folder's `steno: FOLDER` output channel, where the language client
+ * already writes. The notification shows one line; a stack trace needs the rest to be of any use.
  */
-export function structuredError(err: unknown): StructuredError | undefined {
-  if (isStructured(err) && !(err instanceof Error)) return err;
-  const data = (err as { data?: unknown } | null | undefined)?.data;
-  return isStructured(data) ? data : undefined;
+export function writeLog(server: FolderServer, log: string | undefined): void {
+  if (log?.trim()) server.client.outputChannel?.appendLine(log.trimEnd());
 }
 
 /** A file the server named, as a URI: an absolute path as it is, a relative one under the folder. */
@@ -60,7 +51,7 @@ export async function showRefusal(
   folder: vscode.WorkspaceFolder,
   retry?: () => Promise<unknown>,
 ): Promise<void> {
-  const refusal = structuredError(err);
+  const refusal = readRefusal(err);
   if (!refusal) {
     await vscode.window.showErrorMessage(err instanceof Error ? err.message : String(err));
     return;

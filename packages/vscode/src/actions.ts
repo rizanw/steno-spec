@@ -1,10 +1,10 @@
 // The state changes: approve a Spec's phase, mark a task done, reopen a done task, reopen a finished Spec.
 // Each goes to the folder's own server; the server's `steno/treeChanged` notice then redraws the tree.
 import * as vscode from 'vscode';
-import { METHODS, type ChangeResult } from './protocol.js';
+import type { ChangeResult } from './protocol.js';
 import { showRefusal, showStopped } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { canApprove } from '@steno/core/host';
+import { REQUESTS, canApprove, reopenWording, reopenedMessage } from '@steno/core/host';
 import { SpecNode, TaskNode } from './tree.js';
 
 export const APPROVE_COMMAND = 'steno.spec.approve';
@@ -44,7 +44,7 @@ async function approve(pool: ServerPool, node: SpecNode): Promise<void> {
   if (!canApprove(spec)) return;
   const server = pool.get(node.folder);
   if (!server) return;
-  const result = await change(pool, server, METHODS.approve, { spec: spec.name, phase: spec.phase });
+  const result = await change(pool, server, REQUESTS.approve, { spec: spec.name, phase: spec.phase });
   if (result) void vscode.window.showInformationMessage(`${spec.name}: ${spec.phase} approved — now in ${result.phase}`);
 }
 
@@ -57,14 +57,16 @@ function taskServer(pool: ServerPool, node: TaskNode): FolderServer | undefined 
 async function markDone(pool: ServerPool, node: TaskNode): Promise<void> {
   if (node.done || !node.taskId) return;
   const server = taskServer(pool, node);
-  if (server) await change(pool, server, METHODS.taskDone, { spec: node.spec.name, task: node.taskId });
+  if (server) await change(pool, server, REQUESTS.taskDone, { spec: node.spec.name, task: node.taskId });
 }
 
 /** Reopen a done task, after the user confirms it in a modal. */
 async function reopen(pool: ServerPool, server: FolderServer, spec: string, task: string): Promise<void> {
-  const choice = await vscode.window.showWarningMessage(`Reopen ${task} of ${spec}?`, { modal: true, detail: 'steno marks the task open again; the code it wrote stays as it is.' }, 'Reopen');
+  const { title, body } = reopenWording({ spec, task });
+  const choice = await vscode.window.showWarningMessage(title, { modal: true, detail: body }, 'Reopen');
   if (choice !== 'Reopen') return;
-  await change(pool, server, METHODS.taskReopen, { spec, task });
+  // the task's row turning open in the tree says it worked, so a reopened task shows no message
+  await change(pool, server, REQUESTS.taskReopen, { spec, task });
 }
 
 /** Reopen a finished Spec so tasks can be added to it, after the user confirms it in a modal. */
@@ -73,10 +75,11 @@ async function reopenSpec(pool: ServerPool, node: SpecNode): Promise<void> {
   if (spec.phase !== 'done') return;
   const server = pool.get(node.folder);
   if (!server) return;
-  const choice = await vscode.window.showWarningMessage(`Reopen ${spec.name}?`, { modal: true, detail: 'steno moves the spec back to execution so you can add tasks; its approvals and finished tasks stay.' }, 'Reopen');
+  const { title, body } = reopenWording({ spec: spec.name });
+  const choice = await vscode.window.showWarningMessage(title, { modal: true, detail: body }, 'Reopen');
   if (choice !== 'Reopen') return;
-  const result = await change(pool, server, METHODS.specReopen, { spec: spec.name });
-  if (result) void vscode.window.showInformationMessage(`${spec.name} is open again. Add tasks to tasks.md, then run them.`);
+  const result = await change(pool, server, REQUESTS.specReopen, { spec: spec.name });
+  if (result) void vscode.window.showInformationMessage(reopenedMessage({ spec: spec.name }));
 }
 
 /** What the done lens passes once the middleware has added the document's URI. */

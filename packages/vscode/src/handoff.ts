@@ -4,7 +4,7 @@
 import { posix, win32 } from 'node:path';
 import * as vscode from 'vscode';
 import type { AgentAdapter, Probe } from './agents.js';
-import { DEFAULT_SPECS_DIR, cmdLine, findOnPath, isBatch, render, skillCall, unsafeBatch, unusable, type Handoff } from '@steno/core/host';
+import { cmdLine, findOnPath, isBatch, render, skillCall, unsafeBatch, unusable, specsDir, steeringDir, type Handoff } from '@steno/core/host';
 import type { Chooser } from './chooser.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import { chooseProject, projectServers } from './project.js';
@@ -18,9 +18,6 @@ export const RUN_NEXT_COMMAND = 'steno.spec.runNext';
 export const WRITE_COMMAND = 'steno.spec.write';
 export const REVIEW_COMMAND = 'steno.spec.review';
 export const STEER_COMMAND = 'steno.steering.generate';
-
-/** Where steering lives when the server did not say. */
-const DEFAULT_STEERING_DIR = '.steno/steering';
 
 const SAVE = 'Save and hand off';
 const DONT_SAVE = 'Hand off without saving';
@@ -144,10 +141,10 @@ export async function handOff(deps: Deps, server: FolderServer, h: Handoff): Pro
   const tree = server.tree;
   const sep = deps.probe.env.windows ? win32 : posix;
   const root = server.folder.uri.fsPath;
-  const specDir = h.kind === 'steer' ? undefined : sep.join(root, ...(tree?.specsDir ?? DEFAULT_SPECS_DIR).split('/'), h.spec);
-  const steeringDir = sep.join(root, ...(tree?.steeringDir ?? DEFAULT_STEERING_DIR).split('/'));
+  const specDir = h.kind === 'steer' ? undefined : sep.join(root, ...specsDir(tree).split('/'), h.spec);
+  const steeringPath = sep.join(root, ...steeringDir(tree).split('/'));
   const documents = vscode.workspace.textDocuments;
-  const dirty = new Set(dirtyFor(documents.map(d => ({ path: d.uri.fsPath, dirty: d.isDirty })), specDir, steeringDir));
+  const dirty = new Set(dirtyFor(documents.map(d => ({ path: d.uri.fsPath, dirty: d.isDirty })), specDir, steeringPath));
   let save = false;
   if (dirty.size > 0) {
     const choice = await vscode.window.showWarningMessage(

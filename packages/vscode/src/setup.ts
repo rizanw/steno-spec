@@ -2,11 +2,10 @@
 // the user picks. The bundled CLI's `init` does the work; this file only chooses the folder and the agents, and
 // reports what `init` did.
 import { existsSync } from 'node:fs';
-import { parentProject } from '@steno/core/host';
+import { listAgents, parentProject, setUp as install, type CliOutcome, type Installed } from '@steno/core/host';
 import * as vscode from 'vscode';
-import { refused, runCli } from './new-spec.js';
-import type { StructuredError } from './protocol.js';
-import { showRefusal } from './refusal.js';
+import { bundledCli } from './new-spec.js';
+import { showRefusal, writeLog } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import { guard } from './trust.js';
 
@@ -33,49 +32,8 @@ export function pickSetUpFolder(candidates: string[], fromEditor?: string): stri
   return candidates.length === 1 ? candidates[0] : undefined;
 }
 
-/**
- * The arguments for `steno init`. The agent keys travel as one comma list, an empty one when the user
- * picked none, which installs the skills in `.agents/skills` only. The explicit `--root` makes `init` use
- * that folder as given, even inside another steno project.
- */
-export function initArgs(root: string, agents: string[]): string[] {
-  return ['init', '-a', agents.join(','), '--root', root, '--json'];
-}
-
-/** What `steno init --json` reports. */
-export interface InitResult { root: string; skills: string[]; agents: Record<string, string>; warnings?: string[] }
-
-/** One agent `init` can set skills up for, as `init --list-agents --json` names it. */
-export interface InitAgent { key: string; label: string }
-
-const isStrings = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every(item => typeof item === 'string');
-
-/**
- * `init`'s answer, when it has every field the extension reads with the right type, else `undefined`.
- * This answer is not part of the versioned contract, so a missing field counts as a failed set-up.
- */
-export function initResult(value: unknown): InitResult | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  const v = value as Record<string, unknown>;
-  if (typeof v.root !== 'string' || !isStrings(v.skills)) return undefined;
-  if (typeof v.agents !== 'object' || v.agents === null || Array.isArray(v.agents)) return undefined;
-  if (!Object.values(v.agents).every(dir => typeof dir === 'string')) return undefined;
-  if (v.warnings !== undefined && !isStrings(v.warnings)) return undefined;
-  return value as InitResult;
-}
-
-/** The agent list of `init --list-agents --json`, or `undefined` when it is not one. */
-export function initAgents(value: unknown): InitAgent[] | undefined {
-  const agents = (value as { agents?: unknown } | null | undefined)?.agents;
-  if (!Array.isArray(agents)) return undefined;
-  const ok = agents.every(a => typeof a === 'object' && a !== null
-    && typeof (a as InitAgent).key === 'string' && typeof (a as InitAgent).label === 'string');
-  return ok ? agents.map(({ key, label }: InitAgent) => ({ key, label })) : undefined;
-}
-
 /** The message a finished set-up shows: what was installed, where or for whom, and how to get the CLI. */
-function setUpMessage(folder: string, result: InitResult, labels: string[]): string {
+function setUpMessage(folder: string, result: Installed, labels: string[]): string {
   const target = labels.length ? `for ${labels.join(', ')}` : 'in .agents/skills';
   const lines = [
     `steno set up in ${folder}: ${result.skills.length} skills ${target}.`,
@@ -86,18 +44,18 @@ function setUpMessage(folder: string, result: InitResult, labels: string[]): str
 }
 
 /** Whether a server has said what its folder is, or never will. */
-const settled = (s: FolderServer) => s.state === 'stopped' || s.tree !== undefined;
+const answered = (s: FolderServer) => s.state === 'stopped' || s.tree !== undefined;
 
 /**
  * Wait until every folder server has sent its first tree or stopped, or until `ms` passes. On a cold start the
  * servers have only just been started when the command runs.
  */
 function waitForTrees(pool: ServerPool, ms: number): Promise<void> {
-  if (pool.all().every(settled)) return Promise.resolve();
+  if (pool.all().every(answered)) return Promise.resolve();
   return new Promise(resolve => {
     const done = () => { clearTimeout(timer); listener.dispose(); resolve(); };
     const timer = setTimeout(done, ms);
-    const listener = pool.onDidChange(() => { if (pool.all().every(settled)) done(); });
+    const listener = pool.onDidChange(() => { if (pool.all().every(answered)) done(); });
   });
 }
 
@@ -117,19 +75,12 @@ async function chooseFolder(pool: ServerPool, candidates: FolderServer[]): Promi
   return picked?.server;
 }
 
-/** Run the CLI and check its answer; a refusal, a crash or an unreadable answer is shown and gives `undefined`. */
-async function ask<T>(cli: string, args: string[], folder: vscode.WorkspaceFolder, check: (value: unknown) => T | undefined): Promise<T | undefined> {
-  let answer: unknown;
-  try {
-    answer = await runCli<unknown>(cli, args);
-  } catch (err) {
-    await showRefusal(err, folder);
-    return undefined;
-  }
-  if (refused(answer)) { await showRefusal(answer as StructuredError, folder); return undefined; }
-  const value = check(answer);
-  if (value === undefined) await showRefusal(new Error(`steno ${args[0]} gave an answer the extension cannot read`), folder);
-  return value;
+/** Show a failed CLI run and log its standard error; gives the value of one that worked. */
+async function settle<T>(server: FolderServer, outcome: CliOutcome<T>): Promise<T | undefined> {
+  if (outcome.ok) return outcome.value;
+  writeLog(server, outcome.log);
+  await showRefusal(outcome.error, server.folder);
+  return undefined;
 }
 
 /**
@@ -157,7 +108,8 @@ export async function setUp(pool: ServerPool, cli: string, waitMs: number = SET_
     return;
   }
 
-  const agents = await ask(cli, ['init', '--list-agents', '--json'], folder, initAgents);
+  const run = bundledCli(cli);
+  const agents = await settle(server, await listAgents(run, folder.uri.fsPath));
   if (!agents) return;
   const items = agents.map(agent => ({ label: agent.label, description: agent.key, agent }));
   const picked = await vscode.window.showQuickPick(items, {
@@ -167,10 +119,10 @@ export async function setUp(pool: ServerPool, cli: string, waitMs: number = SET_
   if (!picked) return;
 
   const keys = picked.map(item => item.agent.key);
-  const result = await ask(cli, initArgs(folder.uri.fsPath, keys), folder, initResult);
+  const result = await settle(server, await install(run, folder.uri.fsPath, keys, existsSync));
   if (!result) return;
   // the server notices the new `.steno` itself; asking now just shows the tree sooner
-  server.refresher.request();
+  server.fetcher.request();
 
   const message = setUpMessage(folder.name, result, picked.map(item => item.agent.label));
   const choice = result.warnings?.length

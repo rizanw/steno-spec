@@ -5,8 +5,8 @@ import {
   CloseAction, ErrorAction, LanguageClient, TransportKind,
   type ErrorHandler, type LanguageClientOptions, type ServerOptions,
 } from 'vscode-languageclient/node';
-import { METHODS, TREE_CHANGED, type SpecTree } from './protocol.js';
-import { MAX_EXITS, RestartWindow, WINDOW_MS, runnable } from '@steno/core/host';
+import type { SpecTree } from './protocol.js';
+import { MAX_EXITS, REQUESTS, RestartWindow, TREE_CHANGED, TreeFetcher, WINDOW_MS, runnable } from '@steno/core/host';
 
 /** The part of `LanguageClient` the pool uses, so a test can pass a fake in its place. */
 export interface StenoClient {
@@ -15,41 +15,11 @@ export interface StenoClient {
   sendRequest<T>(method: string, param?: unknown): Promise<T>;
   /** the server's own notices; registered once the client is running */
   onNotification(method: string, handler: (params: unknown) => void): vscode.Disposable;
-}
-
-/**
- * One folder's tree fetches, with at most one request in flight. Notices that arrive during a
- * fetch collapse into exactly one more, so the last notice is always served and a noisy server cannot
- * queue up work. A failed fetch leaves the folder's last tree in place.
- */
-export class Refresher {
-  private running = false;
-  private queued = false;
-
-  constructor(
-    // not named `fetch`: the manifest test bans that call shape outright, to keep the extension offline
-    private readonly load: () => Promise<SpecTree>,
-    private readonly apply: (tree: SpecTree) => void,
-  ) {}
-
-  /** Ask for the tree, or mark that one more fetch is owed once the one in flight finishes. */
-  request(): void {
-    if (this.running) { this.queued = true; return; }
-    void this.run();
-  }
-
-  private async run(): Promise<void> {
-    this.running = true;
-    try {
-      do {
-        this.queued = false;
-        // an answer that is not a tree counts as a failed fetch: the folder keeps the last one it had
-        try { const tree = await this.load(); if (tree) this.apply(tree); } catch { /* keep the last tree */ }
-      } while (this.queued);
-    } finally {
-      this.running = false;
-    }
-  }
+  /**
+   * The folder's `steno: FOLDER` output channel, which the language client opens anyway. A failed CLI run writes
+   * its standard error here, so no new view appears. Test fakes leave it out.
+   */
+  readonly outputChannel?: { appendLine(value: string): void };
 }
 
 export interface FolderServer {
@@ -60,8 +30,8 @@ export interface FolderServer {
   tree?: SpecTree;
   /** this folder's unexpected exits, which decide whether the next one is restarted */
   restarts: RestartWindow;
-  /** this folder's tree fetches, one in flight at a time */
-  refresher: Refresher;
+  /** this folder's tree fetches, one in flight at a time; kept across restarts, disposed when the folder closes */
+  fetcher: TreeFetcher<SpecTree>;
 }
 
 /** What the pool asks the library to do when a server fails, built per folder. */
@@ -177,8 +147,8 @@ export class ServerPool implements vscode.Disposable {
     if (folder.uri.scheme !== 'file' || this.servers.has(key)) return;
     const server = { folder, state: 'running', restarts: new RestartWindow() } as FolderServer;
     server.client = this.create(folder, this.serverPath, selectorFor(folder), this.handlersFor(server));
-    server.refresher = new Refresher(
-      () => server.client.sendRequest<SpecTree>(METHODS.specTree),
+    server.fetcher = new TreeFetcher<SpecTree>(
+      () => server.client.sendRequest<SpecTree | undefined>(REQUESTS.specTree),
       tree => this.setTree(server, tree),
     );
     this.servers.set(key, server);
@@ -195,6 +165,7 @@ export class ServerPool implements vscode.Disposable {
     this.servers.delete(key);
     this.notices.get(key)?.dispose();
     this.notices.delete(key);
+    server.fetcher.dispose();
     server.state = 'stopped';
     await server.client.stop().catch(() => {});
     this.changed.fire(server);
@@ -254,9 +225,9 @@ export class ServerPool implements vscode.Disposable {
     this.notices.get(server.folder.uri.toString())?.dispose();
     this.notices.set(
       server.folder.uri.toString(),
-      server.client.onNotification(TREE_CHANGED, () => server.refresher.request()),
+      server.client.onNotification(TREE_CHANGED, () => server.fetcher.request()),
     );
-    server.refresher.request();
+    server.fetcher.request();
   }
 
   /** Start a stopped server again with a clean record, from the error or from the tree. */

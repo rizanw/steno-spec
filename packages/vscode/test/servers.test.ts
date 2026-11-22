@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import fc from 'fast-check';
 import { changeFolders, folder, resetRecorded, setFolders, Uri } from './vscode-stub.js';
 import {
-  Refresher, ServerPool, keepLenses, provideCodeLenses, selectorFor, trackFolders, type ClientHandlers, type CreateClient,
+  ServerPool, keepLenses, provideCodeLenses, selectorFor, trackFolders, type ClientHandlers, type CreateClient,
   type StenoClient,
 } from '../src/servers.js';
 import type { OutlineItem, SpecTree } from '../src/protocol.js';
@@ -141,48 +141,6 @@ describe('trackFolders', () => {
   });
 });
 
-describe('Refresher', () => {
-  /** let every queued microtask run, as the event loop would between notices. */
-  const settle = () => new Promise(resolve => setImmediate(resolve));
-
-  it('keeps one fetch in flight and collapses the notices that arrive during it', async () => {
-    let calls = 0;
-    let release: (() => void) | undefined;
-    const applied: number[] = [];
-    const r = new Refresher(
-      () => { calls++; return new Promise<SpecTree>(res => { release = () => res({ protocolVersion: 1, specs: [], steering: [] }); }); },
-      () => applied.push(calls),
-    );
-    r.request();
-    await settle();
-    expect(calls).toBe(1);
-    r.request(); r.request(); r.request();   // three notices while the first fetch is out
-    expect(calls).toBe(1);
-    release!();
-    await settle();
-    expect(calls).toBe(2);                   // exactly one more, not three
-    release!();
-    await settle();
-    expect(calls).toBe(2);
-    expect(applied).toEqual([1, 2]);
-  });
-
-  it('leaves the last tree in place when a fetch fails, and serves the next notice', async () => {
-    let calls = 0;
-    const applied: SpecTree[] = [];
-    const r = new Refresher(
-      async () => { if (++calls === 1) throw new Error('server went away'); return { protocolVersion: 1, specs: [], steering: [] }; },
-      t => applied.push(t),
-    );
-    r.request();
-    await settle();
-    expect(applied).toHaveLength(0);
-    r.request();
-    await settle();
-    expect(applied).toHaveLength(1);
-  });
-});
-
 describe('tree notices', () => {
   const settle = () => new Promise(resolve => setImmediate(resolve));
 
@@ -231,6 +189,42 @@ describe('tree notices', () => {
     notify();
     await settle();
     expect(requests).toHaveLength(1);
+  });
+
+  it('keeps one fetcher across a restart, so a fetch still out folds the restart\'s request into one more', async () => {
+    let release: (() => void) | undefined;
+    let calls = 0;
+    const create: CreateClient = () => ({
+      start: async () => {}, stop: async () => {},
+      sendRequest: async <T>() => { calls++; return new Promise<T>(res => { release = () => res({ protocolVersion: 1, specs: [], steering: [] } as T); }); },
+      onNotification: () => ({ dispose: () => {} }),
+    });
+    const pool = new ServerPool(SERVER, create);
+    await pool.start(folder('/work/a'));
+    const fetcher = pool.all()[0].fetcher;
+    await pool.restart(pool.all()[0]);
+    expect(pool.all()[0].fetcher).toBe(fetcher);
+    expect(calls).toBe(1);
+    release!();
+    await settle();
+    expect(calls).toBe(2);
+  });
+
+  it('drops the answer of a fetch still out when the folder stops', async () => {
+    let release: (() => void) | undefined;
+    const create: CreateClient = () => ({
+      start: async () => {}, stop: async () => {},
+      sendRequest: async <T>() => new Promise<T>(res => { release = () => res({ protocolVersion: 1, specs: [], steering: [] } as T); }),
+      onNotification: () => ({ dispose: () => {} }),
+    });
+    const pool = new ServerPool(SERVER, create);
+    const a = folder('/work/a');
+    await pool.start(a);
+    const server = pool.all()[0];
+    await pool.stop(a);
+    release!();
+    await settle();
+    expect(server.tree).toBeUndefined();
   });
 });
 

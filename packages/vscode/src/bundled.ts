@@ -2,7 +2,7 @@
 // node_modules or a setting: in a Restricted Mode workspace the extension runs exactly what it shipped with.
 import * as vscode from 'vscode';
 
-export interface Bundled {
+interface Bundled {
   /** absolute path to the bundled steno language server */
   server: string;
   /** absolute path to the bundled steno CLI */

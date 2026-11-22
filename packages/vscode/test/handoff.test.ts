@@ -351,6 +351,66 @@ describe('registerHandoffs', () => {
   });
 });
 
+describe('a running agent', () => {
+  const WRITE = { kind: 'write', spec: 'auth', phase: 'design' } as const;
+  const REVIEW = { kind: 'review', spec: 'auth', phase: 'design' } as const;
+
+  it('starts a new terminal without asking while none it started is running', async () => {
+    await handOff(deps('claude'), server(), RUN);
+    expect(recorded.picks).toEqual([]);
+    expect(recorded.terminals).toHaveLength(1);
+  });
+
+  it('asks, then types the call and Enter into the running terminal', async () => {
+    const d = deps('claude');
+    await handOff(d, server(), RUN);
+    answers.pick = 'Send to the running Claude Code (terminal)';
+    await handOff(d, server(), WRITE);
+    expect(recorded.picks.map(p => p.labels)).toEqual([['Send to the running Claude Code (terminal)', 'Start a new Claude Code (terminal)']]);
+    expect(recorded.terminals).toHaveLength(1);
+    expect(recorded.terminals[0].typed).toEqual(['/steno-design auth', '\r']);
+  });
+
+  it('starts a fresh session when the user asks for one, and sends nothing when the question is dismissed', async () => {
+    const d = deps('claude');
+    await handOff(d, server(), RUN);
+    answers.pick = ['Start a new Claude Code (terminal)', undefined];
+    await handOff(d, server(), RUN);
+    await handOff(d, server(), RUN);
+    expect(recorded.terminals).toHaveLength(2);
+    expect(recorded.terminals.flatMap(t => t.typed)).toEqual([]);
+  });
+
+  it('never sends a review or steering into a running agent', async () => {
+    const d = deps('claude');
+    await handOff(d, server(), RUN);
+    await handOff(d, server(), REVIEW);
+    await handOff(d, server(), { kind: 'steer' });
+    expect(recorded.picks).toEqual([]);
+    expect(recorded.terminals).toHaveLength(3);
+  });
+
+  it('forgets a terminal once it is closed or its agent has quit', async () => {
+    const d = deps('claude');
+    await handOff(d, server(), RUN);
+    recorded.terminals[0].exitStatus = { code: 0 };
+    await handOff(d, server(), RUN);
+    recorded.terminals[1].dispose();
+    await handOff(d, server(), RUN);
+    expect(recorded.picks).toEqual([]);
+    expect(recorded.terminals).toHaveLength(3);
+  });
+
+  it('keeps each agent and each folder to its own terminal', async () => {
+    const other = folder('/work/other');
+    await handOff(deps('claude'), server(), RUN);
+    await handOff(deps('codex'), server(), RUN);
+    await handOff(deps('claude'), server(other), RUN);
+    expect(recorded.picks).toEqual([]);
+    expect(recorded.terminals).toHaveLength(3);
+  });
+});
+
 describe('the manifest', () => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const HANDOFFS = [RUN_TASK_COMMAND, RUN_NEXT_COMMAND, WRITE_COMMAND, REVIEW_COMMAND, STEER_COMMAND, ...PHASE_COMMANDS.map(c => c.command)];

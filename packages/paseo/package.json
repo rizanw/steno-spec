@@ -1,6 +1,6 @@
 {
   "name": "steno-paseo",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
   "keywords": [
     "paseo",

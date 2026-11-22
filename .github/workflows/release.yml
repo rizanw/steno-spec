@@ -7,12 +7,18 @@ name: Release
 # An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take
 # only major.minor.patch). A pre-release goes to npm under `next` and to both registries with --pre-release.
 #
-# Do not re-run after a partial publish: npm refuses a version it already has. Finish a failed registry step by
-# hand: download this run's `vsix` artifact and run `vsce publish --packagePath <file>` or `ovsx publish <file>`
-# with a token of your own (add --pre-release for an odd minor).
+# A release can be resumed. Every publish step first asks its registry whether the version is already there and
+# skips it if so, so re-running a failed run, or starting this workflow by hand from the Actions tab with the tag
+# (Run workflow, tag: v0.2.0), publishes only what is missing. A run started by hand uses this file from the
+# branch it is started on and builds the tag's code.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The release tag to publish, such as v0.2.0'
+        required: true
 
 permissions:
   contents: read
@@ -23,19 +29,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
       # before anything is built or published: a wrong tag stops the release here
       - name: Check the tag and every version
         id: release
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           cli=$(node -p "require('./packages/cli/package.json').version")
           ext=$(node -p "require('./packages/vscode/package.json').version")
           paseo=$(node -p "require('./packages/paseo/package.json').version")
           fail() { echo "::error::$1"; exit 1; }
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $GITHUB_REF_NAME is not v<major>.<minor>.<patch>"
-          [ "$version" = "$cli" ] || fail "tag $GITHUB_REF_NAME != packages/cli version $cli"
-          [ "$version" = "$ext" ] || fail "tag $GITHUB_REF_NAME != packages/vscode version $ext"
-          [ "$version" = "$paseo" ] || fail "tag $GITHUB_REF_NAME != packages/paseo version $paseo"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $TAG is not v<major>.<minor>.<patch>"
+          [ "$version" = "$cli" ] || fail "tag $TAG != packages/cli version $cli"
+          [ "$version" = "$ext" ] || fail "tag $TAG != packages/vscode version $ext"
+          [ "$version" = "$paseo" ] || fail "tag $TAG != packages/paseo version $paseo"
           minor=$(echo "$version" | cut -d. -f2)
           echo "version=$version" >> "$GITHUB_OUTPUT"
           if (( minor % 2 == 1 )); then
@@ -54,12 +64,25 @@ jobs:
       - run: pnpm build
       - run: pnpm test
       - run: pnpm lint:skills
-      # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is.
-      - run: pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+      # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is. Each publish step skips a
+      # version its registry already has, so a re-run publishes only what is missing.
+      - name: Publish steno-spec to npm
         working-directory: packages/cli
+        run: |
+          if npm view "steno-spec@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
+            echo "steno-spec ${{ steps.release.outputs.version }} is already on npm, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+          fi
       # The plugin bundles everything it runs and declares no dependencies; Paseo provides its host modules.
-      - run: pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+      - name: Publish steno-paseo to npm
         working-directory: packages/paseo
+        run: |
+          if npm view "steno-paseo@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
+            echo "steno-paseo ${{ steps.release.outputs.version }} is already on npm, skipping"
+          else
+            pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+          fi
       # one .vsix, packaged once: both registries get this exact file. vsce only publishes a file as a
       # pre-release if it was packaged as one, so the flag goes on the package step too.
       - name: Package the extension
@@ -72,13 +95,21 @@ jobs:
           if-no-files-found: error
       - name: Publish to the VS Code Marketplace
         working-directory: packages/vscode
-        run: pnpm exec vsce publish --oidc --packagePath steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+        run: |
+          version=${{ steps.release.outputs.version }}
+          if pnpm exec vsce show rzndwb.steno-vscode --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.exit(JSON.parse(s).versions.some(v=>v.version===process.argv[1])?0:1))' "$version"; then
+            echo "steno-vscode $version is already on the Marketplace, skipping"
+          else
+            pnpm exec vsce publish --oidc --packagePath steno-vscode-$version.vsix ${{ steps.release.outputs.pre-release }}
+          fi
       - name: Publish to Open VSX
         working-directory: packages/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          if [ -n "$OVSX_PAT" ]; then
+          if curl -sf -o /dev/null "https://open-vsx.org/api/rzndwb/steno-vscode/${{ steps.release.outputs.version }}"; then
+            echo "steno-vscode ${{ steps.release.outputs.version }} is already on Open VSX, skipping"
+          elif [ -n "$OVSX_PAT" ]; then
             pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
           else
             # an empty OVSX_PAT must not reach ovsx: a token takes priority over trusted publishing

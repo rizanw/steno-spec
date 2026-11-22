@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Uri, answers, folder, openDocument, recorded, resetRecorded } from './vscode-stub.js';
 import { registerOpen } from '../src/tree.js';
-import { RESTART, SAVE_AND_RETRY, fileUri, showRefusal, showStopped, structuredError } from '../src/refusal.js';
+import { RESTART, SAVE_AND_RETRY, fileUri, showRefusal, showStopped } from '../src/refusal.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import type { StructuredError } from '../src/protocol.js';
 
@@ -14,19 +14,6 @@ const app = folder('/work/app');
 function responseError(data: Partial<StructuredError> & Pick<StructuredError, 'code' | 'message'>): Error {
   return Object.assign(new Error(data.message), { code: -32803, data: { protocolVersion: 1, ...data } });
 }
-
-describe('structuredError', () => {
-  it('reads the data of a ResponseError and takes a parsed CLI error as it is', () => {
-    expect(structuredError(responseError({ code: 'failed', message: 'boom' }))?.code).toBe('failed');
-    expect(structuredError({ protocolVersion: 1, code: 'not-found', message: 'no' })?.code).toBe('not-found');
-  });
-
-  it('finds none in a plain error or a value that is not one', () => {
-    expect(structuredError(new Error('x'))).toBeUndefined();
-    expect(structuredError('x')).toBeUndefined();
-    expect(structuredError(undefined)).toBeUndefined();
-  });
-});
 
 describe('fileUri', () => {
   it('keeps an absolute path and puts a relative one under the folder', () => {

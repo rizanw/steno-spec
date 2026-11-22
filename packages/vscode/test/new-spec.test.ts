@@ -14,33 +14,24 @@ import { ServerPool, type CreateClient } from '../src/servers.js';
 import { FolderNode, registerOpen } from '../src/tree.js';
 import { pickProject } from '../src/pick.js';
 import {
-  NEW_SPEC_COMMAND, cliArgs, cliKind, refused, registerNewSpec, runCli, validateName, writeChoices, type Kind,
+  NEW_SPEC_COMMAND, bundledCli, registerNewSpec, validateName, writeChoices,
 } from '../src/new-spec.js';
 
 beforeEach(() => resetRecorded());
 
-const KINDS = ['feature', 'bugfix', 'brief'] as const;
-
-describe('writeChoices and cliKind', () => {
+describe('writeChoices', () => {
   it('the brainstorm choice is a Feature\'s alone', () => {
     fc.assert(fc.property(fc.constantFrom('feature', 'bugfix') as fc.Arbitrary<'feature' | 'bugfix'>, kind => {
       const choices = writeChoices(kind);
       expect(choices[0]).toBe('agent');
       expect(choices[choices.length - 1]).toBe('self');
       expect(choices.includes('brainstorm')).toBe(kind === 'feature');
-      for (const choice of choices) {
-        expect(cliKind(kind, choice) === 'brief').toBe(kind === 'feature' && choice === 'brainstorm');
-      }
     }));
   });
 
-  it('offers three choices for a feature and two for a bugfix, and maps them to what the CLI creates', () => {
+  it('offers three choices for a feature and two for a bugfix', () => {
     expect(writeChoices('feature')).toEqual(['agent', 'brainstorm', 'self']);
     expect(writeChoices('bugfix')).toEqual(['agent', 'self']);
-    expect(cliKind('feature', 'agent')).toBe('feature');
-    expect(cliKind('feature', 'brainstorm')).toBe('brief');
-    expect(cliKind('feature', 'self')).toBe('feature');
-    expect(cliKind('bugfix', 'agent')).toBe('bugfix');
   });
 });
 
@@ -68,35 +59,7 @@ describe('pickProject', () => {
   });
 });
 
-describe('cliArgs', () => {
-  it('fixed flags plus the user text as single values', () => {
-    fc.assert(fc.property(
-      fc.string(), fc.string(), fc.constantFrom(...KINDS), fc.option(fc.string(), { nil: undefined }),
-      fc.option(fc.string(), { nil: undefined }),
-      (root, slug, kind, title, description) => {
-        const args = cliArgs(root, slug, kind, title, description);
-        // the call always ends the same way, so no user text can be read as the root or turn off --json
-        expect(args.slice(-3)).toEqual(['--root', root, '--json']);
-        // and always starts with the command and the slug, each one entry of its own
-        expect(args.slice(0, 2)).toEqual(['new', slug]);
-        // between them, only this kind's flag, the title and the description, again as single entries
-        const flag: Record<Kind, string[]> = { feature: [], bugfix: ['--bugfix'], brief: ['--brief'] };
-        const about = description?.trim();
-        expect(args.slice(2, -3)).toEqual([...flag[kind], ...(title ? ['-t', title] : []), ...(about ? ['-d', about] : [])]);
-      },
-    ));
-  });
-
-  it('builds the call each kind asks for', () => {
-    expect(cliArgs('/work/app', 'auth', 'feature')).toEqual(['new', 'auth', '--root', '/work/app', '--json']);
-    expect(cliArgs('/work/app', 'auth', 'bugfix', 'Auth bug'))
-      .toEqual(['new', 'auth', '--bugfix', '-t', 'Auth bug', '--root', '/work/app', '--json']);
-    expect(cliArgs('/work/app', 'auth', 'brief'))
-      .toEqual(['new', 'auth', '--brief', '--root', '/work/app', '--json']);
-  });
-});
-
-describe('runCli', () => {
+describe('bundledCli', () => {
   const dir = mkdtempSync(join(tmpdir(), 'steno-vscode-'));
   afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -113,47 +76,33 @@ describe('runCli', () => {
     `process.exitCode = ${code};`,
   ].join('\n'));
 
-  const change = { protocolVersion: 1, spec: 'auth', phase: 'requirements', created: ['requirements.md', 'spec.yaml'] };
-  const error = { protocolVersion: 1, code: 'failed', message: 'spec already exists' };
+  const run = (cli: string, args: string[] = []) => bundledCli(cli)(args, dir);
 
-  it('gives the ChangeResult of a CLI that exited 0', async () => {
-    const result = await runCli(prints('ok', JSON.stringify(change), 0), ['new', 'auth']);
-    expect(refused(result)).toBe(false);
-    expect(result).toEqual(change);
-  });
-
-  it('gives the structured error of a CLI that refused, for both refusal exit codes', async () => {
-    for (const code of [1, 2]) {
-      const result = await runCli(prints(`refused-${code}`, JSON.stringify(error), code), ['new', 'auth']);
-      expect(refused(result)).toBe(true);
-      expect(result).toEqual(error);
-    }
+  it('gives back the exit code and both streams, whatever the code', async () => {
+    expect(await run(prints('ok', '{"spec":"auth"}', 0, 'note'))).toEqual({ code: 0, stdout: '{"spec":"auth"}', stderr: 'note' });
+    expect(await run(prints('refused', '{"code":"failed"}', 1, 'why'))).toEqual({ code: 1, stdout: '{"code":"failed"}', stderr: 'why' });
   });
 
   it('runs the CLI with the arguments it was given, as single values', async () => {
-    const echo = fakeCli('echo', 'process.stdout.write(JSON.stringify({ argv: process.argv.slice(2) }));');
-    const result = await runCli(echo, cliArgs('/work/app', 'auth', 'bugfix', 'two words'));
-    expect((result as unknown as { argv: string[] }).argv)
-      .toEqual(['new', 'auth', '--bugfix', '-t', 'two words', '--root', '/work/app', '--json']);
+    const echo = fakeCli('echo', 'process.stdout.write(JSON.stringify(process.argv.slice(2)));');
+    const args = ['--root', '/work/app', '--json', 'new', '--title=two words', '--', '-x'];
+    expect(JSON.parse((await run(echo, args)).stdout)).toEqual(args);
   });
 
   it('runs it as plain Node, so the editor binary does not start a second editor', async () => {
-    const env = fakeCli('env', 'process.stdout.write(JSON.stringify({ flag: process.env.ELECTRON_RUN_AS_NODE }));');
-    expect((await runCli(env, []) as unknown as { flag: string }).flag).toBe('1');
+    const env = fakeCli('env', 'process.stdout.write(String(process.env.ELECTRON_RUN_AS_NODE));');
+    expect((await run(env)).stdout).toBe('1');
   });
 
-  it('throws on output that is not JSON, naming the exit code and the first line of standard error', async () => {
-    const cli = prints('text', 'not json\n', 1, '\nsteno: boom\nmore\n');
-    await expect(runCli(cli, [])).rejects.toThrow('steno exited with code 1: steno: boom');
+  it('reports a CLI that is not there as the crash Node gives', async () => {
+    const exit = await run(join(dir, 'missing.mjs'));
+    expect(exit.code).toBe(1);
+    expect(exit.stderr).toMatch(/Cannot find module/);
   });
 
-  it('throws on a success that printed no JSON, and on a JSON refusal with an exit code of its own', async () => {
-    await expect(runCli(prints('empty', '', 0), [])).rejects.toThrow('steno exited with code 0');
-    await expect(runCli(prints('odd', JSON.stringify(error), 3), [])).rejects.toThrow('steno exited with code 3');
-  });
-
-  it('throws when the CLI is not there at all', async () => {
-    await expect(runCli(join(dir, 'missing.mjs'), [])).rejects.toThrow(/steno exited with code/);
+  // Windows has no signals: a killed process there ends with an exit code like any other
+  it.skipIf(process.platform === 'win32')('reports a killed CLI with code null', async () => {
+    expect((await run(fakeCli('killed', "process.kill(process.pid, 'SIGKILL');"))).code).toBeNull();
   });
 });
 
@@ -196,10 +145,15 @@ describe('the New spec flow', () => {
   const ok = (spec: string, phase: string, created: string[]) =>
     `process.stdout.write(JSON.stringify(${JSON.stringify({ protocolVersion: 1, spec, phase, created })}));`;
 
+  /** What the folders' output channels were given, across every client of the last pool. */
+  let logged: string[] = [];
+
   /** A pool of folders, each with the tree its entry gives; `undefined` means the server never answered. */
   async function pooled(folders: { path: string; tree?: Partial<SpecTree> }[]) {
     const trees = new Map(folders.map(f => [f.path, f.tree]));
+    logged = [];
     const create: CreateClient = (f) => ({
+      outputChannel: { appendLine: line => logged.push(line) },
       start: async () => {},
       stop: async () => {},
       sendRequest: async <T>() => {
@@ -242,7 +196,7 @@ describe('the New spec flow', () => {
     expect(recorded.picks.map(p => p.labels)).toEqual([KIND_LABELS, [DRAFT, BRAINSTORM, MYSELF]]);
     // writing it yourself hands nothing to the agent
     expect(recorded.clipboard).toEqual([]);
-    expect(cli.calls()).toEqual([['new', 'billing', '-t', 'Billing', '--root', '/work/app', '--json']]);
+    expect(cli.calls()).toEqual([['--root', '/work/app', '--json', 'new', '--title=Billing', '--', 'billing']]);
     expect(recorded.opened).toEqual([{ uri: 'file:///work/app/.steno/specs/billing/requirements.md', line: 1 }]);
   });
 
@@ -265,7 +219,7 @@ describe('the New spec flow', () => {
     answers.input = ['bug', '   '];
     answers.pick = ['Bugfix', MYSELF];
     await commands.executeCommand(NEW_SPEC_COMMAND);
-    expect(cli.calls()).toEqual([['new', 'bug', '--bugfix', '--root', '/work/app', '--json']]);
+    expect(cli.calls()).toEqual([['--root', '/work/app', '--json', 'new', '--bugfix', '--', 'bug']]);
     // no brainstorm for a bugfix
     expect(recorded.picks[1].labels).toEqual([DRAFT, MYSELF]);
   });
@@ -292,7 +246,7 @@ describe('the New spec flow', () => {
       answers.input = ['billing', '', ''];
       answers.pick = [kind, DRAFT];
       await commands.executeCommand(NEW_SPEC_COMMAND);
-      expect(cli.calls()).toEqual([['new', 'billing', ...flag, '--root', '/work/app', '--json']]);
+      expect(cli.calls()).toEqual([['--root', '/work/app', '--json', 'new', ...flag, '--', 'billing']]);
       expect(recorded.opened).toEqual([{ uri: `file:///work/app/.steno/specs/billing/${created}`, line: 1 }]);
       expect(recorded.clipboard).toEqual(['/steno-spec billing']);
     }
@@ -313,7 +267,7 @@ describe('the New spec flow', () => {
     expect(recorded.clipboard).toEqual([]);
   });
 
-  it('asks the agent choices for a description, names the bug or the feature, and passes it as -d', async () => {
+  it('asks the agent choices for a description, names the bug or the feature, and passes it joined to its flag', async () => {
     for (const [kind, write, noun] of [['Feature', DRAFT, 'feature'], ['Feature', BRAINSTORM, 'feature'], ['Bugfix', DRAFT, 'bug']] as const) {
       resetRecorded();
       const pool = await pooled(app);
@@ -323,19 +277,19 @@ describe('the New spec flow', () => {
       answers.pick = [kind, write];
       await commands.executeCommand(NEW_SPEC_COMMAND);
       expect(recorded.inputs[2].prompt).toBe(`Describe the ${noun} in a few words (optional)`);
-      expect(cli.calls()[0]).toEqual(expect.arrayContaining(['-d', 'export invoices']));
-      expect(cli.calls()[0].indexOf('-d')).toBeLessThan(cli.calls()[0].indexOf('--root'));
+      expect(cli.calls()[0]).toContain('--description=export invoices');
+      expect(cli.calls()[0].indexOf('--description=export invoices')).toBeLessThan(cli.calls()[0].indexOf('--'));
     }
   });
 
-  it('adds no -d for a blank description, and asks nothing more when the user writes it', async () => {
+  it('adds no description for a blank one, and asks nothing more when the user writes it', async () => {
     const pool = await pooled(app);
     const blank = recordingCli('describe-blank', ok('billing', 'requirements', ['requirements.md']));
     registerNewSpec(pool, blank.path, deps());
     answers.input = ['billing', '', '   '];
     answers.pick = ['Feature', DRAFT];
     await commands.executeCommand(NEW_SPEC_COMMAND);
-    expect(blank.calls()).toEqual([['new', 'billing', '--root', '/work/app', '--json']]);
+    expect(blank.calls()).toEqual([['--root', '/work/app', '--json', 'new', '--', 'billing']]);
 
     resetRecorded();
     const self = recordingCli('describe-self', ok('billing', 'requirements', ['requirements.md']));
@@ -388,6 +342,28 @@ describe('the New spec flow', () => {
     answers.pick = ['Feature', DRAFT];
     await commands.executeCommand(NEW_SPEC_COMMAND);
     expect(recorded.error).toEqual(['steno exited with code 1: steno: boom']);
+  });
+
+  it('writes a crash\'s whole standard error to the folder\'s output channel, and a refusal nothing', async () => {
+    const pool = await pooled(app);
+    const cli = recordingCli('trace', 'process.stderr.write("TypeError: x is not a function\\n    at main (cli.js:1:1)\\n"); process.exitCode = 3;');
+    registerNewSpec(pool, cli.path, deps());
+    answers.input = ['billing', '', ''];
+    answers.pick = ['Feature', DRAFT];
+    await commands.executeCommand(NEW_SPEC_COMMAND);
+    expect(recorded.error).toEqual(['steno exited with code 3: TypeError: x is not a function']);
+    expect(logged).toEqual(['TypeError: x is not a function\n    at main (cli.js:1:1)']);
+
+    resetRecorded();
+    const refusing = await pooled(app);
+    registerNewSpec(refusing, recordingCli('refuses-quietly', [
+      `process.stdout.write(JSON.stringify({ protocolVersion: 1, code: 'failed', message: 'spec already exists: billing' }));`,
+      'process.stderr.write("warn\\n"); process.exitCode = 1;',
+    ].join('\n')).path, deps());
+    answers.input = ['billing', '', ''];
+    answers.pick = ['Feature', DRAFT];
+    await commands.executeCommand(NEW_SPEC_COMMAND);
+    expect(logged).toEqual([]);
   });
 
   describe('which project it creates in', () => {

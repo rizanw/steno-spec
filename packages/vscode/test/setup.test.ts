@@ -9,7 +9,7 @@ import { Uri, answers, commands, folder, openDocument, recorded, resetRecorded, 
 import type { SpecTree } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
 import {
-  COPY_INSTALL, INSTALL_COMMAND, OPEN_PARENT, SET_UP_COMMAND, initAgents, initArgs, initResult,
+  COPY_INSTALL, INSTALL_COMMAND, OPEN_PARENT, SET_UP_COMMAND,
   pickSetUpFolder, registerSetUp, setUp,
 } from '../src/setup.js';
 
@@ -30,43 +30,6 @@ describe('pickSetUpFolder', () => {
     expect(pickSetUpFolder(['/a'], '/elsewhere')).toBe('/a');
     expect(pickSetUpFolder(['/a', '/b'], '/elsewhere')).toBeUndefined();
     expect(pickSetUpFolder([], undefined)).toBeUndefined();
-  });
-});
-
-describe('initArgs', () => {
-  it('passes the selection as one comma list, then the folder as given, with --json', () => {
-    expect(initArgs('/work/app', ['claude', 'codex'])).toEqual(['init', '-a', 'claude,codex', '--root', '/work/app', '--json']);
-  });
-
-  it('passes an empty selection as -a \'\', which installs in .agents/skills only', () => {
-    expect(initArgs('/work/app', [])).toEqual(['init', '-a', '', '--root', '/work/app', '--json']);
-  });
-});
-
-describe('initResult and initAgents', () => {
-  const good = { root: '/work/app', skills: ['steno-spec'], agents: { claude: '/work/app/.claude/skills' } };
-
-  it('accepts a full answer, with or without warnings', () => {
-    expect(initResult(good)).toEqual(good);
-    expect(initResult({ ...good, warnings: ['config.yaml unreadable'] })).toBeDefined();
-  });
-
-  it('counts an answer with a missing or mistyped field as failed', () => {
-    for (const field of ['root', 'skills', 'agents'] as const) {
-      const { [field]: _, ...rest } = good;
-      expect(initResult(rest), field).toBeUndefined();
-    }
-    expect(initResult({ ...good, skills: 'steno-spec' })).toBeUndefined();
-    expect(initResult({ ...good, agents: ['claude'] })).toBeUndefined();
-    expect(initResult({ ...good, agents: { claude: 1 } })).toBeUndefined();
-    expect(initResult({ ...good, warnings: 'oops' })).toBeUndefined();
-    expect(initResult(null)).toBeUndefined();
-  });
-
-  it('reads the agent list, and refuses one with a missing field', () => {
-    expect(initAgents({ agents: [{ key: 'claude', label: 'Claude Code', extra: 1 }] })).toEqual([{ key: 'claude', label: 'Claude Code' }]);
-    expect(initAgents({ agents: [{ key: 'claude' }] })).toBeUndefined();
-    expect(initAgents({})).toBeUndefined();
   });
 });
 
@@ -132,8 +95,8 @@ describe('the set-up flow', () => {
 
     expect(recorded.picks).toEqual([{ title: 'Set up steno', labels: ['Claude Code', 'Codex', 'Cursor'], many: true }]);
     expect(cli.calls()).toEqual([
-      ['init', '--list-agents', '--json'],
-      ['init', '-a', 'claude,codex', '--root', app.path, '--json'],
+      ['--root', app.path, '--json', 'init', '--list-agents'],
+      ['--root', app.path, '--json', 'init', '--agent=claude,codex'],
     ]);
     expect(recorded.info).toEqual([
       `steno set up in app: 3 skills for Claude Code, Codex. To use steno in a terminal, install it with ${INSTALL_COMMAND}`,
@@ -147,7 +110,7 @@ describe('the set-up flow', () => {
     const cli = fakeCli('empty', done(app.path));
     answers.many = [[]];
     await setUp(pool, cli.path);
-    expect(cli.calls()[1]).toEqual(['init', '-a', '', '--root', app.path, '--json']);
+    expect(cli.calls()[1]).toEqual(['--root', app.path, '--json', 'init', '--agent=']);
     expect(recorded.info[0]).toMatch(/^steno set up in empty: 3 skills in \.agents\/skills\./);
     expect(recorded.clipboard).toEqual([]);
   });
@@ -235,11 +198,12 @@ describe('the set-up flow', () => {
   });
 
   it('runs no init when the user dismisses the agent pick', async () => {
-    const pool = await pooled([plain('dismiss')]);
+    const dismiss = plain('dismiss');
+    const pool = await pooled([dismiss]);
     const cli = fakeCli('dismiss-agents');
     answers.many = [undefined];
     await setUp(pool, cli.path);
-    expect(cli.calls()).toEqual([['init', '--list-agents', '--json']]);
+    expect(cli.calls()).toEqual([['--root', dismiss.path, '--json', 'init', '--list-agents']]);
     expect(recorded.info).toEqual([]);
   });
 
@@ -268,7 +232,7 @@ describe('the set-up flow', () => {
     const cli = fakeCli('partial', { root: join(dir, 'partial'), skills: [] });
     answers.many = [[]];
     await setUp(pool, cli.path);
-    expect(recorded.error).toEqual(['steno init gave an answer the extension cannot read']);
+    expect(recorded.error).toEqual(['steno init gave an answer the host cannot read']);
     expect(recorded.info).toEqual([]);
   });
 
@@ -276,7 +240,7 @@ describe('the set-up flow', () => {
     const pool = await pooled([plain('badlist')]);
     const cli = fakeCli('badlist', {}, { agents: 'claude' });
     await setUp(pool, cli.path);
-    expect(recorded.error).toEqual(['steno init gave an answer the extension cannot read']);
+    expect(recorded.error).toEqual(['steno init gave an answer the host cannot read']);
     expect(recorded.picks).toEqual([]);
   });
 

@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import type { OutlineItem, SpecTree, TreeSpec, TreeSteering } from './protocol.js';
 import type { FolderServer, ServerPool } from './servers.js';
 import {
-  AGENT_INSTRUCTION_DIRS, AGENT_INSTRUCTION_FILES, DEFAULT_SPECS_DIR, INSTRUCTION_GLOB, ROOT_INSTRUCTIONS,
+  INSTRUCTION_GLOB, listInstructions, specsDir, type FolderReader,
   documentRow, instructionRow, specOrder, specRow, steeringOrder, steeringRow, taskRow, taskRows, unusable, type RowIcon, type RowText,
   specActions, taskActions, type TaskRow,
 } from '@steno/core/host';
@@ -220,7 +220,7 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
   if (unusable(spec)) {
     return (spec.files ?? []).map(f => new FileNode(folder, f.file, f.reason, vscode.Uri.joinPath(folder, ...f.file.split('/'))));
   }
-  const dir = (tree.specsDir ?? DEFAULT_SPECS_DIR).split('/').filter(Boolean);
+  const dir = specsDir(tree).split('/').filter(Boolean);
   return (spec.documents ?? []).map(document => {
     const uri = vscode.Uri.joinPath(folder, ...dir, spec.name, document);
     const tasks = document === 'tasks.md' ? taskNodes(spec, spec.taskItems ?? [], uri) : [];
@@ -243,39 +243,14 @@ export function folderItems(server: FolderServer): Node[] {
   return specOrder(tree.specs).map(spec => new SpecNode(uri, tree, spec));
 }
 
-/** Whether a file exists; `stat` throws for one that does not. */
-async function exists(uri: vscode.Uri): Promise<boolean> {
-  try {
-    await vscode.workspace.fs.stat(uri);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** The names of the files in a folder, or none when the folder does not exist. */
-async function filesIn(uri: vscode.Uri): Promise<string[]> {
-  try {
-    const entries = await vscode.workspace.fs.readDirectory(uri);
-    return entries.filter(([, type]) => type === vscode.FileType.File).map(([name]) => name);
-  } catch {
-    return [];
-  }
-}
-
-/** The given folder-relative files that exist. */
-async function present(folder: vscode.Uri, candidates: readonly string[]): Promise<string[]> {
-  const found = await Promise.all(candidates.map(async file =>
-    (await exists(vscode.Uri.joinPath(folder, ...file.split('/')))) ? file : undefined));
-  return found.filter((file): file is string => file !== undefined);
-}
-
-/** The files of the agent instruction folders, by their folder-relative paths. */
-async function instructionDirFiles(folder: vscode.Uri): Promise<string[]> {
-  const perDir = await Promise.all(AGENT_INSTRUCTION_DIRS.map(async ({ dir, suffix }) =>
-    (await filesIn(vscode.Uri.joinPath(folder, ...dir.split('/'))))
-      .filter(name => name.endsWith(suffix)).map(name => `${dir}/${name}`)));
-  return perDir.flat();
+/** The folder's files through the editor's file system, so a remote or virtual workspace reads the same way. */
+function folderReader(folder: vscode.Uri): FolderReader {
+  const at = (path: string) => vscode.Uri.joinPath(folder, ...path.split('/'));
+  return {
+    // `stat` throws for a file that does not exist
+    exists: async path => { try { await vscode.workspace.fs.stat(at(path)); return true; } catch { return false; } },
+    files: async dir => (await vscode.workspace.fs.readDirectory(at(dir))).filter(([, type]) => type === vscode.FileType.File).map(([name]) => name),
+  };
 }
 
 /**
@@ -286,11 +261,9 @@ export async function steeringItems(server: FolderServer): Promise<SteeringViewN
   const tree = server.tree;
   if (server.state === 'stopped' || !tree) return [];
   const uri = server.folder.uri;
-  const [root, agentFiles, agentDirFiles] = await Promise.all([
-    present(uri, ROOT_INSTRUCTIONS), present(uri, AGENT_INSTRUCTION_FILES), instructionDirFiles(uri),
-  ]);
+  const { root, agent } = await listInstructions(folderReader(uri));
   const byPath = new Map(tree.steering.map(entry => [entry.path, entry]));
-  return steeringOrder(tree.steering, root, [...agentFiles, ...agentDirFiles]).map(row => row.kind === 'steering'
+  return steeringOrder(tree.steering, root, agent).map(row => row.kind === 'steering'
     ? new SteeringNode(uri, byPath.get(row.path)!)
     : new InstructionNode(uri, row.path, vscode.Uri.joinPath(uri, ...row.path.split('/'))));
 }

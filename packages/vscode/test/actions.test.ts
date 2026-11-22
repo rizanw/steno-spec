@@ -60,6 +60,7 @@ describe('reopen a spec', () => {
     answers.message = 'Reopen';
     await commands.executeCommand(REOPEN_SPEC_COMMAND, done);
     expect(sent).toEqual([{ method: 'steno/specReopen', params: { spec: 'auth' } }]);
+    expect(recorded.info).toEqual(['auth is open again. Add tasks to tasks.md, then run them.']);
     await commands.executeCommand(REOPEN_SPEC_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec({ phase: 'execute' })));
     expect(sent).toHaveLength(1);
   });
@@ -132,6 +133,7 @@ describe('mark done and reopen', () => {
     answers.message = 'Reopen';
     await commands.executeCommand(REOPEN_COMMAND, taskNode(true));
     expect(sent).toEqual([{ method: 'steno/taskReopen', params: { spec: 'auth', task: 'T1' } }]);
+    expect(recorded.info).toEqual([]);
   });
 
   it('shows the findings of a refused change', async () => {

@@ -1,7 +1,7 @@
 // The manifest and the extension's own source, read as text: the promises that are kept by what the files
 // say rather than by what the code does at run time.
 import { describe, it, expect } from 'vitest';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -111,6 +111,13 @@ describe('the manifest and source', () => {
     expect(lines).toHaveLength(3);
     expect(lines[0]).toBe('No folder in this window is a steno project.');
     expect(lines[2]).toBe('[Set up steno](command:steno.setUp)');
+  });
+
+  it('contributes the logo the status bar shows, from a font the build copies out of assets/', () => {
+    const logo = manifest.contributes.icons['steno-logo'].default;
+    expect(logo).toEqual({ fontPath: 'media/steno-icons.woff', fontCharacter: '\\E000' });
+    expect(existsSync(join(HERE, '..', '..', 'assets', 'steno-icons.woff'))).toBe(true);
+    expect(readFileSync(join(HERE, 'build.mjs'), 'utf8')).toContain("'steno-icons.woff'");
   });
 
   it('offers "Choose Coding Agent" in the palette while a folder is a steno project', () => {

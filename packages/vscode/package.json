@@ -202,6 +202,15 @@
         "icon": "$(sparkle)"
       }
     ],
+    "icons": {
+      "steno-logo": {
+        "description": "The steno logo",
+        "default": {
+          "fontPath": "media/steno-icons.woff",
+          "fontCharacter": "\\E000"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {

@@ -1,6 +1,6 @@
 // Starting the programs a host ships, from files on disk or from text embedded in the host's bundle.
 import { describe, expect, it } from 'vitest';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { programsDir, runToEnd, type ProgramSource } from '../src/programs.js';
@@ -52,9 +52,31 @@ describe('the bundled programs', () => {
   it('reuses a folder another process finished first', () => {
     const data = temp();
     mkdirSync(join(data, 'abc123', 'vendor'), { recursive: true });
+    mkdirSync(join(data, 'abc123', 'skills', 'steno-run'), { recursive: true });
     writeFileSync(join(data, 'abc123', 'vendor', 'echo.mjs'), ECHO);
+    writeFileSync(join(data, 'abc123', 'skills', 'steno-run', 'SKILL.md'), '# run');
+    const written = statSync(join(data, 'abc123', 'vendor', 'echo.mjs')).mtimeMs;
     expect(programsDir(embedded(data))).toBe(join(data, 'abc123', 'vendor'));
-    expect(existsSync(join(data, 'abc123', 'skills'))).toBe(false);
+    expect(statSync(join(data, 'abc123', 'vendor', 'echo.mjs')).mtimeMs).toBe(written);
+  });
+
+  it('runs only the bundled text, writing again a folder whose files were changed or left out', async () => {
+    const data = temp();
+    mkdirSync(join(data, 'abc123', 'vendor'), { recursive: true });
+    writeFileSync(join(data, 'abc123', 'vendor', 'echo.mjs'), 'process.stdout.write("planted")');
+    const { stdout } = await runToEnd(embedded(data), 'echo.mjs', ['a']);
+    expect(JSON.parse(stdout).args).toEqual(['a']);
+    expect(readFileSync(join(data, 'abc123', 'skills', 'steno-run', 'SKILL.md'), 'utf8')).toBe('# run');
+  });
+
+  it.skipIf(process.platform === 'win32')('keeps the data folder private to this user', () => {
+    const data = temp();
+    chmodSync(data, 0o777);
+    programsDir(embedded(data));
+    expect(statSync(data).mode & 0o777).toBe(0o700);
+    const fresh = join(temp(), 'nested', 'steno');
+    programsDir(embedded(fresh));
+    expect(statSync(fresh).mode & 0o077).toBe(0);
   });
 
   it('starts every program as plain Node, with its arguments passed as they are and no shell', async () => {

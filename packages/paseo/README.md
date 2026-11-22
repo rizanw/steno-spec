@@ -106,8 +106,10 @@ When a row has more actions than fit as buttons, the rest are behind its **more*
 | Turn it off for a while | `paseo plugin disable steno` (and `enable` to bring it back) |
 | Uninstall | `paseo plugin remove steno` |
 
-The plugin unpacks its programs into `~/.paseo/plugin-data/steno/`, one folder per version. Removing
-the plugin leaves that folder behind, so delete it by hand if you want the space back.
+The plugin unpacks its programs into `~/.paseo/plugin-data/steno/` (under `$PASEO_HOME` when set),
+one folder per version. Only the daemon's user can open that folder, and each file is checked against the
+plugin's own copy before it runs. Removing the plugin leaves the folder behind, so delete it by hand if you
+want the space back.
 
 ## Troubleshooting
 
@@ -130,6 +132,7 @@ steno: language server started: <name> <version>
 | steno is missing from `paseo plugin ls` | Turn plugins on in Settings → Plugins, then install it again. |
 | `cli failed` or `language server failed` in the log | Run `paseo plugin update steno`, then `paseo plugin reload steno`. If it keeps happening, [open an issue](https://github.com/rizanw/steno-spec/issues) and attach the log. |
 | `could not unpack the bundled programs` | Make sure `~/.paseo/plugin-data/` is writable. |
+| `… is not a folder owned by this user` | Another account owns `~/.paseo/plugin-data/steno/`. Remove it, or set `PASEO_HOME` to a folder the daemon's user owns. |
 | A warning bar naming `npm install -g steno-spec@<version>` | Your agents' `steno` is missing, older than the plugin's or speaks a different protocol. Run that command on the machine where the daemon runs. |
 | The panel says the steno server stopped | It crashed five times in a row. Choose **Restart steno Server**, and check the log if it stops again. |
 | The install fails on `npm:` | npm must be on the daemon's `PATH` and able to reach the npm registry. |

@@ -39,3 +39,6 @@ const media = join(here, 'media');
 mkdirSync(media, { recursive: true });
 copyFileSync(join(root, 'assets', 'steno.png'), join(media, 'icon.png'));
 copyFileSync(join(root, 'assets', 'steno-mono.svg'), join(media, 'steno.svg'));
+// The status bar draws icons from a font only, so the mark also ships as a one-glyph font (U+E000). It is the
+// mono mark filled on its 2-unit grid: regenerate it whenever steno-mono.svg changes.
+copyFileSync(join(root, 'assets', 'steno-icons.woff'), join(media, 'steno-icons.woff'));

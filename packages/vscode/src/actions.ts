@@ -1,11 +1,11 @@
 // The state changes: approve a Spec's phase, mark a task done, reopen a done task, reopen a finished Spec.
 // Each goes to the folder's own server; the server's `steno/treeChanged` notice then redraws the tree.
 import * as vscode from 'vscode';
-import type { ChangeResult } from './protocol.js';
+import type { ChangeResult, TreeSpec } from './protocol.js';
 import { showRefusal, showStopped } from './refusal.js';
 import type { FolderServer, ServerPool } from './servers.js';
-import { REQUESTS, canApprove, reopenWording, reopenedMessage } from '@steno/core/host';
-import { SpecNode, TaskNode } from './tree.js';
+import { REQUESTS, canApprove, canApproveDocument, reopenWording, reopenedMessage } from '@steno/core/host';
+import { DocNode, SpecNode, TaskNode } from './tree.js';
 
 export const APPROVE_COMMAND = 'steno.spec.approve';
 export const MARK_DONE_COMMAND = 'steno.task.markDone';
@@ -39,10 +39,9 @@ async function change(
 }
 
 /** Approve the Spec's current phase and say which phase it moved to. */
-async function approve(pool: ServerPool, node: SpecNode): Promise<void> {
-  const { spec } = node;
+async function approve(pool: ServerPool, folder: vscode.Uri, spec: TreeSpec): Promise<void> {
   if (!canApprove(spec)) return;
-  const server = pool.get(node.folder);
+  const server = pool.get(folder);
   if (!server) return;
   const result = await change(pool, server, REQUESTS.approve, { spec: spec.name, phase: spec.phase });
   if (result) void vscode.window.showInformationMessage(`${spec.name}: ${spec.phase} approved — now in ${result.phase}`);
@@ -86,13 +85,15 @@ async function reopenSpec(pool: ServerPool, node: SpecNode): Promise<void> {
 interface DoneLensArgs { spec?: unknown; task?: unknown; uri?: unknown }
 
 /**
- * The row commands. None is in the command palette, and the approve handler acts only on a `SpecNode`,
- * which nothing outside this bundle can build: an approval starts only from the tree's "Approve".
+ * The row commands. None is in the command palette, and the approve handler acts only on a `SpecNode` or a
+ * `DocNode`, which nothing outside this bundle can build: an approval starts only from the tree's "Approve".
  */
 export function registerActions(pool: ServerPool): vscode.Disposable[] {
   return [
     vscode.commands.registerCommand(APPROVE_COMMAND, async (node: unknown) => {
-      if (node instanceof SpecNode) await approve(pool, node);
+      if (node instanceof SpecNode) await approve(pool, node.folder, node.spec);
+      // only the current phase's document: approving from an earlier one would approve a stage not in view
+      else if (node instanceof DocNode && node.spec && canApproveDocument(node.spec, node.document)) await approve(pool, node.folder, node.spec);
     }),
     vscode.commands.registerCommand(MARK_DONE_COMMAND, async (node: unknown) => {
       if (node instanceof TaskNode) await markDone(pool, node);

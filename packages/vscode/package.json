@@ -66,25 +66,25 @@
       },
       {
         "command": "steno.server.restart",
-        "title": "Restart steno Server for This Folder",
+        "title": "Restart steno Server",
         "category": "steno",
         "icon": "$(debug-restart)"
       },
       {
         "command": "steno.spec.approve",
-        "title": "Approve This Phase",
+        "title": "Approve",
         "category": "steno",
         "icon": "$(check)"
       },
       {
         "command": "steno.task.markDone",
-        "title": "Mark Task Done",
+        "title": "Mark Done",
         "category": "steno",
         "icon": "$(pass)"
       },
       {
         "command": "steno.task.reopen",
-        "title": "Reopen Task",
+        "title": "Reopen",
         "category": "steno",
         "icon": "$(discard)"
       },
@@ -101,35 +101,116 @@
       },
       {
         "command": "steno.task.run",
-        "title": "Run Task with Coding Agent",
+        "title": "Run Task",
         "category": "steno",
         "icon": "$(play)"
       },
       {
         "command": "steno.spec.runNext",
-        "title": "Run Next Task with Coding Agent",
+        "title": "Run Next Task",
         "category": "steno",
         "icon": "$(run-all)"
       },
       {
         "command": "steno.spec.write",
-        "title": "Write This Phase with Coding Agent",
+        "title": "Write This Phase",
         "category": "steno",
         "icon": "$(edit)"
       },
       {
         "command": "steno.spec.review",
-        "title": "Review This Phase with Coding Agent",
+        "title": "Review This Phase",
+        "category": "steno",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "steno.spec.write.brief",
+        "title": "Write Brief",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.revise.brief",
+        "title": "Revise Brief",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.write.requirements",
+        "title": "Write Requirements",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.revise.requirements",
+        "title": "Revise Requirements",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.write.design",
+        "title": "Write Design",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.revise.design",
+        "title": "Revise Design",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.write.tasks",
+        "title": "Write Tasks",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.revise.tasks",
+        "title": "Revise Tasks",
+        "category": "steno",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "steno.spec.review.requirements",
+        "title": "Review Requirements",
+        "category": "steno",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "steno.spec.review.design",
+        "title": "Review Design",
+        "category": "steno",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "steno.spec.review.tasks",
+        "title": "Review Tasks",
+        "category": "steno",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "steno.spec.review.done",
+        "title": "Review Drift",
         "category": "steno",
         "icon": "$(eye)"
       },
       {
         "command": "steno.steering.generate",
-        "title": "Generate Steering with Coding Agent",
+        "title": "Generate Steering",
         "category": "steno",
         "icon": "$(sparkle)"
       }
     ],
+    "icons": {
+      "steno-logo": {
+        "description": "The steno logo",
+        "default": {
+          "fontPath": "media/steno-icons.woff",
+          "fontCharacter": "\\E000"
+        }
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -215,6 +296,54 @@
           "when": "false"
         },
         {
+          "command": "steno.spec.write.brief",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.revise.brief",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.write.requirements",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.revise.requirements",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.write.design",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.revise.design",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.write.tasks",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.revise.tasks",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.review.requirements",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.review.design",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.review.tasks",
+          "when": "false"
+        },
+        {
+          "command": "steno.spec.review.done",
+          "when": "false"
+        },
+        {
           "command": "steno.steering.generate",
           "when": "false"
         }
@@ -232,7 +361,7 @@
         },
         {
           "command": "steno.spec.approve",
-          "when": "view == steno.specs && viewItem =~ /^spec\\..*\\.approvable$/",
+          "when": "view == steno.specs && viewItem == doc.approvable",
           "group": "inline"
         },
         {
@@ -256,24 +385,174 @@
           "group": "inline"
         },
         {
-          "command": "steno.spec.write",
-          "when": "view == steno.specs && viewItem =~ /^spec\\.(brief|requirements|design|tasks)/",
+          "command": "steno.spec.write.brief",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.brief(\\.approvable)?$/",
           "group": "inline"
         },
         {
-          "command": "steno.spec.review",
-          "when": "view == steno.specs && viewItem =~ /^spec\\.(requirements|design|tasks|done)/",
+          "command": "steno.spec.revise.brief",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.brief\\.written/",
           "group": "inline"
         },
         {
-          "command": "steno.spec.reopen",
-          "when": "view == steno.specs && viewItem == spec.done",
-          "group": "1_change"
+          "command": "steno.spec.write.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements(\\.approvable)?$/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.revise.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements\\.written/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.write.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design(\\.approvable)?$/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.revise.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design\\.written/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.write.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks(\\.approvable)?$/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.revise.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks\\.written/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.review.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements(\\.|$)/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.review.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design(\\.|$)/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.review.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks(\\.|$)/",
+          "group": "inline"
+        },
+        {
+          "command": "steno.spec.review.done",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.done(\\.|$)/",
+          "group": "inline"
         },
         {
           "command": "steno.steering.generate",
           "when": "view == steno.steering && viewItem == folder.project",
           "group": "inline"
+        },
+        {
+          "command": "steno.spec.new",
+          "when": "view == steno.specs && viewItem == folder.project",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.server.restart",
+          "when": "view == steno.specs && viewItem == stopped",
+          "group": "2_change@1"
+        },
+        {
+          "command": "steno.spec.approve",
+          "when": "view == steno.specs && viewItem =~ /\\.approvable$/",
+          "group": "2_change@1"
+        },
+        {
+          "command": "steno.task.markDone",
+          "when": "view == steno.specs && viewItem =~ /^task\\.open/",
+          "group": "2_change@1"
+        },
+        {
+          "command": "steno.task.reopen",
+          "when": "view == steno.specs && viewItem == task.done",
+          "group": "2_change@2"
+        },
+        {
+          "command": "steno.task.run",
+          "when": "view == steno.specs && viewItem == task.open.run",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.runNext",
+          "when": "view == steno.specs && viewItem == spec.execute",
+          "group": "1_agent@3"
+        },
+        {
+          "command": "steno.spec.write.brief",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.brief(\\.approvable)?$/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.revise.brief",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.brief\\.written/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.write.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements(\\.approvable)?$/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.revise.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements\\.written/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.write.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design(\\.approvable)?$/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.revise.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design\\.written/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.write.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks(\\.approvable)?$/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.revise.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks\\.written/",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.review.requirements",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.requirements(\\.|$)/",
+          "group": "1_agent@2"
+        },
+        {
+          "command": "steno.spec.review.design",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.design(\\.|$)/",
+          "group": "1_agent@2"
+        },
+        {
+          "command": "steno.spec.review.tasks",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.tasks(\\.|$)/",
+          "group": "1_agent@2"
+        },
+        {
+          "command": "steno.spec.review.done",
+          "when": "view == steno.specs && viewItem =~ /^spec\\.done(\\.|$)/",
+          "group": "1_agent@2"
+        },
+        {
+          "command": "steno.steering.generate",
+          "when": "view == steno.steering && viewItem == folder.project",
+          "group": "1_agent@1"
+        },
+        {
+          "command": "steno.spec.reopen",
+          "when": "view == steno.specs && viewItem == spec.done",
+          "group": "2_change@2"
         }
       ],
       "view/title": [

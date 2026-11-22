@@ -1,7 +1,7 @@
 // Which actions an editor offers on each spec and task row. The VS Code extension turns these lists into the
 // context values its menus match on; another host can show the same actions on the same rows.
 import type { OutlineItem, SpecTree, TreeSpec } from '../contract.js';
-import { unusable } from './rows.js';
+import { DOCUMENT_PHASE, unusable } from './rows.js';
 
 /**
  * An action a host offers on a row: approve a phase, mark a task done or reopen it, reopen a finished spec to add
@@ -21,6 +21,14 @@ const REVIEWABLE: readonly string[] = ['requirements', 'design', 'tasks', 'done'
 /** Whether a host offers "Approve" on this spec: usable, gated, and in a phase that awaits approval. */
 export function canApprove(spec: TreeSpec): boolean {
   return !unusable(spec) && spec.mode === 'gated' && spec.phase !== undefined && APPROVABLE.includes(spec.phase);
+}
+
+/**
+ * Whether this spec document offers "Approve": hosts put it on the document being approved, so the user approves
+ * with that text in view. Only the document of the spec's current phase offers it, and only while `canApprove` holds.
+ */
+export function canApproveDocument(spec: TreeSpec, document: string): boolean {
+  return canApprove(spec) && DOCUMENT_PHASE[document] === spec.phase;
 }
 
 /** The actions a spec's row offers; a spec the server could not use offers none. */

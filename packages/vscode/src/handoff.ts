@@ -19,6 +19,18 @@ export const WRITE_COMMAND = 'steno.spec.write';
 export const REVIEW_COMMAND = 'steno.spec.review';
 export const STEER_COMMAND = 'steno.steering.generate';
 
+type PhaseVerb = 'write' | 'revise' | 'review';
+
+/**
+ * A VS Code menu title cannot change per row, so each phase gets its own Write, Revise and Review command, titled
+ * like Paseo's sheet: Write Design, Revise Tasks, Review Drift. Revise is Write once the phase's document is
+ * filled in. They hand off exactly as `steno.spec.write` and `steno.spec.review` do, which stay for keybindings.
+ */
+export const PHASE_COMMANDS: readonly { command: string; verb: PhaseVerb; phase: string }[] = [
+  ...['brief', 'requirements', 'design', 'tasks'].flatMap(phase => (['write', 'revise'] as const).map(verb => ({ verb, phase }))),
+  ...['requirements', 'design', 'tasks', 'done'].map(phase => ({ verb: 'review' as const, phase })),
+].map(c => ({ ...c, command: `steno.spec.${c.verb}.${c.phase}` }));
+
 const SAVE = 'Save and hand off';
 const DONT_SAVE = 'Hand off without saving';
 const PASTE = 'Skill call copied; paste it into your agent';
@@ -178,7 +190,7 @@ export async function handOff(deps: Deps, server: FolderServer, h: Handoff): Pro
 interface RunLensArgs { spec?: unknown; task?: unknown; uri?: unknown }
 
 /**
- * The five handoff commands. None is in the command palette: each one acts only on the tree node it hangs off
+ * The handoff commands. None is in the command palette: each one acts only on the tree node it hangs off
  * (or, for "Run", the run lens), and ignores a node of the wrong kind or a Spec steno can't read.
  */
 export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposable[] {
@@ -187,6 +199,11 @@ export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposabl
     if (!(node instanceof SpecNode) || node.unusable || !node.spec.phase) return undefined;
     const server = pool.get(node.folder);
     return server && { node, server };
+  };
+  /** Hand off writing or reviewing the spec's current phase; the agent reads the phase from the spec, not the menu. */
+  const phaseWork = async (kind: 'write' | 'review', arg: unknown): Promise<void> => {
+    const found = specServer(arg);
+    if (found) await handOff(deps, found.server, { kind, spec: found.node.spec.name, phase: found.node.spec.phase! });
   };
   return [
     vscode.commands.registerCommand(RUN_TASK_COMMAND, async (arg: unknown) => {
@@ -205,14 +222,9 @@ export function registerHandoffs(pool: ServerPool, deps: Deps): vscode.Disposabl
       const found = specServer(arg);
       if (found) await handOff(deps, found.server, { kind: 'run', spec: found.node.spec.name });
     }),
-    vscode.commands.registerCommand(WRITE_COMMAND, async (arg: unknown) => {
-      const found = specServer(arg);
-      if (found) await handOff(deps, found.server, { kind: 'write', spec: found.node.spec.name, phase: found.node.spec.phase! });
-    }),
-    vscode.commands.registerCommand(REVIEW_COMMAND, async (arg: unknown) => {
-      const found = specServer(arg);
-      if (found) await handOff(deps, found.server, { kind: 'review', spec: found.node.spec.name, phase: found.node.spec.phase! });
-    }),
+    vscode.commands.registerCommand(WRITE_COMMAND, (arg: unknown) => phaseWork('write', arg)),
+    vscode.commands.registerCommand(REVIEW_COMMAND, (arg: unknown) => phaseWork('review', arg)),
+    ...PHASE_COMMANDS.map(c => vscode.commands.registerCommand(c.command, (arg: unknown) => phaseWork(c.verb === 'review' ? 'review' : 'write', arg))),
     vscode.commands.registerCommand(STEER_COMMAND, async (arg: unknown) => {
       // from a folder of the Steering view, or from its title bar or empty state with no item at all
       if (arg !== undefined && !(arg instanceof FolderNode)) return;

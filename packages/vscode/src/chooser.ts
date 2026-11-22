@@ -69,7 +69,8 @@ export class Chooser implements vscode.Disposable {
 
   private update(): void {
     const chosen = this.current();
-    this.item.text = `steno: ${chosen ? chosen.label : 'choose agent'}`;
+    // the logo is the `steno-logo` icon the manifest contributes from media/steno-icons.woff
+    this.item.text = `$(steno-logo) steno: ${chosen ? chosen.label : 'choose agent'}`;
     if (hasProject(this.pool.all())) this.item.show();
     else this.item.hide();
   }

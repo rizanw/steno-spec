@@ -103,10 +103,13 @@ STEERING
   or on request.
 - **Lint findings** show up on their line in the editor and in the Problems panel, for every spec and
   steering file, while you or your agent edit.
-- **Approve This Phase**, **Mark Task Done** and **Reopen Task** sit on the rows of the tree. If lint
+- **Approve** sits on the document being approved, so you approve with it in view; it is also in the
+  spec's right-click menu. **Mark Done** and **Reopen** sit on the task rows. If lint
   reports errors, approving is refused and the findings are listed.
 - **Reopen Spec** is in a finished spec's right-click menu, for when you want to add tasks to it. A
   finished spec that already has new, unticked tasks is back in execution without it.
+- **Right-click** any spec, task or folder row to see every action it offers, the buttons on the row
+  included: the agent's actions first, then approving, marking done and reopening.
 
 ## Hand work to your agent
 
@@ -116,8 +119,8 @@ never contains your files.
 
 | Action | Where | What the agent is asked to do |
 |---|---|---|
-| **Write This Phase** | a spec that isn't in execute yet | write the brief, requirements, design or tasks |
-| **Review This Phase** | a spec in requirements, design or tasks, or a finished one | review that stage with fresh eyes, or check a finished spec for drift |
+| **Write** or **Revise** the phase, such as **Write Design** | a spec that isn't in execute yet; Revise once the phase's document is filled in | write the brief, requirements, design or tasks |
+| **Review** the phase, such as **Review Tasks** or **Review Drift** | a spec in requirements, design or tasks, or a finished one | review that stage with fresh eyes, or check a finished spec for drift |
 | **Run Task** | an open task, in the tree or in the lens above it in `tasks.md` | do that task |
 | **Run Next Task** | a spec in execute | do its next open task |
 | **Generate Steering** | the Steering view | write the steering files |

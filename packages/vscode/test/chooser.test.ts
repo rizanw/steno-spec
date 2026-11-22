@@ -39,23 +39,23 @@ describe('pickerItems', () => {
 });
 
 describe('Chooser', () => {
-  it('shows "steno: choose agent" with no choice, and the label once one is saved', async () => {
+  it('shows the logo and "steno: choose agent" with no choice, and the label once one is saved', async () => {
     const { pool } = fakePool(project);
     const chooser = new Chooser(memento(), probe, pool);
     const [item] = recorded.statusItems;
-    expect(item.text).toBe('steno: choose agent');
+    expect(item.text).toBe('$(steno-logo) steno: choose agent');
     expect(item.command).toBe(CHOOSE_COMMAND);
     expect(chooser.current()).toBeUndefined();
     await chooser.save(byId('codex'));
     expect(chooser.current()).toBe(byId('codex'));
-    expect(item.text).toBe('steno: Codex CLI (terminal)');
+    expect(item.text).toBe('$(steno-logo) steno: Codex CLI (terminal)');
   });
 
   it('reads the stored id, and counts an id no longer in the table as no choice', () => {
     const { pool } = fakePool(project);
     expect(new Chooser(memento({ [AGENT_KEY]: 'gemini' }), probe, pool).current()).toBe(byId('gemini'));
     expect(new Chooser(memento({ [AGENT_KEY]: 'gone-agent' }), probe, pool).current()).toBeUndefined();
-    expect(recorded.statusItems[1].text).toBe('steno: choose agent');
+    expect(recorded.statusItems[1].text).toBe('$(steno-logo) steno: choose agent');
   });
 
   it('shows the status item only while a folder is a steno project, following the pool', () => {
@@ -103,7 +103,7 @@ describe('steno.agent.choose', () => {
     answers.pick = 'Copilot Chat';
     await run();
     expect(state.values.get(AGENT_KEY)).toBe('copilot');
-    expect(recorded.statusItems[0].text).toBe('steno: Copilot Chat');
+    expect(recorded.statusItems[0].text).toBe('$(steno-logo) steno: Copilot Chat');
   });
 
   it('saves nothing when the pick is dismissed', async () => {

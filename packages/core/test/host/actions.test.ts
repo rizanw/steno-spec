@@ -1,7 +1,7 @@
 // Which actions a spec or task row offers in each phase, and whether a folder's tree lets a task run.
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { canApprove, runnable, specActions, taskActions } from '../../src/host/actions.js';
+import { canApprove, canApproveDocument, runnable, specActions, taskActions } from '../../src/host/actions.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../../src/contract.js';
 
 const PHASES = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
@@ -25,6 +25,20 @@ function spec(over: Partial<TreeSpec> = {}): TreeSpec {
 function tree(over: Partial<SpecTree> = {}): SpecTree {
   return { protocolVersion: 1, specs: [], steering: [], ...over };
 }
+
+describe('canApproveDocument', () => {
+  it('offers approve on the current phase\'s document only, bugfix.md standing in for requirements.md', () => {
+    const design = spec({ phase: 'design' });
+    expect(['brief.md', 'requirements.md', 'design.md', 'tasks.md'].filter(d => canApproveDocument(design, d))).toEqual(['design.md']);
+    expect(canApproveDocument(spec({ phase: 'requirements', kind: 'bugfix' }), 'bugfix.md')).toBe(true);
+  });
+
+  it('never offers approve on a document of a spec that cannot be approved', () => {
+    fc.assert(fc.property(anySpec, fc.constantFrom('brief.md', 'requirements.md', 'bugfix.md', 'design.md', 'tasks.md'), (s, d) => {
+      if (!canApprove(s)) expect(canApproveDocument(s, d)).toBe(false);
+    }));
+  });
+});
 
 describe('canApprove', () => {
   it('approve is offered on exactly the approvable specs', () => {

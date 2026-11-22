@@ -12,6 +12,7 @@ import {
   shown, specChildren, specContext, steeringItems, taskContext, taskNodes, watchTree, type Node,
 } from '../src/tree.js';
 import { specActions, taskActions, type HostAction } from '@steno/core/host';
+import { PHASE_COMMANDS } from '../src/handoff.js';
 
 beforeEach(() => resetRecorded());
 
@@ -528,7 +529,8 @@ function matcher(when: string): (value: string | undefined) => boolean {
 describe('context values for the handoffs', () => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   const menus: { command: string; when: string; group?: string }[] = manifest.contributes.menus['view/item/context'];
-  const menu = (command: string) => matcher(menus.find(m => m.command === command)!.when);
+  // the right-click entry: every row action has one, while a button may sit on another row, as Approve does
+  const menu = (command: string) => matcher(menus.find(m => m.command === command && m.group !== 'inline')!.when);
   const PHASES = ['brief', 'requirements', 'design', 'tasks', 'execute', 'done'] as const;
   const anySpec = fc.record({
     name: fc.constant('s'),
@@ -536,17 +538,18 @@ describe('context values for the handoffs', () => {
     phase: fc.option(fc.constantFrom(...PHASES), { nil: undefined }),
     unsupported: fc.option(fc.constant(true as const), { nil: undefined }),
     unreadable: fc.option(fc.constant(true as const), { nil: undefined }),
+    written: fc.option(fc.constant(true as const), { nil: undefined }),
   }) as fc.Arbitrary<TreeSpec>;
 
-  // each row menu's command, by the action it stands for
+  // each row menu's command, by the action it stands for; Write and Review have one command per phase
   const SPEC_MENUS: Record<string, HostAction> = {
-    'steno.spec.approve': 'approve', 'steno.spec.write': 'write', 'steno.spec.review': 'review', 'steno.spec.runNext': 'runNext',
-    'steno.spec.reopen': 'reopenSpec',
+    'steno.spec.approve': 'approve', 'steno.spec.runNext': 'runNext', 'steno.spec.reopen': 'reopenSpec',
+    ...Object.fromEntries(PHASE_COMMANDS.map(c => [c.command, c.verb === 'review' ? 'review' : 'write'])),
   };
   const TASK_MENUS: Record<string, HostAction> = { 'steno.task.markDone': 'done', 'steno.task.reopen': 'reopen', 'steno.task.run': 'run' };
 
   it('names every spec and task row menu in the action table', () => {
-    const rowMenus = menus.map(m => m.command)
+    const rowMenus = [...new Set(menus.map(m => m.command))]
       .filter(c => !['steno.spec.new', 'steno.server.restart', 'steno.steering.generate'].includes(c));
     expect(rowMenus.sort()).toEqual([...Object.keys(SPEC_MENUS), ...Object.keys(TASK_MENUS)].sort());
   });
@@ -555,7 +558,15 @@ describe('context values for the handoffs', () => {
     fc.assert(fc.property(anySpec, s => {
       const value = new SpecNode(ROOT, tree(), s).contextValue;
       const actions = specActions(s);
-      for (const [command, action] of Object.entries(SPEC_MENUS)) expect(menu(command)(value), command).toBe(actions.includes(action));
+      for (const action of new Set(Object.values(SPEC_MENUS))) {
+        const shown = Object.keys(SPEC_MENUS).filter(c => SPEC_MENUS[c] === action && menu(c)(value));
+        expect(shown, action).toHaveLength(actions.includes(action) ? 1 : 0);
+      }
+      // the one Write or Review shown names the spec's phase, and Write reads Revise once the document is written
+      for (const c of PHASE_COMMANDS.filter(c => menu(c.command)(value))) {
+        expect(c.phase).toBe(s.phase);
+        if (c.verb !== 'review') expect(c.verb).toBe(s.written ? 'revise' : 'write');
+      }
       if (actions.length > 0) expect(value).toBe(specContext(s));
     }));
   });
@@ -568,6 +579,24 @@ describe('context values for the handoffs', () => {
     }));
   });
 
+  it('repeats every inline action in the right-click menu, shown on the same rows', () => {
+    const inline = menus.filter(m => m.group === 'inline');
+    const context = menus.filter(m => m.group !== 'inline');
+    expect(inline.length).toBeGreaterThan(0);
+    for (const m of inline) {
+      const copies = context.filter(c => c.command === m.command);
+      expect(copies, m.command).toHaveLength(1);
+      expect(copies[0].group, m.command).toMatch(/^\d_\w+@\d+$/);
+      // Approve's button is on the document only; its right-click entry is on both the document and the spec
+      if (m.command === 'steno.spec.approve') {
+        expect(matcher(copies[0].when)('doc.approvable')).toBe(true);
+        expect(matcher(copies[0].when)('doc')).toBe(false);
+      } else expect(copies[0].when, m.command).toBe(m.when);
+    }
+    // a finished spec is reopened from the right-click menu alone, so a list of finished specs keeps quiet rows
+    expect(menus.filter(m => m.command === 'steno.spec.reopen').map(m => m.group)).toEqual(['2_change@2']);
+  });
+
   it('lets a parent task run as well as its subtasks', () => {
     const parent = task('T1', { children: [task('T1.1')] });
     const [node] = taskNodes(spec({ taskItems: [parent] }), [parent]);
@@ -576,7 +605,7 @@ describe('context values for the handoffs', () => {
   });
 
   it('offers "Generate steering" inline on a project folder of the Steering view', async () => {
-    const steer = menus.find(m => m.command === 'steno.steering.generate')!;
+    const steer = menus.find(m => m.command === 'steno.steering.generate' && m.group === 'inline')!;
     expect(steer.group).toBe('inline');
     expect(steer.when).toContain('view == steno.steering');
     const pool = await pooled({ path: '/work/a', tree: setUp() }, { path: '/work/b', tree: setUp() });

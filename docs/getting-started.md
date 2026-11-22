@@ -110,7 +110,7 @@ In VS Code the same facts are in the steno sidebar: each spec with its phase or 
 
 ## 5. Approve, design, approve, plan
 
-Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve This Phase** on the spec in VS Code, or **Approve** on the document in Paseo) and the agent moves on:
+Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve** on the document in VS Code or Paseo) and the agent moves on:
 
 | You say | What happens |
 |---|---|

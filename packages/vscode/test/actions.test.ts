@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { Uri, answers, commands, folder, handlers, openDocument, recorded, resetRecorded } from './vscode-stub.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
 import { ServerPool, type CreateClient } from '../src/servers.js';
-import { SpecNode, TaskNode } from '../src/tree.js';
+import { DocNode, SpecNode, TaskNode } from '../src/tree.js';
 import {
   APPROVE_COMMAND, DONE_LENS_COMMAND, MARK_DONE_COMMAND, REOPEN_COMMAND, REOPEN_SPEC_COMMAND, registerActions,
 } from '../src/actions.js';
@@ -72,6 +72,20 @@ describe('approve', () => {
     await commands.executeCommand(APPROVE_COMMAND, new SpecNode(vsUri(ROOT), tree(), spec()));
     expect(sent).toEqual([{ method: 'steno/approve', params: { spec: 'auth', phase: 'requirements' } }]);
     expect(recorded.info).toEqual(['auth: requirements approved — now in design']);
+  });
+
+  it('approves from the current phase\'s document, and from no other document', async () => {
+    const { sent } = await pooled();
+    const doc = (document: string, s: TreeSpec) =>
+      new DocNode(vsUri(ROOT), document, vsUri(Uri.joinPath(ROOT, document)), [], { label: document, description: '', tooltip: '', icon: 'document' }, s);
+    await commands.executeCommand(APPROVE_COMMAND, doc('brief.md', spec()));
+    await commands.executeCommand(APPROVE_COMMAND, doc('requirements.md', spec({ phase: 'execute' })));
+    expect(sent).toEqual([]);
+    const current = doc('requirements.md', spec());
+    expect(current.contextValue).toBe('doc.approvable');
+    expect(doc('brief.md', spec()).contextValue).toBe('doc');
+    await commands.executeCommand(APPROVE_COMMAND, current);
+    expect(sent).toEqual([{ method: 'steno/approve', params: { spec: 'auth', phase: 'requirements' } }]);
   });
 
   it('does nothing unless its argument is a SpecNode, so no other caller can approve', async () => {
@@ -174,8 +188,9 @@ describe('the manifest', () => {
 
   it('hangs each inline action off its own context value', () => {
     const inline = Object.fromEntries(manifest.contributes.menus['view/item/context']
-      .map((m: { command: string; when: string }) => [m.command, m.when]));
-    expect(inline[APPROVE_COMMAND]).toBe('view == steno.specs && viewItem =~ /^spec\\..*\\.approvable$/');
+      .filter((m: { group: string }) => m.group === 'inline').map((m: { command: string; when: string }) => [m.command, m.when]));
+    // the button sits on the document being approved; the spec offers Approve in its right-click menu
+    expect(inline[APPROVE_COMMAND]).toBe('view == steno.specs && viewItem == doc.approvable');
     expect(inline[MARK_DONE_COMMAND]).toBe('view == steno.specs && viewItem =~ /^task\\.open/');
     expect(inline[REOPEN_COMMAND]).toBe('view == steno.specs && viewItem == task.done');
   });

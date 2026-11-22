@@ -76,6 +76,7 @@ describe('the manifest and source', () => {
     ]);
     expect(of(menus['view/item/context'])).toEqual([
       { command: 'steno.spec.new', when: 'view == steno.specs && viewItem == folder.project', group: 'inline' },
+      { command: 'steno.spec.new', when: 'view == steno.specs && viewItem == folder.project', group: '1_agent@1' },
     ]);
     // the commands of this extension the palette offers, each only while a folder is a steno project
     expect(of(menus.commandPalette)).toEqual([{ command: 'steno.spec.new', when: 'steno.hasProject' }]);

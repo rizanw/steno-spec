@@ -8,7 +8,7 @@ import type { FolderServer, ServerPool } from './servers.js';
 import {
   INSTRUCTION_GLOB, listInstructions, specsDir, type FolderReader,
   documentRow, instructionRow, specOrder, specRow, steeringOrder, steeringRow, taskRow, taskRows, unusable, type RowIcon, type RowText,
-  specActions, taskActions, type TaskRow,
+  canApproveDocument, specActions, taskActions, type TaskRow,
 } from '@steno/core/host';
 
 const { None, Collapsed } = vscode.TreeItemCollapsibleState;
@@ -79,13 +79,17 @@ export class StoppedNode extends vscode.TreeItem {
 }
 
 /**
- * A usable Spec's context value: `spec.{phase}`, plus `.approvable` when it can be approved, such as
- * `spec.design.approvable` or `spec.execute`. The menus in package.json match on these patterns, so each
- * handoff shows only in the phases it makes sense in.
+ * A usable Spec's context value: `spec.{phase}`, then `.written` once the phase's document is filled in, then
+ * `.approvable` when it can be approved, such as `spec.design.written.approvable` or `spec.execute`. The menus in
+ * package.json match on these patterns, so each handoff shows only in the phases it makes sense in, and Write
+ * turns into Revise once there is something to revise.
  */
 export function specContext(spec: TreeSpec): string {
-  const base = spec.phase ? `spec.${spec.phase}` : 'spec';
-  return specActions(spec).includes('approve') ? `${base}.approvable` : base;
+  const actions = specActions(spec);
+  // only where Write is offered: `spec.execute` must stay exact, or Run Next Task would vanish from a written spec
+  const written = spec.written && actions.includes('write') ? '.written' : '';
+  const base = (spec.phase ? `spec.${spec.phase}` : 'spec') + written;
+  return actions.includes('approve') ? `${base}.approvable` : base;
 }
 
 /**
@@ -115,17 +119,20 @@ export class SpecNode extends vscode.TreeItem {
   }
 }
 
-/** One spec document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. */
+/**
+ * One spec document, ticked once its stage is done. `tasks.md` holds the Spec's tasks. The document of the
+ * Spec's current phase carries "Approve" while the phase can be approved, so the user approves with it in view.
+ */
 export class DocNode extends vscode.TreeItem {
   readonly kind = 'doc' as const;
 
   constructor(readonly folder: vscode.Uri, readonly document: string, readonly uri: vscode.Uri,
-    readonly children: TaskNode[] = [], readonly row: RowText) {
+    readonly children: TaskNode[] = [], readonly row: RowText, readonly spec?: TreeSpec) {
     super(row.label, children.length ? Collapsed : None);
     this.resourceUri = uri;
     // the icon is a codicon, not 'file': that one means "the file icon theme's icon", the Markdown icon for a .md
     show(this, row);
-    this.contextValue = 'doc';
+    this.contextValue = spec && canApproveDocument(spec, document) ? 'doc.approvable' : 'doc';
     this.command = open(uri);
   }
 }
@@ -224,7 +231,7 @@ export function specChildren(folder: vscode.Uri, tree: SpecTree, spec: TreeSpec)
   return (spec.documents ?? []).map(document => {
     const uri = vscode.Uri.joinPath(folder, ...dir, spec.name, document);
     const tasks = document === 'tasks.md' ? taskNodes(spec, spec.taskItems ?? [], uri) : [];
-    return new DocNode(folder, document, uri, tasks, documentRow(spec, document));
+    return new DocNode(folder, document, uri, tasks, documentRow(spec, document), spec);
   });
 }
 

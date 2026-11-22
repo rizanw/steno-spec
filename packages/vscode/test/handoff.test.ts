@@ -9,7 +9,7 @@ import { cmdLine } from '@steno/core/host';
 import { ADAPTERS, type Probe } from '../src/agents.js';
 import { AGENT_KEY, Chooser } from '../src/chooser.js';
 import {
-  REVIEW_COMMAND, RUN_NEXT_COMMAND, RUN_TASK_COMMAND, STEER_COMMAND, WRITE_COMMAND,
+  PHASE_COMMANDS, REVIEW_COMMAND, RUN_NEXT_COMMAND, RUN_TASK_COMMAND, STEER_COMMAND, WRITE_COMMAND,
   dirtyFor, handOff, registerHandoffs, terminalOptions, type Deps,
 } from '../src/handoff.js';
 import type { OutlineItem, SpecTree, TreeSpec } from '../src/protocol.js';
@@ -325,6 +325,18 @@ describe('registerHandoffs', () => {
     ]);
   });
 
+  it('hands off from each per-phase Write, Revise and Review exactly as the generic Write or Review does', async () => {
+    const run = setup();
+    for (const c of PHASE_COMMANDS) {
+      const node = new SpecNode(ROOT_URI, tree(), spec({ phase: c.phase as TreeSpec['phase'] }));
+      await run(c.verb === 'review' ? REVIEW_COMMAND : WRITE_COMMAND, node);
+      await run(c.command, node);
+    }
+    const calls = recorded.clipboard;
+    expect(calls).toHaveLength(PHASE_COMMANDS.length * 2);
+    for (let i = 0; i < calls.length; i += 2) expect(calls[i + 1]).toBe(calls[i]);
+  });
+
   it('ignores a wrong node, an Unusable Spec, a done task and a lens without its URI', async () => {
     const run = setup();
     const bad = { name: 'old', unsupported: true, phase: 'execute' } as TreeSpec;
@@ -341,7 +353,9 @@ describe('registerHandoffs', () => {
 
 describe('the manifest', () => {
   const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
-  const HANDOFFS = [RUN_TASK_COMMAND, RUN_NEXT_COMMAND, WRITE_COMMAND, REVIEW_COMMAND, STEER_COMMAND];
+  const HANDOFFS = [RUN_TASK_COMMAND, RUN_NEXT_COMMAND, WRITE_COMMAND, REVIEW_COMMAND, STEER_COMMAND, ...PHASE_COMMANDS.map(c => c.command)];
+  // the rows name the phase, so the generic Write and Review are left for keybindings
+  const ON_ROWS = HANDOFFS.filter(c => c !== WRITE_COMMAND && c !== REVIEW_COMMAND);
 
   it('contributes the five handoffs, hidden from the command palette, each with a handler', () => {
     const contributed = manifest.contributes.commands.map((c: { command: string }) => c.command);
@@ -357,12 +371,24 @@ describe('the manifest', () => {
 
   it('hangs each handoff off the views only, generating steering off the Steering view', () => {
     const items = manifest.contributes.menus['view/item/context'].filter((m: { command: string }) => HANDOFFS.includes(m.command));
-    expect(items.map((m: { command: string }) => m.command).sort()).toEqual([...HANDOFFS].sort());
+    expect([...new Set(items.map((m: { command: string }) => m.command))].sort()).toEqual([...ON_ROWS].sort());
     for (const m of items) {
       const view = m.command === STEER_COMMAND ? 'steering' : 'specs';
       expect(m.when).toMatch(new RegExp(`^view == steno\\.${view} && viewItem `));
     }
     expect(manifest.contributes.menus['view/title']).toContainEqual(
       { command: STEER_COMMAND, when: 'view == steno.steering && steno.hasProject', group: 'navigation' });
+  });
+});
+
+describe('the menu titles', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const title = (command: string) => manifest.contributes.commands.find((c: { command: string }) => c.command === command)?.title;
+
+  it('names the phase each Write, Revise and Review works on, as Paseo does', () => {
+    expect(PHASE_COMMANDS.map(c => title(c.command))).toEqual([
+      'Write Brief', 'Revise Brief', 'Write Requirements', 'Revise Requirements', 'Write Design', 'Revise Design',
+      'Write Tasks', 'Revise Tasks', 'Review Requirements', 'Review Design', 'Review Tasks', 'Review Drift',
+    ]);
   });
 });

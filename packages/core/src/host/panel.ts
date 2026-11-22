@@ -1,7 +1,7 @@
 // Every row a panel draws for one folder, as plain data: its text and icon from the row rules, its actions and the
 // one its main button runs. Paseo's panel draws these as they are; another host can draw the same rows the same way.
 import type { Diagnostic, SpecTree, TreeSpec } from '../contract.js';
-import { canApprove, specActions, taskActions, type HostAction } from './actions.js';
+import { canApproveDocument, specActions, taskActions, type HostAction } from './actions.js';
 import type { InstructionFiles } from './instructions.js';
 import { documentPath } from './paths.js';
 import {
@@ -47,12 +47,9 @@ function act(actions: PanelAction[], preferred: readonly PanelAction[]): Pick<Pa
   return { actions, primary: preferred.find(a => actions.includes(a)) };
 }
 
-/**
- * Approve sits on the document being approved, not on the spec, so the user approves with that text in view.
- * Only the document of the spec's current phase offers it, and only while `canApprove` holds.
- */
+/** Approve sits on the document being approved, not on the spec; see `canApproveDocument`. */
 function documentActions(spec: TreeSpec, document: string): PanelAction[] {
-  return canApprove(spec) && DOCUMENT_PHASE[document] === spec.phase ? ['approve', 'open'] : ['open'];
+  return canApproveDocument(spec, document) ? ['approve', 'open'] : ['open'];
 }
 
 /** A spec's tasks, each under its parent task, the top ones under the tasks document. */

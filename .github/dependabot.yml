@@ -19,6 +19,14 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
+      # Pinned to engines.vscode so the extension cannot use an API its oldest supported VS Code lacks; vsce and
+      # the manifest test refuse a mismatch. Raise both together when the minimum VS Code moves.
+      - dependency-name: "@types/vscode"
+      # Paseo supplies these to the plugin at run time, so the plugin typechecks against the oldest versions its
+      # minimum Paseo ships. Raise them with requirements.paseo in packages/paseo/paseo-plugin.json.
+      - dependency-name: "react"
+      - dependency-name: "react-native"
+      - dependency-name: "@types/react"
     groups:
       npm-minor-and-patch:
         patterns: ['*']

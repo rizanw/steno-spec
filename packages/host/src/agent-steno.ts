@@ -10,7 +10,7 @@ import { atLeast, cmdLine, findOnPath, isBatch, PROTOCOL_VERSION, unsafeBatch, t
 export interface AgentSteno { found: boolean; protocol?: number; version?: string; bundled: string; matches: boolean }
 
 /** How long `steno --version` may take before it counts as not matching. */
-export const VERSION_TIMEOUT_MS = 5_000;
+const VERSION_TIMEOUT_MS = 5_000;
 
 /** One way to start `steno --version`: the program itself, or `cmd.exe` with the line it runs. */
 export interface Launch { file: string; args: string[]; verbatim: boolean }
@@ -31,13 +31,13 @@ export interface CheckOptions {
 }
 
 /** The protocol a `steno --version` line names, as in `0.1.2 (protocol 1)`. */
-export function versionProtocol(text: string): number | undefined {
+function versionProtocol(text: string): number | undefined {
   const m = /\(protocol (\d+)\)/.exec(text);
   return m ? Number(m[1]) : undefined;
 }
 
 /** The version a `steno --version` line starts with, as in `0.1.2 (protocol 1)`. */
-export function versionNumber(text: string): string | undefined {
+function versionNumber(text: string): string | undefined {
   return /^\s*(\d+\.\d+\.\d+)/.exec(text)?.[1];
 }
 

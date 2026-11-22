@@ -22,10 +22,10 @@
     "@getpaseo/plugin": "0.16.2",
     "@steno/core": "workspace:*",
     "@tanstack/react-query": "^5.90.11",
-    "@types/react": "~19.2.0",
+    "@types/react": "~19.3.0",
     "esbuild": "^0.28.2",
-    "react": "19.1.0",
-    "react-native": "0.81.5",
+    "react": "19.3.1",
+    "react-native": "0.88.1",
     "steno-spec": "workspace:*",
     "vscode-jsonrpc": "^10.0.0",
     "zod": "^4.4.3"

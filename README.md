@@ -39,8 +39,8 @@
   and `_Requirements:_` footers, linked by stable ids.
 - **Reviewed with fresh context.** `steno-review` starts read-only reviewers that see only the review
   packet, never your conversation.
-- **In your editor too.** The [VS Code extension](#in-vs-code) and the [Paseo plugin](#in-paseo) show
-  where every spec stands, list each lint finding and give you the approvals.
+- **In your editor too.** The [VS Code and Paseo plugins](#plugins) show where every spec stands, list
+  each lint finding and give you the approvals.
 
 ## See it in action
 
@@ -176,57 +176,22 @@ Running `steno new` yourself only writes a template. For the full flow (intake, 
 
 `steno lint` catches what a reviewer would: missing SHALL, vague words, undefined glossary terms, implementation detail in requirements, and requirements with no design or no task.
 
-## In VS Code
+## Plugins
 
-Your agent writes; the sidebar shows where every spec stands.
+Your agent writes; a plugin shows where every spec stands, lists each lint finding and gives you the
+approvals.
 
-```bash
-code --install-extension rzndwb.steno-vscode
-```
+| Plugin | Where it shows | Install | Hands work to |
+|---|---|---|---|
+| [VS Code](packages/vscode/README.md) | Specs and Steering views in the sidebar, lint findings on their line, a run lens above each open task | `code --install-extension rzndwb.steno-vscode` | Copilot Chat, Claude Code, Codex, Gemini CLI or OpenCode |
+| [Paseo](packages/paseo/README.md) | A **steno** tab in each workspace's Explorer, beside the agents | `paseo plugin install npm:steno-paseo` | The agent you have open, unsent until you press send |
 
-```text
-SPECS
-└─ Link expiry                                          2 tasks left
-   ├─ ✓ Requirements
-   ├─ ✓ Design
-   └─ ✓ Tasks
-      ├─ ✓ Expiry data, clock and input parsing
-      └─ ○ Service rules
-         ├─ ✓ Accept expiresAt in LinkService.create
-         ├─ ○ Make LinkService.resolve throw expired            next
-         └─ ○ Return LinkView with expired
-STEERING
-├─ product                                                 always on
-└─ api                                                matching files
-```
+In both you can approve a phase, mark a task done or reopen it, and start writing, reviewing or running
+a task. A hand-off is a short skill call such as `/steno-run T2.1 link-expiry`, never file contents.
+The VS Code extension is also on Open VSX, so it installs in Cursor, Windsurf and VSCodium.
 
-- **Specs and Steering views** for every steno project in the window, each spec with its phase or the tasks left.
-- **Lint findings on their line**, as you or your agent edit a spec.
-- **Approve a phase, mark a task done or reopen it** from the tree, with a run lens above each open task in `tasks.md`.
-- **Hand a task to your agent**: Copilot Chat, Claude Code, Codex, Gemini CLI or OpenCode gets a short
-  skill call such as `/steno-run T2.1 link-expiry`, never file contents.
-
-The extension has no model, no chat participant and no network call in it, and it carries its own copy of
-steno. More in the [extension's README](packages/vscode/README.md).
-
-## In Paseo
-
-In [Paseo](https://paseo.sh), the steno plugin adds a **steno** tab to each workspace's Explorer, next to
-the agents that do the writing.
-
-```bash
-paseo plugin install npm:steno-paseo
-```
-
-- **Specs and steering** of the workspace, each spec with its documents, tasks and the next task marked.
-- **Read a document with its lint problems**, approve a phase, mark a task done or reopen it.
-- **Hand work to an agent**: Run Task, Write, Review or Revise puts a short skill call, unsent, in the
-  agent you have open, else the most recent one. You read it and press send.
-- **New Spec, Generate Steering and Set Up steno** from the panel, and every action in the Command Center.
-
-Like the extension, the plugin has no model and no network call in it, and it carries its own copy of
-steno. Your agents still run `steno` from the daemon's `PATH`, so install the CLI there too. More in the
-[plugin's README](packages/paseo/README.md).
+No plugin has a model or makes a network call, and each carries its own copy of steno. Agents in Paseo
+run `steno` from the daemon's `PATH`, so install the CLI there too.
 
 ## Build on steno
 

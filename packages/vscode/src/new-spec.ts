@@ -11,10 +11,10 @@ import { newSpec as createSpec, specsDir, type Created, type NewSpecRequest, typ
 import { OPEN_COMMAND } from './tree.js';
 
 /** What the user says the work is, in the first pick. */
-export type SpecKind = NewSpecRequest['kind'];
+type SpecKind = NewSpecRequest['kind'];
 
 /** Who writes the first document: the coding agent, the agent after a brainstorm, or the user. */
-export type WriteChoice = NewSpecRequest['writer'];
+type WriteChoice = NewSpecRequest['writer'];
 
 /** The choices the last pick offers. Brainstorming is for shaping a feature, so a bugfix doesn't get it. */
 export function writeChoices(kind: SpecKind): WriteChoice[] {

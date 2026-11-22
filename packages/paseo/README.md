@@ -6,6 +6,7 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/steno-paseo"><img src="https://img.shields.io/npm/v/steno-paseo" alt="npm version"></a>
+  <a href="https://paseo.sh/plugins/rizanw/steno"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fplugins.paseo.sh%2Fplugins%2Frizanw%2Fsteno.json&query=%24.artifact.version&label=Paseo&prefix=v" alt="Paseo plugin version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="https://github.com/rizanw/steno-spec/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>

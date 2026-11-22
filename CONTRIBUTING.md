@@ -65,6 +65,7 @@ Please leave version numbers alone. A release bumps every package together and i
 | Package | What it is |
 |---|---|
 | `packages/core` | parsers, EARS lint, traceability, context packets, state, the JSON contract |
+| `packages/host` | the Node side a host shares: starting the bundled CLI and language server, one server per folder, the instruction-file watcher and the agents' `steno` check; its pure rules live in `@steno/core/host` |
 | `packages/cli` | the `steno` command and the `steno lsp` language server, a thin layer over core; every command takes `--json` |
 | `packages/skills` | the seven `steno-*` skills and the reviewer personas |
 | `packages/vscode` | the VS Code extension; it bundles its own copy of the CLI and language server |

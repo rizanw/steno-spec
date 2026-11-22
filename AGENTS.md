@@ -24,6 +24,7 @@ packages/core/src/contract.ts          → Every JSON shape and error code (CONT
 packages/cli/src/commands/*.ts         → Command wiring only; logic lives in core
 packages/cli/src/lsp/                  → The `steno lsp` language server
 packages/cli/test/cli.test.ts          → Flags, exit codes, --json output
+packages/host/src/                     → What hosts share on Node: bundled programs, server pool, watcher (pure rules: core/src/host/)
 packages/skills/skills/<name>/SKILL.md → The skills (edit here, never an installed copy)
 packages/vscode/src/                   → The VS Code extension
 packages/paseo/{client,server,shared}/ → The Paseo plugin (client panel, daemon side, shared contracts)

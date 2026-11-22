@@ -1,7 +1,10 @@
+// The rows a panel draws for one folder: text, nesting, actions, buttons and lint counts.
 import { describe, expect, it } from 'vitest';
-import { APPROVABLE, DOCUMENT_PHASE, type Diagnostic, type OutlineItem, type SpecTree, type TreeSpec } from '../server/vendor/host.mjs';
-import { specRows, steeringRows } from '../server/rows';
-import { Row } from '../shared/contracts';
+import fc from 'fast-check';
+import { APPROVABLE } from '../../src/host/actions.js';
+import { panelRows, type PanelRow } from '../../src/host/panel.js';
+import { DOCUMENT_PHASE } from '../../src/host/rows.js';
+import type { Diagnostic, OutlineItem, SpecTree, TreeSpec } from '../../src/contract.js';
 
 const task = (id: string, title: string, extra: Partial<OutlineItem> = {}, children: OutlineItem[] = []): OutlineItem =>
   ({ kind: 'task', id, title, line: 1, endLine: 1, children, ...extra });
@@ -22,7 +25,12 @@ const broken: TreeSpec = { name: 'legacy', unsupported: true, files: [{ file: '.
 
 const tree = (specs: TreeSpec[], extra: Partial<SpecTree> = {}): SpecTree => ({ protocolVersion: 1, specs, steering: [], ...extra });
 const none = new Map<string, Diagnostic[]>();
-const byKey = (rows: Row[]) => new Map(rows.map(r => [r.key, r]));
+const byKey = (rows: PanelRow[]) => new Map(rows.map(r => [r.key, r]));
+const specRows = (t: SpecTree, diagnostics: ReadonlyMap<string, readonly Diagnostic[]>, enclosing?: string) =>
+  panelRows({ tree: t, diagnostics, instructions: { root: [], agent: [] }, enclosing }).specRows;
+const steeringRows = (t: SpecTree, root: string[], agent: string[]) => panelRows({ tree: t, diagnostics: none, instructions: { root, agent } }).steeringRows;
+/** A row a host can draw: its button is one of its own actions, and only a document row counts problems. */
+const drawable = (row: PanelRow) => (row.primary === undefined || row.actions.includes(row.primary)) && (row.kind === 'document') === (row.problems !== undefined);
 
 describe('the spec rows', () => {
   it('lists specs in progress before done ones, each with its documents and tasks', () => {
@@ -32,7 +40,7 @@ describe('the spec rows', () => {
       'specs', 'spec:login', 'doc:login/requirements.md', 'doc:login/design.md', 'doc:login/tasks.md',
       'task:login/T1', 'task:login/T1.1', 'task:login/T1.2', 'task:login/T2', 'spec:search',
     ]);
-    for (const row of rows) expect(Row.safeParse(row).success, row.key).toBe(true);
+    for (const row of rows) expect(drawable(row), row.key).toBe(true);
   });
 
   it('nests each row under its parent, one level deeper', () => {
@@ -114,7 +122,7 @@ describe('the steering rows', () => {
       'Steering', 'AGENTS', 'GEMINI', 'api', 'broken', 'release', 'tech', '.cursor/rules/style.mdc', '.github/copilot-instructions.md',
     ]);
     expect(rows.slice(1).every(r => r.parent === 'steering' && r.depth === 1)).toBe(true);
-    for (const row of rows) expect(Row.safeParse(row).success, row.key).toBe(true);
+    for (const row of rows) expect(drawable(row), row.key).toBe(true);
   });
 
   it('says when each steering file reaches the agent, or that it is unreadable', () => {
@@ -153,7 +161,7 @@ describe('the row actions', () => {
 
   it('keeps every primary action among the row\'s own actions', () => {
     const rows = [...specRows(tree([executing, designing, finished, broken]), none), ...steeringRows(tree([]), ['AGENTS.md'], [])];
-    for (const row of rows) expect(Row.safeParse(row).success, row.key).toBe(true);
+    for (const row of rows) expect(drawable(row), row.key).toBe(true);
   });
 
   it('on a task: Run Task when offered, else Mark Done, and Reopen with no button once done', () => {
@@ -197,5 +205,57 @@ describe('the row actions', () => {
   it('offers Open on every steering and instruction row, unreadable ones included', () => {
     const rows = steeringRows(tree([], { steering: [{ path: '.steno/steering/x.md', unreadable: true }] }), ['AGENTS.md'], []);
     for (const row of rows.slice(1)) expect(row).toMatchObject({ actions: ['open'], primary: 'open' });
+  });
+});
+
+describe('the rows for any folder', () => {
+  const NAMES = ['auth', 'search', 'export', 'billing'];
+  const DOCUMENTS = ['brief.md', 'requirements.md', 'bugfix.md', 'design.md', 'tasks.md'];
+  const anySpec = fc.record({
+    name: fc.constantFrom(...NAMES), mode: fc.constantFrom('gated', 'quick') as fc.Arbitrary<'gated' | 'quick'>,
+    phase: fc.constantFrom('brief', 'requirements', 'design', 'tasks', 'execute', 'done') as fc.Arbitrary<NonNullable<TreeSpec['phase']>>,
+    documents: fc.subarray(DOCUMENTS), unsupported: fc.option(fc.constant(true as const), { nil: undefined }),
+    taskItems: fc.array(fc.boolean().map(done => task('T1', 'One', { done })), { maxLength: 2 }),
+  });
+  const anySpecs = fc.uniqueArray(anySpec, { selector: s => s.name, maxLength: 4 });
+  const anySteering = fc.uniqueArray(fc.constantFrom('tech', 'api', 'product').map(n => ({ path: `.steno/steering/${n}.md`, inclusion: 'always' as const })), { selector: s => s.path, maxLength: 3 });
+  const anyInstructions = fc.record({ root: fc.subarray(['AGENTS.md', 'CLAUDE.md']), agent: fc.subarray(['.cursorrules']) });
+  const anyTree = fc.record({
+    specs: anySpecs, steering: anySteering, notSetUp: fc.option(fc.constant(true as const), { nil: undefined }),
+    specsDir: fc.option(fc.constantFrom('specs', 'docs/specs/'), { nil: undefined }),
+  }).map(t => tree(t.specs, { steering: t.steering, notSetUp: t.notSetUp, specsDir: t.specsDir }));
+
+  it('gives a folder exactly the notices its state calls for', () => {
+    fc.assert(fc.property(anyTree, anyInstructions, fc.option(fc.constantFrom('/work/app', '/srv/mono'), { nil: undefined }), (t, instructions, enclosing) => {
+      const { specRows, steeringRows } = panelRows({ tree: t, diagnostics: none, instructions, enclosing });
+      if (t.notSetUp) {
+        expect(steeringRows).toEqual([]);
+        expect(specRows).toHaveLength(1);
+        expect(specRows[0]!.kind).toBe('notice');
+        if (enclosing === undefined) expect(specRows[0]!.actions).toEqual(['setUp']);
+        else expect(specRows[0]).toMatchObject({ label: `Inside the steno project ${enclosing}`, actions: [] });
+        return;
+      }
+      const keys = [...specRows, ...steeringRows].map(r => r.key);
+      expect(keys.includes('notice:no-specs')).toBe(t.specs.length === 0);
+      expect(keys.includes('notice:no-steering')).toBe(t.steering.length === 0);
+      expect(keys.filter(k => k.startsWith('notice:')).length).toBe(Number(t.specs.length === 0) + Number(t.steering.length === 0));
+    }));
+  });
+
+  it('counts on each document row exactly the errors and warnings reported for its path, and on no other row', () => {
+    const severity = fc.constantFrom('error', 'warning') as fc.Arbitrary<'error' | 'warning'>;
+    const path = fc.constantFrom(...NAMES.flatMap(n => DOCUMENTS.map(d => `.steno/specs/${n}/${d}`)), 'specs/auth/design.md', '.steno/steering/tech.md');
+    const anyDiagnostics = fc.array(fc.tuple(path, fc.array(severity, { maxLength: 4 })), { maxLength: 8 })
+      .map(entries => new Map(entries.map(([p, list]) => [p, list.map((s): Diagnostic => ({ file: p, line: 1, severity: s, rule: 'x', message: 'm' }))])));
+    fc.assert(fc.property(anyTree, anyDiagnostics, anyInstructions, (t, diagnostics, instructions) => {
+      const { specRows, steeringRows } = panelRows({ tree: t, diagnostics, instructions });
+      for (const row of [...specRows, ...steeringRows]) {
+        if (row.kind !== 'document') { expect(row.problems, row.key).toBeUndefined(); continue; }
+        const list = diagnostics.get(row.path!) ?? [];
+        const errors = list.filter(d => d.severity === 'error').length;
+        expect(row.problems, row.key).toEqual({ errors, warnings: list.length - errors });
+      }
+    }));
   });
 });

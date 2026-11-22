@@ -4,3 +4,4 @@ export * from './requests.js';
 export * from './wording.js';
 export * from './paths.js';
 export * from './calls.js';
+export * from './version.js';

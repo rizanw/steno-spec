@@ -2,13 +2,12 @@
 // so a client that reconnects never shows what it had before; after that, any burst of changes becomes one push.
 import { existsSync } from 'node:fs';
 import type { PluginHandlerContext } from '@getpaseo/plugin/server';
-import { parentProject } from './vendor/host.mjs';
+import { panelRows, parentProject } from './vendor/host.mjs';
 import type { Action, PanelSnapshot } from '../shared/contracts';
 import { UNCHECKED, type AgentSteno } from './agent-steno';
 import type { IntentStore } from './intent';
 import { listInstructions, watchInstructions } from './instructions';
 import type { FolderServer, ServerPool } from './pool';
-import { specRows, steeringRows } from './rows';
 
 /** The window that gathers change signals into one push. */
 export const THROTTLE_MS = 150;
@@ -34,9 +33,9 @@ export async function buildSnapshot(server: FolderServer, extras: SnapshotExtras
   // read after the listing, so a tree or diagnostics that changed while it ran are the ones drawn
   const { tree, diagnostics, directory } = server;
   const enclosing = tree?.notSetUp ? parentProject(directory, existsSync) : undefined;
+  const rows = tree ? panelRows({ tree, diagnostics, instructions: found, enclosing }) : { specRows: [], steeringRows: [] };
   return {
-    specRows: tree ? specRows(tree, diagnostics, enclosing) : [],
-    steeringRows: tree ? steeringRows(tree, found.root, found.agent) : [],
+    ...rows,
     diagnostics: Object.fromEntries(diagnostics),
     server: server.state,
     agentSteno: extras.agentSteno ?? UNCHECKED,

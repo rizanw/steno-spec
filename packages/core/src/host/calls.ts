@@ -46,3 +46,13 @@ export function render(call: SkillCall, form: CallForm): string {
   }
   return [`${form === 'slash' ? '/' : '$'}${call.skill}`, ...call.args].join(' ');
 }
+
+/**
+ * How an agent takes a skill call: Claude a slash command, Codex a dollar one, any other agent a plain sentence,
+ * which every agent understands.
+ */
+export function callForm(agent: string | undefined): CallForm {
+  if (agent === 'claude') return 'slash';
+  if (agent === 'codex') return 'dollar';
+  return 'plain';
+}

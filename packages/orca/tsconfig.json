@@ -1,0 +1,21 @@
+{
+  // Orca transpiles nothing of ours (it loads the built dist/), so this only typechecks. The `orca` modules have no
+  // runtime package: types/ holds the typings `orca plugin types` writes, committed so CI needs no Orca install.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2023"],
+    "typeRoots": ["./types", "../../node_modules/@types"],
+    "types": ["orca", "orca-host", "orca-worker", "orca-services", "node"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "orca",
+    "strict": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["src", "scripts", "test", "vitest.config.ts"],
+  // the panel is a browser page with its own JSX and DOM types: tsconfig.panel.json checks it
+  "exclude": ["src/panel/*.tsx"]
+}

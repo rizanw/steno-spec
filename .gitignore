@@ -25,6 +25,9 @@ packages/paseo/server/vendor/
 packages/paseo/media/
 packages/paseo/client/vendor/
 
+# written by `orca plugin dev load` and `orca plugin shot`; the committed typings are in packages/orca/types/
+packages/orca/.orca/
+
 # the end-to-end tests: compiled files and the downloaded VS Code
 packages/vscode/out/
 packages/vscode/.vscode-test/

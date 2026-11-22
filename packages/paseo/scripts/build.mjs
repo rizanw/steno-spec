@@ -1,8 +1,8 @@
 // Generates server/vendor/: the language server, the CLI and the skills that `steno init` installs, embedded as
-// text, and core's host rules bundled with their JSON-RPC library; and client/vendor/, the browser-safe part of
-// those rules for the panel, with the panel's icon. Paseo evaluates the compiled server entry with no
-// file path and installs no npm dependencies, so nothing can be read from the plugin's folder at run time: its
-// compiler inlines both modules, and server/programs.ts writes the programs back to disk before running them.
+// text, and core's host rules and @steno/host bundled with their JSON-RPC library; and client/vendor/, the
+// browser-safe part of core's rules for the panel, with the panel's icon. Paseo evaluates the compiled server entry
+// with no file path and installs no npm dependencies, so nothing can be read from the plugin's folder at run time:
+// its compiler inlines both modules, and @steno/host writes the programs back to disk before running them.
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { builtinModules } from 'node:module';

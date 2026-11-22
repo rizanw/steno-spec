@@ -1,8 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { checkAgentSteno, versionLaunch, type Launch } from '../server/agent-steno';
+import { describe, expect, it, vi } from 'vitest';
 import { listAgents, newSpec, setUp, type RunCli } from '../server/cli';
 
 const temp = () => mkdtempSync(join(tmpdir(), 'steno-paseo-create-'));
@@ -104,56 +103,5 @@ describe('setting a folder up', () => {
     expect(outcome).toMatchObject({ ok: false, error: { message: expect.stringContaining(outer) } });
     expect(run).not.toHaveBeenCalled();
     expect(existsSync(join(inner, '.steno'))).toBe(false);
-  });
-});
-
-describe("the agents' steno", () => {
-  afterEach(() => { vi.useRealTimers(); });
-
-  // posix paths on every host: `env` says not Windows, so `findOnPath` joins with `/` even on a Windows runner
-  const env = { path: '/bin', windows: false };
-  const exists = (p: string) => p === '/bin/steno';
-  const answers = (output: string) => (_: Launch) => ({ output: Promise.resolve(output), kill: () => {} });
-  const bundled = '0.1.3';
-  const check = (output: string) => checkAgentSteno({ env, exists, protocol: 1, version: bundled, run: answers(output) });
-
-  it('is missing when PATH has no steno', async () => {
-    expect(await checkAgentSteno({ env, exists: () => false, version: bundled, run: answers('') })).toEqual({ found: false, matches: false, bundled });
-  });
-
-  it('matches when it names the same protocol, and not when it names another or none', async () => {
-    expect(await check('0.1.3 (protocol 1)\n')).toEqual({ found: true, protocol: 1, version: '0.1.3', matches: true, bundled });
-    expect(await check('0.9.0 (protocol 2)\n')).toEqual({ found: true, protocol: 2, version: '0.9.0', matches: false, bundled });
-    expect(await check('0.0.9\n')).toEqual({ found: true, version: '0.0.9', matches: false, bundled });
-    expect(await check('')).toEqual({ found: true, matches: false, bundled });
-  });
-
-  it('does not match an older version of the same protocol, so skills never call a command it lacks', async () => {
-    expect(await check('0.1.1 (protocol 1)\n')).toMatchObject({ protocol: 1, version: '0.1.1', matches: false });
-    expect(await check('0.1.10 (protocol 1)\n')).toMatchObject({ version: '0.1.10', matches: true });
-    expect(await check('0.2.0 (protocol 1)\n')).toMatchObject({ matches: true });
-  });
-
-  it('counts a steno that hangs as a mismatch after 5 s and stops it', async () => {
-    vi.useFakeTimers();
-    const kill = vi.fn();
-    const checked = checkAgentSteno({ env, exists, protocol: 1, run: () => ({ output: new Promise<string>(() => {}), kill }) });
-    let result: unknown;
-    void checked.then(r => { result = r; });
-    await vi.advanceTimersByTimeAsync(4_999);
-    expect(result).toBeUndefined();
-    await vi.advanceTimersByTimeAsync(1);
-    expect(result).toMatchObject({ found: true, matches: false });
-    expect(kill).toHaveBeenCalled();
-  });
-
-  it('runs an npm shim on Windows through cmd.exe, and refuses a path cmd.exe would misread', async () => {
-    const shim = 'C:\\Users\\me\\npm\\steno.cmd';
-    expect(versionLaunch(shim, true)).toEqual({ file: 'cmd.exe', args: ['/d', '/s', '/c', `""${shim}" --version"`], verbatim: true });
-    expect(versionLaunch('C:\\100%\\steno.cmd', true)).toBeUndefined();
-    const run = vi.fn(answers('0.1.2 (protocol 1)'));
-    const winEnv = { path: 'C:\\100%', pathExt: '.CMD', windows: true };
-    expect(await checkAgentSteno({ env: winEnv, exists: () => true, protocol: 1, run })).toMatchObject({ found: true, matches: false });
-    expect(run).not.toHaveBeenCalled();
   });
 });

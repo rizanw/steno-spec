@@ -15,5 +15,5 @@ export async function listedPaths(server: FolderServer): Promise<Set<string>> {
 export async function readListed(server: FolderServer, path: string): Promise<{ text: string }> {
   await firstTree(server);
   if (!(await listedPaths(server)).has(path)) throw new Error(`not a steno file: ${path}`);
-  return { text: readFileSync(join(server.directory, ...path.split('/')), 'utf8') };
+  return { text: readFileSync(join(server.folder, ...path.split('/')), 'utf8') };
 }

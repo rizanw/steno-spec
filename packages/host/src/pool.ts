@@ -12,10 +12,10 @@ import { runProgram, type ProgramSource } from './programs.js';
 const PUBLISH_DIAGNOSTICS = 'textDocument/publishDiagnostics';
 
 /** The bundled language server's file name among a host's programs. */
-export const SERVER_PROGRAM = 'steno-lsp.mjs';
+const SERVER_PROGRAM = 'steno-lsp.mjs';
 
 /** How long a server with no holder and no request keeps running. */
-export const IDLE_MS = 60_000;
+const IDLE_MS = 60_000;
 
 export type ServerState = 'starting' | 'running' | 'stopped';
 

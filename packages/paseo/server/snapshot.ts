@@ -29,10 +29,10 @@ export interface SnapshotExtras { agentSteno?: AgentSteno; intent?: Action }
 
 /** One snapshot from the server's last tree and diagnostics and the instruction files on disk now. */
 export async function buildSnapshot(server: FolderServer, extras: SnapshotExtras = {}): Promise<PanelSnapshot> {
-  const found = await listInstructions(server.directory);
+  const found = await listInstructions(server.folder);
   // read after the listing, so a tree or diagnostics that changed while it ran are the ones drawn
-  const { tree, diagnostics, directory } = server;
-  const enclosing = tree?.notSetUp ? parentProject(directory, existsSync) : undefined;
+  const { tree, diagnostics, folder } = server;
+  const enclosing = tree?.notSetUp ? parentProject(folder, existsSync) : undefined;
   const rows = tree ? panelRows({ tree, diagnostics, instructions: found, enclosing }) : { specRows: [], steeringRows: [] };
   return {
     ...rows,

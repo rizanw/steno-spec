@@ -6,16 +6,17 @@
 
 <p align="center">
   <a href="https://www.npmjs.com/package/steno-spec"><img src="https://img.shields.io/npm/v/steno-spec" alt="npm version"></a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://img.shields.io/visual-studio-marketplace/v/rzndwb.steno-vscode?label=VS%20Code" alt="VS Code extension version"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://vsmarketplacebadges.dev/version-short/rzndwb.steno-vscode.svg?label=VS%20Code" alt="VS Code extension version"></a>
+  <a href="https://paseo.sh/plugins/rizanw/steno"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fplugins.paseo.sh%2Fplugins%2Frizanw%2Fsteno.json&query=%24.artifact.version&label=Paseo&prefix=v" alt="Paseo plugin version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>
 
 <p align="center">
   <strong>Shorthand specs for any coding agent.</strong><br>
-  Spec-driven development with a gate at every stage: requirements → design → tasks → execute,
-  each one linted and approved by you before the next begins, with a fresh-eyes review whenever you want one.
-  Works in Claude Code, Codex, Antigravity, Cursor, Copilot, Gemini CLI, OpenCode and Kiro, and stays cheap on tokens.
+  Plan a feature before you build it: requirements, then design, then tasks, then code. steno checks
+  each stage and waits for your approval before the next one starts. It works with Claude Code, Codex,
+  Antigravity, Cursor, Copilot, Gemini CLI, OpenCode and Kiro, and it keeps the token bill small.
 </p>
 
 <p align="center">
@@ -31,20 +32,22 @@
 
 ---
 
-- **Your agent writes, the CLI checks.** `steno` has no model in it. It scaffolds, lints, traces and
-  slices; the thinking stays in the agent you already use.
-- **A task gets a packet, not the whole spec.** `steno ctx T1.1` hands the agent only the criteria,
-  terms, design sections and files that task needs, usually a few hundred tokens.
-- **Plain Markdown specs, any agent.** `requirements.md`, `design.md`, `tasks.md` with EARS criteria
-  and `_Requirements:_` footers, linked by stable ids.
-- **Reviewed with fresh context.** `steno-review` starts read-only reviewers that see only the review
-  packet, never your conversation.
-- **In your editor too.** The [VS Code extension](#in-vs-code) and the [Paseo plugin](#in-paseo) show
-  where every spec stands, list each lint finding and give you the approvals.
+Your agent does the writing and steno does the checking. The `steno` command has no model in it. It
+creates the spec files, lints them, traces every task back to a requirement, and hands your agent only
+what the current task needs. The thinking stays with the agent you already use.
+
+- **Specs are plain Markdown.** `requirements.md`, `design.md` and `tasks.md`, with EARS criteria and
+  stable IDs, so any agent can read and write them.
+- **A task gets a packet, not the whole spec.** `steno ctx T1.1` gives the agent the criteria, terms,
+  design sections and files for that one task. That is usually a few hundred tokens.
+- **Reviews start fresh.** `steno-review` runs read-only reviewers that see the document and nothing
+  of your conversation.
+- **You can follow along in your editor.** The [plugins](#plugins) show where each spec stands, list
+  the lint findings and give you the approvals.
 
 ## See it in action
 
-You talk to your agent; the `steno-*` skills drive the CLI underneath.
+You talk to your agent, and the `steno-*` skills run the CLI for you:
 
 ```text
 you   > start a spec for link expiry: a link can be given an expiry time, after which
@@ -72,8 +75,8 @@ Here is the same CLI run by hand on the finished spec in [examples/link-shortene
 
 ![steno status, show and ctx running on the link-shortener example](./assets/demo.gif)
 
-The packet is the point. For `T2.1` the agent reads this instead of the whole spec (shortened here;
-run `steno ctx T2.1` in the example for the full packet):
+The packet is what keeps it cheap. For `T2.1`, this is all the agent reads (shortened here; run
+`steno ctx T2.1` in the example to see the whole packet):
 
 ```md
 # T2.1 Accept `expiresAt` in `LinkService.create`, store it only when given
@@ -100,37 +103,38 @@ test/links.test.ts
 steno done T2.1
 ```
 
-This spec is real. It lives in [examples/link-shortener](examples/link-shortener), with the code it
-produced.
+That spec is real. You can read it, and the code it produced, in [examples/link-shortener](examples/link-shortener).
 
 ## Quick start
 
-Install the CLI (Node ≥ 22; macOS, Linux or Windows). The package is `steno-spec`; the command is `steno`:
+You need Node 22 or later, on macOS, Linux or Windows. The npm package is called `steno-spec`, and the
+command it installs is `steno`:
 
 ```bash
 npm install -g steno-spec
 ```
 
-Then, in your own project:
+Then set up your project, naming the agents you use:
 
 ```bash
 steno init --agent claude,codex,opencode
 ```
 
-Just trying it out? `npx steno-spec init --agent claude` sets up a project without installing anything.
-The skills call `steno` directly, though, so install the CLI before you hand the work to your agent.
+Want to look around first? `npx steno-spec init --agent claude` sets up a project without installing
+anything. Install the CLI before you hand work to your agent, though, because the skills call `steno`
+directly.
 
-Pick your agents from `claude, codex, opencode, antigravity, cursor, copilot, gemini, kiro`
-([details](docs/agents.md)). Now open your agent and ask:
+You can name any of `claude, codex, opencode, antigravity, cursor, copilot, gemini, kiro`
+([details](docs/agents.md)). Then open your agent and ask:
 
 ```text
 > generate steering                       # once per project
 > start a spec for <the feature you want>
 ```
 
-New to steno? The [tutorial](examples/link-shortener/TUTORIAL.md) builds a feature on the example
-project in about 30 minutes. [Getting started](docs/getting-started.md) covers every step in detail,
-including quick mode, bugfix specs and brainstorming.
+The [tutorial](examples/link-shortener/TUTORIAL.md) builds a feature on the example project in about
+half an hour. [Getting started](docs/getting-started.md) walks through every step, including quick
+mode, bugfix specs and brainstorming.
 
 ## The workflow
 
@@ -158,9 +162,9 @@ approve    ↺ lint           ↺ lint        ↺ lint        ↺ next task     
 ```
 -->
 
-Each phase has a skill that does the writing and a gate that ends it. Lint errors and review
-findings send the document back for another pass; a fresh-context review is there when you want
-one. Only your approval moves the spec to the next stage.
+Every stage has a skill that writes it and a gate that ends it. When lint or a review finds a problem,
+the document goes back for another pass. Reviews are optional, whenever you want one. Nothing moves to
+the next stage until you approve it.
 
 | Phase | Say to your agent | Skill | CLI underneath |
 |---|---|---|---|
@@ -172,85 +176,54 @@ one. Only your approval moves the spec to the next stage.
 | 4. Execute | "do the next task" | `steno-run` | `steno next`, `steno ctx`, `steno done` |
 | Review *(any time)* | "review the design" | `steno-review` | `steno review --stage …`; EGM `egm-review` with `reviewer: egm` |
 
-Running `steno new` yourself only writes a template. For the full flow (intake, code exploration, outline, EARS criteria, lint, hand-over), ask the agent.
+Running `steno new` yourself only gives you an empty template. Ask your agent instead: it explores the
+code, outlines the requirements, writes the criteria, fixes the lint and hands the result back to you.
 
-`steno lint` catches what a reviewer would: missing SHALL, vague words, undefined glossary terms, implementation detail in requirements, and requirements with no design or no task.
+`steno lint` catches what a careful reviewer would: a missing SHALL, vague words, undefined terms,
+implementation detail in requirements, and requirements that no design section or task covers.
 
-## In VS Code
+## Plugins
 
-Your agent writes; the sidebar shows where every spec stands.
+Your agent writes the spec. A plugin lets you see where every spec stands, read the lint findings and
+approve each stage without leaving your editor.
 
-```bash
-code --install-extension rzndwb.steno-vscode
-```
+| Plugin | Install |
+|---|---|
+| [VS Code](packages/vscode/README.md) | `code --install-extension rzndwb.steno-vscode` |
+| [Paseo](packages/paseo/README.md) | `paseo plugin install npm:steno-paseo` |
+| Orca | In progress |
 
-```text
-SPECS
-└─ Link expiry                                          2 tasks left
-   ├─ ✓ Requirements
-   ├─ ✓ Design
-   └─ ✓ Tasks
-      ├─ ✓ Expiry data, clock and input parsing
-      └─ ○ Service rules
-         ├─ ✓ Accept expiresAt in LinkService.create
-         ├─ ○ Make LinkService.resolve throw expired            next
-         └─ ○ Return LinkView with expired
-STEERING
-├─ product                                                 always on
-└─ api                                                matching files
-```
+The VS Code and Paseo plugins both let you approve a phase, tick a task off or reopen it, and hand
+writing, reviewing or a task to an agent. When you hand work over, the agent gets a short skill call
+such as `/steno-run T2.1 link-expiry` and never the contents of your files. The VS Code extension is on
+Open VSX too, so it also installs in Cursor, Windsurf and VSCodium.
 
-- **Specs and Steering views** for every steno project in the window, each spec with its phase or the tasks left.
-- **Lint findings on their line**, as you or your agent edit a spec.
-- **Approve a phase, mark a task done or reopen it** from the tree, with a run lens above each open task in `tasks.md`.
-- **Hand a task to your agent**: Copilot Chat, Claude Code, Codex, Gemini CLI or OpenCode gets a short
-  skill call such as `/steno-run T2.1 link-expiry`, never file contents.
-
-The extension has no model, no chat participant and no network call in it, and it carries its own copy of
-steno. More in the [extension's README](packages/vscode/README.md).
-
-## In Paseo
-
-In [Paseo](https://paseo.sh), the steno plugin adds a **steno** tab to each workspace's Explorer, next to
-the agents that do the writing.
-
-```bash
-paseo plugin install npm:steno-paseo
-```
-
-- **Specs and steering** of the workspace, each spec with its documents, tasks and the next task marked.
-- **Read a document with its lint problems**, approve a phase, mark a task done or reopen it.
-- **Hand work to an agent**: Run Task, Write, Review or Revise puts a short skill call, unsent, in the
-  agent you have open, else the most recent one. You read it and press send.
-- **New Spec, Generate Steering and Set Up steno** from the panel, and every action in the Command Center.
-
-Like the extension, the plugin has no model and no network call in it, and it carries its own copy of
-steno. Your agents still run `steno` from the daemon's `PATH`, so install the CLI there too. More in the
-[plugin's README](packages/paseo/README.md).
+None of the plugins has a model or talks to the network, and each one brings its own copy of steno.
+In Paseo, your agents run the `steno` on the daemon's `PATH`, so install the CLI there as well.
 
 ## Build on steno
 
-Another editor or tool can read specs without parsing Markdown:
+Building another editor integration or a script? You don't have to parse the Markdown yourself.
 
-- **`steno lsp`** is a language server over stdio: diagnostics, document symbols, task lenses, and requests
-  for the spec tree, a task packet, approvals and task state.
+- **`steno lsp`** is a language server over stdio. It gives you diagnostics, document symbols and task
+  lenses, plus requests for the spec tree, a task packet, approvals and task state.
 - **`--json`** on the commands a client needs returns the same shapes as the server.
 
 Both follow one versioned [JSON contract](docs/json-contract.md). Within a protocol version it only
-grows, so a client written today keeps working.
+grows, so what you build today keeps working.
 
 ## Docs
 
 - [Tutorial](examples/link-shortener/TUTORIAL.md): build a feature on the example project
-- [Getting started](docs/getting-started.md): install, first spec end to end, quick mode, bugfixes
+- [Getting started](docs/getting-started.md): install, a first spec from start to finish, quick mode, bugfixes
 - [Concepts](docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](docs/cli.md): every command and flag
 - [Agents & integrations](docs/agents.md): supported agents, VS Code, Paseo, EGM, coming from Kiro
 - [VS Code extension](packages/vscode/README.md): the sidebar, approvals, handing work to your agent
 - [Paseo plugin](packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
 - [JSON contract](docs/json-contract.md): every shape `steno lsp` and `--json` return
-- [Why steno](docs/why.md): comparison with Kiro, Spec Kit and EGM; where the token savings come from
-- [Contributing](CONTRIBUTING.md): build from source, tests, commit messages, design principles
+- [Why steno](docs/why.md): how it compares with Kiro, Spec Kit and EGM, and where the token savings come from
+- [Contributing](CONTRIBUTING.md): building from source, tests, commit messages, design principles
 
 ## License
 

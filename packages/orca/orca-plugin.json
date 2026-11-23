@@ -2,7 +2,7 @@
   "manifestVersion": 2,
   "id": "steno",
   "name": "steno",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
   "license": "MIT",
   "repository": "https://github.com/rizanw/steno-spec/tree/main/packages/orca",

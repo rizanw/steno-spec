@@ -1,6 +1,6 @@
 {
   "name": "steno-spec",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Shorthand specs for any coding agent: spec-driven development that is agent-agnostic and token-efficient.",
   "keywords": [
     "spec-driven-development",

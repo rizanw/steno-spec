@@ -4,7 +4,7 @@
 // beside the worker rather than text embedded in it.
 import { build } from 'esbuild';
 import { builtinModules } from 'node:module';
-import { copyFileSync, cpSync, mkdirSync, rmSync } from 'node:fs';
+import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -15,6 +15,9 @@ const dist = join(here, 'dist');
 rmSync(dist, { recursive: true, force: true });
 mkdirSync(join(dist, 'vendor'), { recursive: true });
 
+// The worker tells the agents which `steno` to install: the CLI it bundles, whose version is fixed here.
+const define = { __STENO_VERSION__: JSON.stringify(JSON.parse(readFileSync(join(root, 'packages', 'cli', 'package.json'), 'utf8')).version) };
+
 // vscode-jsonrpc, which @steno/host pulls in, is CommonJS and requires Node built-ins, so the bundle gets a `require`.
 await build({
   entryPoints: [join(here, 'src', 'worker.ts')],
@@ -23,6 +26,7 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
+  define,
   banner: { js: "import { createRequire as __stenoCreateRequire } from 'node:module'; const require = __stenoCreateRequire(import.meta.url);" },
 });
 

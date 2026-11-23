@@ -191,15 +191,15 @@ approve each stage without leaving your editor.
 |---|---|
 | [VS Code](packages/vscode/README.md) | `code --install-extension rzndwb.steno-vscode` |
 | [Paseo](packages/paseo/README.md) | `paseo plugin install npm:steno-paseo` |
-| Orca | In progress |
+| [Orca](docs/orca.md) | `orca plugin catalog add rizanw/steno-spec`, then `orca plugin install rizanw.steno` |
 
-The VS Code and Paseo plugins both let you approve a phase, tick a task off or reopen it, and hand
+All three plugins let you approve a phase, tick a task off or reopen it, and hand
 writing, reviewing or a task to an agent. When you hand work over, the agent gets a short skill call
 such as `/steno-run T2.1 link-expiry` and never the contents of your files. The VS Code extension is on
 Open VSX too, so it also installs in Cursor, Windsurf and VSCodium.
 
 None of the plugins has a model or talks to the network, and each one brings its own copy of steno.
-In Paseo, your agents run the `steno` on the daemon's `PATH`, so install the CLI there as well.
+In Paseo and Orca, your agents run the `steno` on their own `PATH`, so install the CLI there as well.
 
 ## Build on steno
 
@@ -218,9 +218,10 @@ grows, so what you build today keeps working.
 - [Getting started](docs/getting-started.md): install, a first spec from start to finish, quick mode, bugfixes
 - [Concepts](docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
 - [CLI reference](docs/cli.md): every command and flag
-- [Agents & integrations](docs/agents.md): supported agents, VS Code, Paseo, EGM, coming from Kiro
+- [Agents & integrations](docs/agents.md): supported agents, VS Code, Paseo, Orca, EGM, coming from Kiro
 - [VS Code extension](packages/vscode/README.md): the sidebar, approvals, handing work to your agent
 - [Paseo plugin](packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
+- [Orca plugin](docs/orca.md): the steno panel in Orca, approvals, handing work to an agent
 - [JSON contract](docs/json-contract.md): every shape `steno lsp` and `--json` return
 - [Why steno](docs/why.md): how it compares with Kiro, Spec Kit and EGM, and where the token savings come from
 - [Contributing](CONTRIBUTING.md): building from source, tests, commit messages, design principles

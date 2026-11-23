@@ -3,7 +3,7 @@
 import type { Action, PanelSnapshot, Phase, Row, RowIcon } from '../shared/contracts';
 import { atLeast } from './vendor/host.mjs';
 
-export const ACTION_LABELS: Record<Action, string> = {
+const ACTION_LABELS: Record<Action, string> = {
   approve: 'Approve', done: 'Mark Done', reopen: 'Reopen', run: 'Run Task', runNext: 'Run Next Task',
   write: 'Write This Phase', review: 'Review This Phase', steer: 'Generate Steering', open: 'Open',
   newSpec: 'New Spec', setUp: 'Set Up', reopenSpec: 'Reopen Spec',
@@ -60,7 +60,7 @@ export function needsMore(row: Row, expands: boolean): boolean {
 }
 
 /** The command that installs a `steno` the agents can run, pinned to the version the plugin bundles. */
-export const installCommand = (version: string): string => `npm install -g steno-spec@${version}`;
+const installCommand = (version: string): string => `npm install -g steno-spec@${version}`;
 
 /** What the warning bar says about the agents' `steno`, or nothing when it matches. */
 export function agentStenoWarning(agentSteno: PanelSnapshot['agentSteno']): string | undefined {

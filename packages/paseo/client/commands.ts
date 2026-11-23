@@ -6,7 +6,7 @@ import type { PluginClientContext, PluginWorkspaceCommandContext } from '@getpas
 import { intent, restart, type Action, type Row } from '../shared/contracts';
 import { actionLabel } from './model';
 
-export const PANEL_ID = 'steno';
+const PANEL_ID = 'steno';
 
 /** The intents that end in a picker of rows, as the Command Center titles them. */
 export const PICKED_ITEMS: readonly { action: Action; title: string; icon: string }[] = [

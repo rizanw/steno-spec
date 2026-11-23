@@ -12,7 +12,7 @@ import type { Active } from './worktree.js';
 const at = (folder: string, path: string) => join(folder, ...path.split('/'));
 
 /** Core's listing over the disk: a missing folder or a read error lists nothing for it. */
-export function listInstructions(folder: string): Promise<InstructionFiles> {
+function listInstructions(folder: string): Promise<InstructionFiles> {
   const reader: FolderReader = {
     exists: path => stat(at(folder, path)).then(() => true, () => false),
     files: dir => readdir(at(folder, dir), { withFileTypes: true }).then(es => es.filter(e => e.isFile()).map(e => e.name), () => []),

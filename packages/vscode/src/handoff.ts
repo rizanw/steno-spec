@@ -117,7 +117,7 @@ const started = new Map<string, vscode.Terminal>();
 const startedKey = (agent: AgentAdapter, server: FolderServer): string => `${agent.id} ${server.folder.uri.toString()}`;
 
 /** The agent's terminal in this folder that is still open with the agent running, if steno started one. */
-export function runningTerminal(agent: AgentAdapter, server: FolderServer): vscode.Terminal | undefined {
+function runningTerminal(agent: AgentAdapter, server: FolderServer): vscode.Terminal | undefined {
   const key = startedKey(agent, server);
   const terminal = started.get(key);
   if (terminal && terminal.exitStatus === undefined && vscode.window.terminals.includes(terminal)) return terminal;
@@ -129,7 +129,7 @@ export function runningTerminal(agent: AgentAdapter, server: FolderServer): vsco
  * Whether this handoff may go to an agent that is already running. A review must start fresh, so it never reads the
  * conversation that wrote what it reviews, and steering is generated from the project, not from a session.
  */
-export const mayReuse = (h: Handoff): boolean => h.kind === 'run' || h.kind === 'write';
+const mayReuse = (h: Handoff): boolean => h.kind === 'run' || h.kind === 'write';
 
 const SEND = (label: string) => `Send to the running ${label}`;
 const START = (label: string) => `Start a new ${label}`;

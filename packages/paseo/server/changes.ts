@@ -5,7 +5,7 @@ import type { ChangeOutcome } from '../shared/contracts';
 import type { FolderServer } from './pool';
 
 /** The panel's name for each change and the server request that makes it. */
-export const CHANGE_METHODS = { approve: REQUESTS.approve, done: REQUESTS.taskDone, reopen: REQUESTS.taskReopen, reopenSpec: REQUESTS.specReopen } as const;
+const CHANGE_METHODS = { approve: REQUESTS.approve, done: REQUESTS.taskDone, reopen: REQUESTS.taskReopen, reopenSpec: REQUESTS.specReopen } as const;
 
 /** Said when the server is stopped; nothing is sent, so nothing changed. */
 export const STOPPED_MESSAGE = 'steno server stopped, nothing changed';
@@ -13,7 +13,7 @@ export const STOPPED_MESSAGE = 'steno server stopped, nothing changed';
 export interface ChangeRequest { kind: keyof typeof CHANGE_METHODS; spec: string; phase?: string; task?: string }
 
 /** The structured error a server refusal carries in its `data`, or a `failed` one around anything else. */
-export function refusal(err: unknown): StructuredError {
+function refusal(err: unknown): StructuredError {
   return readRefusal(err) ?? failed(err instanceof Error ? err.message : String(err));
 }
 

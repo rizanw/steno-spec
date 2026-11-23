@@ -9,7 +9,7 @@ import type { AgentSteno } from '@steno/host';
 import type { RunningAgent } from '../shared/messages.js';
 
 /** Each action's name, the same names the Paseo panel uses. */
-export const ACTION_LABELS: Record<PanelAction, string> = {
+const ACTION_LABELS: Record<PanelAction, string> = {
   approve: 'Approve', done: 'Mark Done', reopen: 'Reopen', run: 'Run Task', runNext: 'Run Next Task',
   write: 'Write This Phase', review: 'Review This Phase', steer: 'Generate Steering', open: 'Open',
   newSpec: 'New Spec', setUp: 'Set Up', reopenSpec: 'Reopen Spec',
@@ -122,7 +122,7 @@ export function problemCounts(row: PanelRow): { errors?: string; warnings?: stri
 }
 
 /** One lint problem as a refusal lists it, the way the Paseo panel lists it: where, how bad, what. */
-export const problemLine = (d: Diagnostic): string => `${d.file}:${d.line}  ${d.severity}  ${d.message}`;
+const problemLine = (d: Diagnostic): string => `${d.file}:${d.line}  ${d.severity}  ${d.message}`;
 
 /** The lines a refusal shows under its message; only a lint block has any. */
 export const refusalProblems = (error: StructuredError): string[] => (error.findings ?? []).map(problemLine);

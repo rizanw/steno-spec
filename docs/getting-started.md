@@ -25,6 +25,13 @@ If you use [Paseo](https://paseo.sh), the [plugin](../packages/paseo/README.md) 
 paseo plugin install npm:steno-paseo
 ```
 
+If you use [Orca](https://github.com/stablyai/orca), the [plugin](orca.md) adds a steno panel to the right sidebar for the worktree you have focused, with the same views and approvals. It carries its own copy of steno too, and the agents it starts run the CLI above from Orca's `PATH`. Each Orca command asks for your approval once:
+
+```bash
+orca plugin catalog add rizanw/steno-spec
+orca plugin install rizanw.steno
+```
+
 Check it:
 
 ```bash
@@ -106,11 +113,11 @@ changed since last status: requirements.md
 next: run the steno-spec skill (tell your agent: "write the requirements for <slug>"); it scaffolds and fills requirements.md, then: steno lint && steno approve requirements
 ```
 
-In VS Code the same facts are in the steno sidebar: each spec with its phase or the tasks left, and each lint finding on its line. In Paseo they are in the steno tab of the workspace's Explorer.
+In VS Code the same facts are in the steno sidebar: each spec with its phase or the tasks left, and each lint finding on its line. In Paseo they are in the steno tab of the workspace's Explorer, and in Orca in the steno panel of the right sidebar.
 
 ## 5. Approve, design, approve, plan
 
-Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve** on the document in VS Code or Paseo) and the agent moves on:
+Each phase ends at a gate you control. Say "approved" (or run the command yourself, or click **Approve** on the document in VS Code, Paseo or Orca) and the agent moves on:
 
 | You say | What happens |
 |---|---|
@@ -196,7 +203,8 @@ steno new shared-budgets --brief
 - [Tutorial](../examples/link-shortener/TUTORIAL.md): build a feature on the example project, with a finished spec to compare against
 - [Concepts](concepts.md): what the IDs, lint rules and packets are doing
 - [CLI reference](cli.md): every command and flag
-- [Agents & integrations](agents.md): other agents, VS Code, Paseo, EGM, coming from Kiro
+- [Agents & integrations](agents.md): other agents, VS Code, Paseo, Orca, EGM, coming from Kiro
 - [VS Code extension](../packages/vscode/README.md): the sidebar, approvals, handing work to your agent
 - [Paseo plugin](../packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
+- [Orca plugin](orca.md): the steno panel in Orca, approvals, handing work to an agent
 - [JSON contract](json-contract.md): what `steno lsp` and `--json` return, for building on steno

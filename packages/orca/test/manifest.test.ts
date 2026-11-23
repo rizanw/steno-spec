@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { imageProblem, MAX_IMAGE_BYTES, MAX_SCREENSHOTS } from '../scripts/catalog.mjs';
 
 const root = join(import.meta.dirname, '..');
 const json = (path: string) => JSON.parse(readFileSync(path, 'utf8'));
@@ -27,6 +28,27 @@ describe('orca-plugin.json', () => {
   // the first worktree.
   it('subscribes the worker to worktree switches', () => {
     expect(manifest.contributes.events).toContainEqual({ on: 'workspace.changed' });
+  });
+
+  // Orca's release entry silently leaves out an image it would refuse, so a bad one would vanish from the listing
+  // rather than fail the release. Catching it here fails the pull request instead.
+  it("lists only cover and screenshot images Orca takes", () => {
+    type Image = { path: string; alt: string; caption?: string };
+    const images: { kind: 'cover' | 'screenshot'; image: Image }[] = [
+      ...(manifest.cover ? [{ kind: 'cover' as const, image: manifest.cover as Image }] : []),
+      ...((manifest.screenshots ?? []) as Image[]).map(image => ({ kind: 'screenshot' as const, image })),
+    ];
+    expect(manifest.screenshots?.length ?? 0).toBeLessThanOrEqual(MAX_SCREENSHOTS);
+    let total = 0;
+    for (const { kind, image } of images) {
+      const bytes = readFileSync(join(root, image.path));
+      total += bytes.length;
+      expect(imageProblem(kind, bytes), image.path).toBeNull();
+      expect(image.alt.length, image.path).toBeGreaterThan(0);
+      expect(image.alt.length, image.path).toBeLessThanOrEqual(160);
+      expect(image.caption?.length ?? 0, image.path).toBeLessThanOrEqual(120);
+    }
+    expect(total).toBeLessThanOrEqual(MAX_IMAGE_BYTES);
   });
 
   it('asks only for the capabilities the panel needs', () => {

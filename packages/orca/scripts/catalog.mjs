@@ -28,22 +28,80 @@ const summary = contributes => [
   ...(contributes.hooks ?? []).map(h => ({ kind: 'hooks', name: h.event })),
 ];
 
-/** A PNG's size from its header, or null when the bytes are not a PNG. */
-const pngSize = bytes => bytes.subarray(1, 4).toString('latin1') === 'PNG' ? { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) } : null;
+/**
+ * Orca's limits on the listing's images. `orca plugin validate` refuses a manifest image outside them, and Orca's
+ * release entry leaves such an image out, so this script does the same.
+ */
+export const IMAGE_RULES = {
+  icon: { formats: ['png', 'webp'], maxBytes: 256 * 1024, minWidth: 128, minHeight: 128, square: true },
+  cover: { formats: ['png', 'jpeg', 'webp'], maxBytes: 1024 * 1024, minWidth: 800, minHeight: 500 },
+  screenshot: { formats: ['png', 'jpeg', 'webp'], maxBytes: 1536 * 1024, minWidth: 1280, minHeight: 800 },
+};
+export const MAX_SCREENSHOTS = 6;
+/** All of a listing's images together. */
+export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+const SOF = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+
+/** An image's format and size from its header, or null when the bytes are not a PNG, JPEG or WebP. */
+export function imageInfo(bytes) {
+  const text = (from, to) => bytes.subarray(from, to).toString('latin1');
+  if (text(1, 4) === 'PNG') return { format: 'png', width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+  if (bytes[0] === 0xff && bytes[1] === 0xd8) {
+    // a JPEG's size is in its start-of-frame segment, after any number of others
+    for (let at = 2; at + 9 <= bytes.length && bytes[at] === 0xff; at += 2 + bytes.readUInt16BE(at + 2))
+      if (SOF.has(bytes[at + 1])) return { format: 'jpeg', width: bytes.readUInt16BE(at + 7), height: bytes.readUInt16BE(at + 5) };
+    return null;
+  }
+  if (text(0, 4) === 'RIFF' && text(8, 12) === 'WEBP') {
+    const chunk = text(12, 16);
+    if (chunk === 'VP8X') return { format: 'webp', width: 1 + bytes.readUIntLE(24, 3), height: 1 + bytes.readUIntLE(27, 3) };
+    if (chunk === 'VP8 ') return { format: 'webp', width: bytes.readUInt16LE(26) & 0x3fff, height: bytes.readUInt16LE(28) & 0x3fff };
+    if (chunk === 'VP8L') { const b = bytes.readUInt32LE(21); return { format: 'webp', width: (b & 0x3fff) + 1, height: ((b >> 14) & 0x3fff) + 1 }; }
+  }
+  return null;
+}
+
+/** Why Orca refuses `bytes` as a `kind` image (icon, cover or screenshot), in Orca's words, or null when it takes them. */
+export function imageProblem(kind, bytes) {
+  const rule = IMAGE_RULES[kind], info = imageInfo(bytes);
+  if (!info || !rule.formats.includes(info.format)) return `${kind} must be ${rule.formats.map(f => f.toUpperCase()).join(' or ')}`;
+  if (bytes.length > rule.maxBytes) return `${kind} must be at most ${Math.round(rule.maxBytes / 1024)} KB`;
+  if (info.width < rule.minWidth || info.height < rule.minHeight) return `${kind} must be at least ${rule.minWidth}×${rule.minHeight}`;
+  if (rule.square && info.width !== info.height) return `${kind} must be square`;
+  return null;
+}
+
+/** A listing image as a catalog names it, or null for one Orca would refuse. `path` is from the repository's root. */
+const listingImage = (kind, path, alt, bytes) => {
+  if (!bytes || imageProblem(kind, bytes)) return null;
+  const { width, height } = imageInfo(bytes);
+  return { path, alt, sha256: createHash('sha256').update(bytes).digest('hex'), width, height };
+};
+
+const readOrNull = path => { try { return readFileSync(path); } catch { return null; } };
 
 /**
  * The catalog release for the plugin files in `dir`, committed as `commit`. `icon` is the listing's icon, a file in
- * the catalog's own repository at the path given: Orca fetches it from main, which never holds dist/.
+ * the catalog's own repository at the path given: Orca fetches it from main, which never holds dist/. The manifest's
+ * cover and screenshots are committed in the plugin folder, so they are named at their path in the repository.
  */
 export function releaseEntry(dir, commit, icon) {
   const manifest = JSON.parse(readFileSync(join(dir, 'orca-plugin.json'), 'utf8'));
   const capabilities = [...new Set((manifest.capabilities ?? []).map(c => c.kind))];
-  const size = icon && pngSize(icon.bytes);
+  const own = (kind, image) => listingImage(kind, `${PLUGIN_PATH}/${image.path}`, image.alt, readOrNull(join(dir, image.path)));
+  const images = {
+    icon: icon && listingImage('icon', icon.path, manifest.name ?? 'Plugin icon', icon.bytes),
+    cover: manifest.cover && own('cover', manifest.cover),
+    screenshots: (manifest.screenshots ?? []).map(s => own('screenshot', s)).filter(Boolean),
+  };
+  if (!images.screenshots.length) delete images.screenshots;
+  for (const key of ['icon', 'cover']) if (!images[key]) delete images[key];
   return {
     version: manifest.version, commit, contentHash: contentHash(dir), execution: manifest.execution,
     minimumOrca: manifest.engines.orca.replace(/^>=/, ''), name: manifest.name, contributes: summary(manifest.contributes ?? {}),
     ...(capabilities.length ? { capabilities } : {}),
-    ...(size ? { images: { icon: { path: icon.path, alt: manifest.name ?? 'Plugin icon', sha256: createHash('sha256').update(icon.bytes).digest('hex'), ...size } } } : {}),
+    ...(Object.keys(images).length ? { images } : {}),
   };
 }
 

@@ -54,6 +54,30 @@ node packages/orca/scripts/content-hash.mjs <folder>
 
 Hash a folder holding only committed files and `dist/`: Orca hashes every file in it, `node_modules/` too.
 
+### Listing images
+
+Orca's plugin page shows the icon (`assets/steno.png`), and can show a cover and up to 6 screenshots. Take them in
+Orca with the plugin installed, commit them under `packages/orca/images/`, and name them in `orca-plugin.json`:
+
+```json
+"cover": { "path": "images/cover.png", "alt": "The steno panel beside a spec in Orca" },
+"screenshots": [
+  { "path": "images/panel-dark.png", "alt": "The steno panel listing specs and tasks", "caption": "Specs, tasks and lint problems", "theme": "dark" }
+]
+```
+
+| Image | Format | Size | At most |
+|---|---|---|---|
+| Cover | PNG, JPEG or WebP, static | at least 800×500, 1600×1000 (16:10) recommended | 1 MB |
+| Screenshot | PNG, JPEG or WebP, static | at least 1280×800, 16:10 recommended, up to 2560×1600 | 1.5 MB each, 8 MB for all images together |
+
+`alt` is required (up to 160 characters) and `caption` is optional (up to 120). `theme` shows a screenshot only
+with a light or a dark Orca theme. Orca's release entry silently drops an image outside these limits, so
+`test/manifest.test.ts` fails on one instead; `orca plugin validate packages/orca` checks the same.
+
+Each catalog release pins every image's SHA-256, and Orca refuses an image whose bytes changed. To change a
+picture, commit it under a new file name and leave the old one, so earlier releases still show theirs.
+
 ## Check by hand
 
 Orca draws the panel, so these are checked in Orca before a release, in a light and a dark theme and a

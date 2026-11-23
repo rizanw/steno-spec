@@ -46,7 +46,58 @@
               "sha256": "f18cee0b25a3d88af39f311247f4ac0091de33d0a8526226b249cc7b3fca18b5",
               "width": 480,
               "height": 480
-            }
+            },
+            "cover": {
+              "path": "packages/orca/images/cover.png",
+              "alt": "The steno mark and name beside the steno panel listing specs and tasks in Orca",
+              "sha256": "683815632ed2ad35ec4f4aab7d028b8e0b177b2865ae937f7a234c0ad846b84d",
+              "width": 1600,
+              "height": 1000
+            },
+            "screenshots": [
+              {
+                "path": "packages/orca/images/1-hand-off-dark.png",
+                "alt": "Codex in Orca with a steno task call typed into its terminal and not sent, beside the steno panel",
+                "sha256": "824f3bce4a6f7b236ab1084a64e3e43153d49e0381241414c8b1c28ee20b4477",
+                "width": 2560,
+                "height": 1394
+              },
+              {
+                "path": "packages/orca/images/2-document-light.png",
+                "alt": "A requirements document open in Orca, with its lint warning shown in the steno panel",
+                "sha256": "c46753916aadc56064239abfa696725622283a05b16dd259bb56711cc65c8ce4",
+                "width": 2560,
+                "height": 1394
+              },
+              {
+                "path": "packages/orca/images/3-menu-dark.png",
+                "alt": "The steno panel's right-click menu on a task, with Mark Done and Run Task",
+                "sha256": "f81168f37b84271f2862fe89e51bd5581f8c6ebcac1262500c0cff090781f2b9",
+                "width": 2560,
+                "height": 1394
+              },
+              {
+                "path": "packages/orca/images/4-agent-pick-dark.png",
+                "alt": "The Run Task form asking which coding agent should take the task",
+                "sha256": "13b6bc5a930a75bd46b7d1445774fca2023b104a3f6c9d434535247b3e1f5f21",
+                "width": 2560,
+                "height": 1394
+              },
+              {
+                "path": "packages/orca/images/5-hand-off-light.png",
+                "alt": "Codex in Orca with a steno task call typed into its terminal and not sent, beside the steno panel",
+                "sha256": "649db5036b40a45e547845de442b0a2cb998974ad08a6c1b44bbf1b34758eabc",
+                "width": 2560,
+                "height": 1394
+              },
+              {
+                "path": "packages/orca/images/6-document-dark.png",
+                "alt": "A requirements document open in Orca, with its lint warning shown in the steno panel",
+                "sha256": "9289280c833ff50604d5ce181697a04715ceeb7812aa3ad5d70b467dfeb3b2c1",
+                "width": 2560,
+                "height": 1394
+              }
+            ]
           }
         }
       ]

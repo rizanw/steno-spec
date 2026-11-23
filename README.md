@@ -8,6 +8,7 @@
   <a href="https://www.npmjs.com/package/steno-spec"><img src="https://img.shields.io/npm/v/steno-spec" alt="npm version"></a>
   <a href="https://marketplace.visualstudio.com/items?itemName=rzndwb.steno-vscode"><img src="https://vsmarketplacebadges.dev/version-short/rzndwb.steno-vscode.svg?label=VS%20Code" alt="VS Code extension version"></a>
   <a href="https://paseo.sh/plugins/rizanw/steno"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fplugins.paseo.sh%2Fplugins%2Frizanw%2Fsteno.json&query=%24.artifact.version&label=Paseo&prefix=v" alt="Paseo plugin version"></a>
+  <a href="https://orca.dev/plugins/rizanw/steno-spec"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Frizanw%2Fsteno-spec%2Fmain%2Forca-catalog.json&query=%24.plugins%5B0%5D.releases%5B0%5D.version&label=Orca&prefix=v" alt="Orca plugin version"></a>
   <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
 </p>

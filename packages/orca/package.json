@@ -1,0 +1,28 @@
+{
+  "name": "steno-orca",
+  "version": "0.1.4",
+  "private": true,
+  "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
+  "license": "MIT",
+  "author": "rizanw",
+  "homepage": "https://github.com/rizanw/steno-spec/tree/main/packages/orca#readme",
+  "bugs": "https://github.com/rizanw/steno-spec/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rizanw/steno-spec.git",
+    "directory": "packages/orca"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs && pnpm run typecheck",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.panel.json"
+  },
+  "devDependencies": {
+    "@steno/core": "workspace:*",
+    "@steno/host": "workspace:*",
+    "esbuild": "^0.28.2",
+    "lucide": "^1.77.0",
+    "preact": "^11.2.0",
+    "steno-spec": "workspace:*"
+  }
+}

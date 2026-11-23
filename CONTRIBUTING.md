@@ -54,7 +54,7 @@ docs: explain quick mode
 | `test` | tests only |
 | `ci`, `build`, `chore` | workflows, build scripts, dependencies and housekeeping |
 
-The scope names the feature or area, such as `vscode`, `paseo`, `lsp-server`, `review` or `deps`. Leave it out when the change is not about one area.
+The scope names the feature or area, such as `vscode`, `paseo`, `orca`, `lsp-server`, `review` or `deps`. Leave it out when the change is not about one area.
 
 Pull requests are squashed into one commit on merge, so the pull request title is the one that has to follow this format.
 
@@ -70,6 +70,7 @@ Please leave version numbers alone. A release bumps every package together and i
 | `packages/skills` | the seven `steno-*` skills and the reviewer personas |
 | `packages/vscode` | the VS Code extension; it bundles its own copy of the CLI and language server |
 | `packages/paseo` | the Paseo plugin; it also bundles its own copy of the CLI and language server |
+| `packages/orca` | the Orca plugin; it also bundles its own copy of the CLI and language server |
 
 Adding an agent is one line in [`packages/core/src/agents.ts`](packages/core/src/agents.ts).
 
@@ -92,7 +93,7 @@ These are the rules in the code that keep those promises. Changes are easier to 
 4. **One canonical skills folder.** Skills live in `.agents/skills/`; `steno init` links or copies them into each agent's own path. No per-agent prompt forks.
 5. **Review never runs in the context that wrote the document.** Reviewers see only the `steno review` packet. If the harness cannot start a sub-agent, the skill stops instead.
 6. **Core is a library.** Anything that needs spec data calls core or `steno --json`; nothing re-implements parsing.
-7. **No model inside.** The CLI, the language server, the extension and the Paseo plugin make no model call and no network request.
+7. **No model inside.** The CLI, the language server, the extension and the Paseo and Orca plugins make no model call and no network request.
 8. **The JSON contract only grows.** Within one protocol version no field is removed, renamed or retyped and no error code is added, so a client written today keeps working.
 
 ## Code style
@@ -187,3 +188,17 @@ narrow window, in a light and a dark theme. The rest is covered by `pnpm test`.
 - [ ] Every ⌘K item works, and one with nothing to apply to says so.
 - [ ] Kill the server five times: the stopped bar shows, and Restart steno Server clears it.
 - [ ] With an older `steno` on PATH, the warning bar names both versions and the install command with the plugin's version.
+
+### The Orca plugin
+
+Load the plugin from your clone as a development plugin. Orca runs no build, so build first:
+
+```bash
+pnpm build
+orca plugin dev load "$PWD/packages/orca"
+orca plugin logs local.steno
+```
+
+After a change, run `pnpm build`, then `orca plugin dev reload`. The [plugin's README](packages/orca/README.md)
+explains what the build writes to `dist/`, how a release reaches Orca's catalog, and the checks to do by hand in
+Orca before a release.

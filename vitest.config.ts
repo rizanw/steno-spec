@@ -12,6 +12,7 @@ export default defineConfig({
       { test: { name: 'cli', include: ['packages/cli/test/**/*.test.ts'], testTimeout: 20_000 } },
       'packages/vscode/vitest.config.ts',
       'packages/paseo/vitest.config.ts',
+      'packages/orca/vitest.config.ts',
     ],
   },
 });

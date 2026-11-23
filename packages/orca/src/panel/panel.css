@@ -1,0 +1,144 @@
+/* The steno panel's look: the Paseo panel's layout, in Orca's own colours, fonts and radius. Every colour is one of
+   the --orca-* variables Orca sets on the page and updates when the theme changes, so light and dark both follow
+   the user's theme. Orca has no warning colour among them, so the one amber is picked per theme below. */
+:root { --steno-warning: #d29922; }
+:root.light { --steno-warning: #9a6700; }
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+  font: 13px/1.4 var(--orca-font-sans, system-ui, sans-serif);
+  color: var(--orca-foreground);
+  background: var(--orca-background);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+button { font: inherit; color: inherit; }
+.icon { display: block; flex-shrink: 0; }
+.loading { padding: 12px; color: var(--orca-muted-foreground); }
+.panel { padding: 0 0 12px; }
+/* Bars, forms and the agent line stick to the top while the rows scroll under them, as Orca's own source-control
+   header does. A tall form scrolls inside its own band so the rows below are never pushed fully out of view. */
+.pinned {
+  position: sticky; top: 0; z-index: 5; padding-top: 4px; max-height: 70vh; overflow-y: auto;
+  background: var(--orca-background);
+}
+.pinned:has(> *) { border-bottom: 1px solid var(--orca-border); margin-bottom: 4px; }
+
+/* rows, as Orca's own lists draw them: a fill on hover and focus, the buttons shown only then */
+.row {
+  position: relative; display: flex; align-items: center; gap: 6px;
+  min-height: 24px; padding: 2px 8px; cursor: pointer; outline: none;
+}
+.row:hover, .row.menu-open { background: var(--orca-accent); color: var(--orca-accent-foreground); }
+.row:focus-visible { background: var(--orca-accent); box-shadow: inset 0 0 0 1px var(--orca-ring); }
+.row.header .name { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--orca-muted-foreground); }
+.chevron { width: 12px; flex-shrink: 0; color: var(--orca-muted-foreground); }
+.status { width: 14px; height: 14px; flex-shrink: 0; color: var(--orca-muted-foreground); }
+.status.warning { color: var(--steno-warning); }
+/* the name and detail are the only parts that give way, so a long name ends in "…" and the buttons stay in view */
+.name { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail { flex-shrink: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--orca-muted-foreground); }
+.count { flex-shrink: 0; font-size: 12px; white-space: nowrap; }
+.count.error { color: var(--orca-destructive); }
+.count.warning { color: var(--steno-warning); }
+.actions { display: none; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0; }
+/* keyboard focus shows them too; a mouse click that leaves focus on the row does not keep them up */
+.row:hover .actions, .row:focus-visible .actions, .row:has(:focus-visible) .actions, .row.menu-open .actions { display: flex; }
+
+/* an inline action, with its name drawn to its left on hover, since these buttons end the row */
+.icon-button {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: calc(var(--orca-radius, 6px) - 2px);
+  background: transparent; color: var(--orca-muted-foreground); cursor: pointer;
+}
+.icon-button:hover, .icon-button.pressed { background: var(--orca-muted); color: var(--orca-foreground); }
+.icon-button:focus-visible { outline: 1px solid var(--orca-ring); outline-offset: -1px; }
+.icon-button:hover::after {
+  content: attr(data-label); position: absolute; right: calc(100% + 4px); top: 50%; transform: translateY(-50%);
+  padding: 2px 6px; border: 1px solid var(--orca-border); border-radius: 4px; white-space: nowrap; pointer-events: none;
+  font-size: 11px; color: var(--orca-popover-foreground); background: var(--orca-popover); z-index: 2;
+}
+
+/* notices, centred like a welcome view */
+.notice { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 10px; text-align: center; }
+.notice.top { padding: 16px; }
+.notice-label { font-size: 12px; }
+.notice.top .notice-label { font-size: 13px; font-weight: 600; }
+.notice-detail { font-size: 12px; line-height: 18px; color: var(--orca-muted-foreground); }
+.wide-button {
+  display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; padding: 5px 8px;
+  border: 1px solid var(--orca-border); border-radius: var(--orca-radius, 6px); background: transparent; cursor: pointer;
+  font-size: 12px; font-weight: 500;
+}
+.wide-button:hover { background: var(--orca-accent); }
+.wide-button.primary { border-color: transparent; background: var(--orca-primary); color: var(--orca-primary-foreground); }
+.wide-button.primary:hover { opacity: 0.9; }
+
+/* bars above the rows: the server stopped, the agents' steno does not match, or what the last action led to */
+/* In a narrow sidebar the text gets the width first: an alert's action sits on its own line under the sentence,
+   lined up with it past the icon, so the sentence is never squeezed into a column of two-word lines. */
+.bar {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; margin: 4px 8px 6px; padding: 10px 12px;
+  border: 1px solid var(--orca-border); border-radius: var(--orca-radius, 6px); background: var(--orca-card); color: var(--orca-card-foreground);
+}
+.bar > .icon { margin-top: 2px; }
+.bar-actions { display: flex; flex-basis: 100%; gap: 6px; margin-top: 2px; padding-left: 22px; }
+.bar > .dismiss { flex-shrink: 0; margin: -3px -6px -3px 0; }
+.bar > .dismiss:hover::after { right: calc(100% + 4px); }
+.bar.danger { border-color: var(--orca-destructive); }
+.bar.danger > .icon { color: var(--orca-destructive); }
+.bar.warning { border-color: var(--steno-warning); }
+.bar.warning > .icon { color: var(--steno-warning); }
+.bar.warning .bar-text { overflow-wrap: anywhere; user-select: text; }
+.bar-text { flex: 1 1 140px; min-width: 0; font-size: 12px; line-height: 18px; }
+.bar-button {
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 10px; cursor: pointer; font-size: 12px; line-height: 16px;
+  border: 1px solid var(--orca-border); border-radius: calc(var(--orca-radius, 6px) - 2px); background: var(--orca-secondary); color: var(--orca-secondary-foreground);
+}
+.bar-button:hover { background: var(--orca-accent); }
+.bar-button.primary { border-color: transparent; background: var(--orca-primary); color: var(--orca-primary-foreground); }
+.bar-button.primary:hover { opacity: 0.9; }
+.form-title { font-size: 13px; font-weight: 600; line-height: 18px; text-wrap: balance; overflow-wrap: anywhere; }
+.form-body { margin-top: 4px; color: var(--orca-muted-foreground); text-wrap: pretty; }
+.form-buttons { display: flex; gap: 6px; flex-shrink: 0; }
+.form-buttons.end { justify-content: flex-end; margin-top: 12px; }
+.bar-button:focus-visible, .link-button:focus-visible { outline: 1px solid var(--orca-ring); outline-offset: 1px; }
+.bar-button:disabled { opacity: 0.5; cursor: default; }
+.fields { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.field { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; border: 0; font-size: 12px; }
+.field > span, .field > legend { padding: 0; color: var(--orca-muted-foreground); }
+.fields input[type='text'], .fields select {
+  width: 100%; box-sizing: border-box; padding: 4px 6px; font: inherit; font-size: 12px;
+  border: 1px solid var(--orca-input, var(--orca-border)); border-radius: calc(var(--orca-radius, 6px) - 2px);
+  background: var(--orca-background); color: var(--orca-foreground);
+}
+.fields input:focus-visible, .fields select:focus-visible { outline: 1px solid var(--orca-ring, var(--orca-primary)); outline-offset: 0; }
+.choice { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.problems { margin: 6px 0 0; padding: 0; list-style: none; font-family: var(--orca-font-mono, monospace); font-size: 11px; color: var(--orca-muted-foreground); }
+.problems li { overflow-wrap: anywhere; }
+
+/* the row menu, drawn like Orca's own context menus */
+.menu {
+  position: fixed; z-index: 10; min-width: 180px; max-width: calc(100vw - 8px); padding: 4px;
+  border: 1px solid var(--orca-border); border-radius: var(--orca-radius, 8px);
+  background: var(--orca-popover); color: var(--orca-popover-foreground); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+}
+.menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px 10px; border: 0; border-radius: calc(var(--orca-radius, 8px) - 4px);
+  background: transparent; text-align: left; cursor: pointer; white-space: nowrap; font-size: 13px;
+}
+.menu-item .icon { color: var(--orca-muted-foreground); }
+.menu-item:hover, .menu-item:focus-visible { outline: none; background: var(--orca-accent); color: var(--orca-accent-foreground); }
+
+/* the agent hand-offs go to, above the rows and quieter than a bar */
+.agent-line { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 6px 4px 12px; color: var(--orca-muted-foreground); font-size: 12px; }
+.agent-line-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a setting changed now and then, so it reads as a quiet link beside its value rather than a second button */
+.link-button {
+  flex-shrink: 0; padding: 2px 6px; border: 0; border-radius: calc(var(--orca-radius, 6px) - 2px); cursor: pointer;
+  background: transparent; color: var(--orca-muted-foreground); font-size: 12px;
+}
+.link-button:hover { background: var(--orca-accent); color: var(--orca-accent-foreground); }
+.steno-mark { display: inline-flex; flex-shrink: 0; }
+.steno-mark > svg { width: 100%; height: 100%; }

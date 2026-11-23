@@ -8,8 +8,8 @@ Report it privately through GitHub instead: go to the [Security tab](https://git
 
 Include what you can:
 
-- which part is affected: the `steno` command, the language server (`steno lsp`), the VS Code extension, the Paseo plugin or a skill
-- the steno version (`steno --version`), Node version and OS; for the extension, its version and the editor's; for the Paseo plugin, its version and Paseo's
+- which part is affected: the `steno` command, the language server (`steno lsp`), the VS Code extension, the Paseo plugin, the Orca plugin or a skill
+- the steno version (`steno --version`), Node version and OS; for the extension, its version and the editor's; for the Paseo or Orca plugin, its version and the app's
 - what an attacker can do, and what they need first
 - steps or a small project that reproduces it
 
@@ -23,6 +23,8 @@ The VS Code extension starts only the two programs it ships with, the steno CLI 
 
 The Paseo plugin runs as trusted code in the Paseo daemon, as every Paseo plugin does. It writes the CLI and language server it ships with to Paseo's plugin data folder and starts them from there, runs `steno --version` from the daemon's PATH to check the CLI your agents use, and makes no network request. Approving a phase or ticking a task writes to `spec.yaml` and `tasks.md`; Set Up steno runs `steno init` in the folder you pick. A hand-off puts the same short skill call in an agent's composer without sending it, or on the clipboard.
 
+The Orca plugin runs as a trusted worker on Node inside Orca, with the permissions Orca shows when you install it. It starts the CLI and language server it ships with from its own plugin folder, runs `steno --version` from Orca's PATH to check the CLI your agents use, and makes no network request. Approving a phase or ticking a task writes to `spec.yaml` and `tasks.md`; New Spec and Set Up steno run the bundled CLI in the focused worktree. A hand-off starts the agent you pick, or reuses one already running there, and types the same short skill call into its terminal without pressing Enter. When it cannot, it puts the call on the clipboard with the platform's copy program (`pbcopy`, `clip`, `wl-copy`, `xclip` or `xsel`).
+
 ## Supported versions
 
-Fixes go into the latest release only. The npm packages and the VS Code extension are released together under one version number.
+Fixes go into the latest release only. The npm packages, the VS Code extension and the Paseo and Orca plugins are released together under one version number.

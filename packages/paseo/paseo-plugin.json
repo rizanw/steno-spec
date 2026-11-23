@@ -1,6 +1,6 @@
 {
   "id": "steno",
-  "name": "steno",
+  "name": "steno spec",
   "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
   "icon": "media/icon.png",
   "media": [

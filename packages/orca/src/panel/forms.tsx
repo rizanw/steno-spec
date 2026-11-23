@@ -146,10 +146,10 @@ export function ReopenConfirm({ target, onAnswer }: ReopenConfirmProps) {
       <div class="bar-text">
         <div class="form-title">{title}</div>
         <div class="form-body">{body}</div>
-      </div>
-      <div class="form-buttons">
-        <button type="button" class="bar-button" onClick={() => onAnswer(false)}>Cancel</button>
-        <button type="button" class="bar-button primary" autoFocus onClick={() => onAnswer(true)}>Confirm</button>
+        <div class="form-buttons end">
+          <button type="button" class="bar-button" onClick={() => onAnswer(false)}>Cancel</button>
+          <button type="button" class="bar-button primary" autoFocus onClick={() => onAnswer(true)}>Reopen</button>
+        </div>
       </div>
     </div>
   );
@@ -167,7 +167,12 @@ export function RefusalBar({ error, onDismiss }: RefusalBarProps) {
         <div>{error.message}</div>
         {problems.length ? <ul class="problems">{problems.map(line => <li key={line}>{line}</li>)}</ul> : null}
       </div>
-      <button type="button" class="bar-button" onClick={onDismiss}>Dismiss</button>
+      <DismissButton onDismiss={onDismiss} />
     </div>
   );
+}
+
+/** A bar's close button, in its corner, so the text keeps the full width of a narrow sidebar. */
+export function DismissButton({ onDismiss }: { onDismiss(): void }) {
+  return <button type="button" class="icon-button dismiss" aria-label="Dismiss" data-label="Dismiss" onClick={onDismiss}><Icon name="X" size={14} /></button>;
 }

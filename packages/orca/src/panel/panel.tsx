@@ -10,7 +10,7 @@ import { render } from 'preact';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ActResult, Form, RunningAgent, Snapshot } from '../shared/messages.js';
 import { noAnswer, unknownOutcome } from './errors.js';
-import { AgentPick, DefaultAgentPick, NewSpecForm, RefusalBar, ReopenConfirm, SetUpPick } from './forms.js';
+import { AgentPick, DefaultAgentPick, DismissButton, NewSpecForm, RefusalBar, ReopenConfirm, SetUpPick } from './forms.js';
 import { Icon, StenoMark } from './icons.js';
 import { RowMenu, type MenuAt } from './menu.js';
 import { RowView } from './row.js';
@@ -127,26 +127,28 @@ function Panel() {
   const warning = agentStenoWarning(snapshot.agentSteno);
   return (
     <div class="panel">
+      {/* the bars, forms and agent line stay pinned while the rows scroll, so an answer is never left off screen */}
+      <div class="pinned">
       {snapshot.server === 'stopped' ? (
         <div class="bar danger" role="alert">
           <Icon name="TriangleAlert" />
           <span class="bar-text">steno stopped in this worktree after it kept crashing.</span>
-          <button type="button" class="bar-button" onClick={() => act('', 'restart')}><Icon name="RefreshCw" size={13} />Restart</button>
+          <div class="bar-actions"><button type="button" class="bar-button" onClick={() => act('', 'restart')}><Icon name="RefreshCw" size={13} />Restart</button></div>
         </div>
       ) : null}
       {warning ? (
         <div class="bar warning" role="status">
           <Icon name="TriangleAlert" />
           <span class="bar-text">{warning}</span>
-          <button type="button" class="bar-button" disabled={checking} onClick={() => void recheck()}><Icon name="RefreshCw" size={13} />Re-check</button>
+          <div class="bar-actions"><button type="button" class="bar-button" disabled={checking} onClick={() => void recheck()}><Icon name="RefreshCw" size={13} />Re-check</button></div>
         </div>
       ) : null}
       {unknown ? (
         <div class="bar danger" role="alert">
           <Icon name="TriangleAlert" />
           <span class="bar-text">{unknownOutcome(unknown.label, unknown.fresh)}</span>
-          {unknown.fresh ? null : <button type="button" class="bar-button" onClick={() => void refetch(unknown.label)}><Icon name="RefreshCw" size={13} />Retry</button>}
-          <button type="button" class="bar-button" onClick={() => setUnknown(undefined)}>Dismiss</button>
+          <DismissButton onDismiss={() => setUnknown(undefined)} />
+          {unknown.fresh ? null : <div class="bar-actions"><button type="button" class="bar-button" onClick={() => void refetch(unknown.label)}><Icon name="RefreshCw" size={13} />Retry</button></div>}
         </div>
       ) : null}
       {asked?.form === 'newSpec' ? <NewSpecForm agents={asked.choices} onSubmit={answers => void submit(answers)} onCancel={cancel} /> : null}
@@ -163,16 +165,17 @@ function Panel() {
       {notice ? (
         <div class="bar" role="status">
           <span class="bar-text">{notice}</span>
-          <button type="button" class="bar-button" onClick={() => setNotice(undefined)}>Dismiss</button>
+          <DismissButton onDismiss={() => setNotice(undefined)} />
         </div>
       ) : null}
       {rows.length > 0 ? (
         <div class="agent-line">
           <StenoMark />
           <span class="agent-line-text">{agentLine(snapshot.defaultAgent)}</span>
-          <button type="button" class="bar-button" onClick={() => void act('', 'chooseAgent')}>Change</button>
+          <button type="button" class="link-button" onClick={() => void act('', 'chooseAgent')}>Change</button>
         </div>
       ) : null}
+      </div>
       <div class="rows" role="tree" aria-label="steno specs and steering" onKeyDown={onKeyDown}>
         {shown.map(visible => (
           <RowView

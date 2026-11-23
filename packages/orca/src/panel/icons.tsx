@@ -3,13 +3,13 @@
 // icons named here are bundled; an Orca panel cannot load a font or fetch anything, so they travel inside panel.js.
 import {
   ArrowRight, Bot, Check, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Ellipsis, Eye, FastForward,
-  FilePen, FileText, Pencil, Play, Plus, RefreshCw, RotateCcw, Sparkles, TriangleAlert, Undo2, Wrench, type IconNode,
+  FilePen, FileText, Pencil, Play, Plus, RefreshCw, RotateCcw, Sparkles, TriangleAlert, Undo2, Wrench, X, type IconNode,
 } from 'lucide';
 import STENO_MARK from '../../../../assets/steno-mono.svg';
 
 const ICONS: Record<string, IconNode> = {
   ArrowRight, Bot, Check, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Ellipsis, Eye, FastForward,
-  FilePen, FileText, Pencil, Play, Plus, RefreshCw, RotateCcw, Sparkles, TriangleAlert, Undo2, Wrench,
+  FilePen, FileText, Pencil, Play, Plus, RefreshCw, RotateCcw, Sparkles, TriangleAlert, Undo2, Wrench, X,
 };
 
 /** A Lucide icon by name, sized in pixels; an unknown name draws nothing rather than a broken glyph. */

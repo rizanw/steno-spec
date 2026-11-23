@@ -16,7 +16,14 @@ body {
 button { font: inherit; color: inherit; }
 .icon { display: block; flex-shrink: 0; }
 .loading { padding: 12px; color: var(--orca-muted-foreground); }
-.panel { padding: 4px 0 12px; }
+.panel { padding: 0 0 12px; }
+/* Bars, forms and the agent line stick to the top while the rows scroll under them, as Orca's own source-control
+   header does. A tall form scrolls inside its own band so the rows below are never pushed fully out of view. */
+.pinned {
+  position: sticky; top: 0; z-index: 5; padding-top: 4px; max-height: 70vh; overflow-y: auto;
+  background: var(--orca-background);
+}
+.pinned:has(> *) { border-bottom: 1px solid var(--orca-border); margin-bottom: 4px; }
 
 /* rows, as Orca's own lists draw them: a fill on hover and focus, the buttons shown only then */
 .row {
@@ -69,28 +76,34 @@ button { font: inherit; color: inherit; }
 .wide-button.primary:hover { opacity: 0.9; }
 
 /* bars above the rows: the server stopped, the agents' steno does not match, or what the last action led to */
+/* In a narrow sidebar the text gets the width first: an alert's action sits on its own line under the sentence,
+   lined up with it past the icon, so the sentence is never squeezed into a column of two-word lines. */
 .bar {
-  display: flex; align-items: center; gap: 8px; margin: 4px 8px 8px; padding: 8px 10px;
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 8px; margin: 4px 8px 6px; padding: 10px 12px;
   border: 1px solid var(--orca-border); border-radius: var(--orca-radius, 6px); background: var(--orca-card); color: var(--orca-card-foreground);
 }
+.bar > .icon { margin-top: 2px; }
+.bar-actions { display: flex; flex-basis: 100%; gap: 6px; margin-top: 2px; padding-left: 22px; }
+.bar > .dismiss { flex-shrink: 0; margin: -3px -6px -3px 0; }
+.bar > .dismiss:hover::after { right: calc(100% + 4px); }
 .bar.danger { border-color: var(--orca-destructive); }
 .bar.danger > .icon { color: var(--orca-destructive); }
 .bar.warning { border-color: var(--steno-warning); }
 .bar.warning > .icon { color: var(--steno-warning); }
 .bar.warning .bar-text { overflow-wrap: anywhere; user-select: text; }
-.bar-text { flex: 1; min-width: 0; font-size: 12px; }
+.bar-text { flex: 1 1 140px; min-width: 0; font-size: 12px; line-height: 18px; }
 .bar-button {
-  display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 3px 8px; cursor: pointer; font-size: 12px;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 10px; cursor: pointer; font-size: 12px; line-height: 16px;
   border: 1px solid var(--orca-border); border-radius: calc(var(--orca-radius, 6px) - 2px); background: var(--orca-secondary); color: var(--orca-secondary-foreground);
 }
 .bar-button:hover { background: var(--orca-accent); }
 .bar-button.primary { border-color: transparent; background: var(--orca-primary); color: var(--orca-primary-foreground); }
 .bar-button.primary:hover { opacity: 0.9; }
-.bar.form, .bar.refusal { align-items: flex-start; }
-.form-title { font-weight: 600; }
-.form-body { margin-top: 2px; color: var(--orca-muted-foreground); line-height: 18px; }
+.form-title { font-size: 13px; font-weight: 600; line-height: 18px; text-wrap: balance; overflow-wrap: anywhere; }
+.form-body { margin-top: 4px; color: var(--orca-muted-foreground); text-wrap: pretty; }
 .form-buttons { display: flex; gap: 6px; flex-shrink: 0; }
-.form-buttons.end { justify-content: flex-end; margin-top: 10px; }
+.form-buttons.end { justify-content: flex-end; margin-top: 12px; }
+.bar-button:focus-visible, .link-button:focus-visible { outline: 1px solid var(--orca-ring); outline-offset: 1px; }
 .bar-button:disabled { opacity: 0.5; cursor: default; }
 .fields { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .field { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; border: 0; font-size: 12px; }
@@ -119,7 +132,13 @@ button { font: inherit; color: inherit; }
 .menu-item:hover, .menu-item:focus-visible { outline: none; background: var(--orca-accent); color: var(--orca-accent-foreground); }
 
 /* the agent hand-offs go to, above the rows and quieter than a bar */
-.agent-line { display: flex; align-items: center; gap: 8px; padding: 4px 12px; color: var(--orca-muted-foreground); font-size: 12px; }
+.agent-line { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 6px 4px 12px; color: var(--orca-muted-foreground); font-size: 12px; }
 .agent-line-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* a setting changed now and then, so it reads as a quiet link beside its value rather than a second button */
+.link-button {
+  flex-shrink: 0; padding: 2px 6px; border: 0; border-radius: calc(var(--orca-radius, 6px) - 2px); cursor: pointer;
+  background: transparent; color: var(--orca-muted-foreground); font-size: 12px;
+}
+.link-button:hover { background: var(--orca-accent); color: var(--orca-accent-foreground); }
 .steno-mark { display: inline-flex; flex-shrink: 0; }
 .steno-mark > svg { width: 100%; height: 100%; }

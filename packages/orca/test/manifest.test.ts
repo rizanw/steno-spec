@@ -14,9 +14,10 @@ describe('orca-plugin.json', () => {
   });
 
   // Orca's validator refuses an engines range below the newest field the manifest uses (workspace:write is
-  // 1.4.248), and the host methods the worker calls are older than that.
-  it('declares the oldest Orca that has every method and capability the plugin uses', () => {
-    expect(manifest.engines.orca).toBe('>=1.4.248');
+  // 1.4.248) and warns below the newest host method the worker calls (terminal.focus is 1.4.259). The range is
+  // the oldest Orca the plugin was tried in end to end, which is newer than both.
+  it('declares an Orca that has every method and capability the plugin uses', () => {
+    expect(manifest.engines.orca).toBe('>=1.4.262');
   });
 
   it('runs a worker behind one html panel', () => {

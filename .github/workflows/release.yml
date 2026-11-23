@@ -1,7 +1,8 @@
 name: Release
 
 # Push a tag matching every package version (e.g. v0.2.0) to publish steno-spec and the Paseo plugin (steno-paseo)
-# to npm with provenance and the VS Code extension to the VS Code Marketplace and Open VSX, all from the one tag.
+# to npm with provenance, the VS Code extension to the VS Code Marketplace and Open VSX, and the Orca plugin to
+# orca-catalog.json, all from the one tag.
 # Auth is trusted publishing (OIDC) everywhere with no stored token.
 #
 # An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take

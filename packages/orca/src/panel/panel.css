@@ -68,19 +68,42 @@ button { font: inherit; color: inherit; }
 .wide-button.primary { border-color: transparent; background: var(--orca-primary); color: var(--orca-primary-foreground); }
 .wide-button.primary:hover { opacity: 0.9; }
 
-/* bars above the rows: the server stopped, or what the last action led to */
+/* bars above the rows: the server stopped, the agents' steno does not match, or what the last action led to */
 .bar {
   display: flex; align-items: center; gap: 8px; margin: 4px 8px 8px; padding: 8px 10px;
   border: 1px solid var(--orca-border); border-radius: var(--orca-radius, 6px); background: var(--orca-card); color: var(--orca-card-foreground);
 }
 .bar.danger { border-color: var(--orca-destructive); }
 .bar.danger > .icon { color: var(--orca-destructive); }
+.bar.warning { border-color: var(--steno-warning); }
+.bar.warning > .icon { color: var(--steno-warning); }
+.bar.warning .bar-text { overflow-wrap: anywhere; user-select: text; }
 .bar-text { flex: 1; min-width: 0; font-size: 12px; }
 .bar-button {
   display: flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 3px 8px; cursor: pointer; font-size: 12px;
   border: 1px solid var(--orca-border); border-radius: calc(var(--orca-radius, 6px) - 2px); background: var(--orca-secondary); color: var(--orca-secondary-foreground);
 }
 .bar-button:hover { background: var(--orca-accent); }
+.bar-button.primary { border-color: transparent; background: var(--orca-primary); color: var(--orca-primary-foreground); }
+.bar-button.primary:hover { opacity: 0.9; }
+.bar.form, .bar.refusal { align-items: flex-start; }
+.form-title { font-weight: 600; }
+.form-body { margin-top: 2px; color: var(--orca-muted-foreground); line-height: 18px; }
+.form-buttons { display: flex; gap: 6px; flex-shrink: 0; }
+.form-buttons.end { justify-content: flex-end; margin-top: 10px; }
+.bar-button:disabled { opacity: 0.5; cursor: default; }
+.fields { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.field { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; border: 0; font-size: 12px; }
+.field > span, .field > legend { padding: 0; color: var(--orca-muted-foreground); }
+.fields input[type='text'], .fields select {
+  width: 100%; box-sizing: border-box; padding: 4px 6px; font: inherit; font-size: 12px;
+  border: 1px solid var(--orca-input, var(--orca-border)); border-radius: calc(var(--orca-radius, 6px) - 2px);
+  background: var(--orca-background); color: var(--orca-foreground);
+}
+.fields input:focus-visible, .fields select:focus-visible { outline: 1px solid var(--orca-ring, var(--orca-primary)); outline-offset: 0; }
+.choice { display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; }
+.problems { margin: 6px 0 0; padding: 0; list-style: none; font-family: var(--orca-font-mono, monospace); font-size: 11px; color: var(--orca-muted-foreground); }
+.problems li { overflow-wrap: anywhere; }
 
 /* the row menu, drawn like Orca's own context menus */
 .menu {
@@ -94,3 +117,9 @@ button { font: inherit; color: inherit; }
 }
 .menu-item .icon { color: var(--orca-muted-foreground); }
 .menu-item:hover, .menu-item:focus-visible { outline: none; background: var(--orca-accent); color: var(--orca-accent-foreground); }
+
+/* the agent hand-offs go to, above the rows and quieter than a bar */
+.agent-line { display: flex; align-items: center; gap: 8px; padding: 4px 12px; color: var(--orca-muted-foreground); font-size: 12px; }
+.agent-line-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.steno-mark { display: inline-flex; flex-shrink: 0; }
+.steno-mark > svg { width: 100%; height: 100%; }

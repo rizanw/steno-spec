@@ -5,6 +5,7 @@ import {
   ArrowRight, Bot, Check, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Ellipsis, Eye, FastForward,
   FilePen, FileText, Pencil, Play, Plus, RefreshCw, RotateCcw, Sparkles, TriangleAlert, Undo2, Wrench, type IconNode,
 } from 'lucide';
+import STENO_MARK from '../../../../assets/steno-mono.svg';
 
 const ICONS: Record<string, IconNode> = {
   ArrowRight, Bot, Check, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Ellipsis, Eye, FastForward,
@@ -26,4 +27,12 @@ export function Icon({ name, size = 14 }: { name: string; size?: number }) {
       })}
     </svg>
   );
+}
+
+/**
+ * The steno mark, from the same one-colour file the VS Code and Paseo icons use, in the text colour around it. It
+ * fills its whole box where a Lucide icon leaves a margin, so it is drawn smaller to look the same size beside one.
+ */
+export function StenoMark({ size = 12 }: { size?: number }) {
+  return <span class="steno-mark" style={{ width: size, height: size }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: STENO_MARK }} />;
 }

@@ -31,6 +31,6 @@ describe('orca-plugin.json', () => {
 
   it('asks only for the capabilities the panel needs', () => {
     expect(manifest.capabilities.map((c: { kind: string }) => c.kind).sort())
-      .toEqual(['agent:launch', 'notifications:show', 'workspace:read', 'workspace:write']);
+      .toEqual(['agent:launch', 'agent:read', 'notifications:show', 'storage:own', 'terminal:send', 'workspace:read', 'workspace:write']);
   });
 });

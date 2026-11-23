@@ -2,7 +2,11 @@
 // actions get a button and what each is called. The rules are the Paseo panel's (packages/paseo/client/model.ts), so
 // the two panels offer the same buttons on the same rows. A row offers only its own actions, so an action that does
 // not apply to it is never on screen to be pressed.
+import type { Diagnostic, StructuredError } from '@steno/core';
 import type { PanelAction, PanelRow, RowIcon } from '@steno/core/host';
+import { atLeast, type ReopenTarget } from '@steno/core/host/ui';
+import type { AgentSteno } from '@steno/host';
+import type { RunningAgent } from '../shared/messages.js';
 
 /** Each action's name, the same names the Paseo panel uses. */
 export const ACTION_LABELS: Record<PanelAction, string> = {
@@ -78,10 +82,15 @@ export function visibleRows(rows: readonly PanelRow[], expanded: readonly string
 export const toggled = (expanded: readonly string[], key: string): string[] =>
   expanded.includes(key) ? expanded.filter(k => k !== key) : [...expanded, key];
 
-/** What pressing a row does: show or hide what folds under it, open its file, or nothing. */
+/**
+ * What pressing a row does: show or hide what folds under it, open its file, or nothing. A task row has no path of its
+ * own and opens its spec's tasks.md. Rows read from an enclosing project offer no actions, and pressing one does nothing.
+ */
 export function rowPress(visible: VisibleRow): 'toggle' | 'open' | undefined {
   if (visible.expands) return 'toggle';
-  return visible.row.path !== undefined && visible.row.actions.includes('open') ? 'open' : undefined;
+  const { row } = visible;
+  if (row.kind === 'task') return row.actions.length > 0 ? 'open' : undefined;
+  return row.path !== undefined && row.actions.includes('open') ? 'open' : undefined;
 }
 
 /**
@@ -110,4 +119,79 @@ const count = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 export function problemCounts(row: PanelRow): { errors?: string; warnings?: string } {
   const { errors = 0, warnings = 0 } = row.problems ?? {};
   return { ...(errors ? { errors: count(errors, 'error') } : {}), ...(warnings ? { warnings: count(warnings, 'warning') } : {}) };
+}
+
+/** One lint problem as a refusal lists it, the way the Paseo panel lists it: where, how bad, what. */
+export const problemLine = (d: Diagnostic): string => `${d.file}:${d.line}  ${d.severity}  ${d.message}`;
+
+/** The lines a refusal shows under its message; only a lint block has any. */
+export const refusalProblems = (error: StructuredError): string[] => (error.findings ?? []).map(problemLine);
+
+/** What a row's reopen confirm names: its task, or the whole spec on a spec row. */
+export function reopenTarget(row: PanelRow | undefined): ReopenTarget | undefined {
+  if (!row?.target) return undefined;
+  return row.kind === 'task' && row.target.task !== undefined ? { spec: row.target.spec, task: row.target.task } : { spec: row.target.spec };
+}
+
+/** What the New Spec form holds while it is filled in. `agent` counts only when a coding agent writes. */
+export interface NewSpecFields { kind: 'feature' | 'bugfix'; name: string; title: string; description: string; writer: 'self' | 'agent'; agent: string }
+
+/** A fresh New Spec form; the agent list starts on its first agent so picking "a coding agent" is one click. */
+export const newSpecStart = (agents: readonly string[]): NewSpecFields =>
+  ({ kind: 'feature', name: '', title: '', description: '', writer: 'self', agent: agents[0] ?? '' });
+
+/**
+ * The answers New Spec sends, or `undefined` while it cannot be sent: no name yet, or a coding agent chosen with
+ * none picked. Only an empty name is caught here; the CLI checks the name itself and its refusal says why.
+ */
+export function newSpecAnswers(fields: NewSpecFields): Record<string, string> | undefined {
+  const name = fields.name.trim();
+  if (!name || (fields.writer === 'agent' && !fields.agent)) return undefined;
+  const { kind, title, description, writer } = fields;
+  return { kind, name, title: title.trim(), description: description.trim(), writer, ...(writer === 'agent' ? { agent: fields.agent } : {}) };
+}
+
+/** Set Up's answer: the agents picked, in the order offered; none means the shared skills folder only. */
+export const setUpAnswers = (offered: readonly string[], picked: readonly string[]): Record<string, string> =>
+  ({ agents: offered.filter(agent => picked.includes(agent)).join(',') });
+
+/** One line of a hand-off's agent pick: what it says, and the answers it sends. */
+export interface PickEntry { value: string; label: string; answers: Record<string, string> }
+
+/**
+ * The agent pick's lines: every agent already running in a terminal first, since typing into it starts nothing new,
+ * then every agent that can be started. `value` tells the lines apart when two agents of one kind run. A running
+ * line sends its kind too, so the first pick in a worktree can be saved as its agent either way.
+ */
+export function pickEntries(running: readonly RunningAgent[], agents: readonly string[]): PickEntry[] {
+  return [
+    ...running.map(r => ({ value: `terminal:${r.terminalId}`, label: `${r.agent}${r.title ? ` — ${r.title}` : ''}, running`, answers: { terminal: r.terminalId, agent: r.agent } })),
+    ...agents.map(agent => ({ value: `agent:${agent}`, label: `New ${agent}`, answers: { agent } })),
+  ];
+}
+
+/**
+ * Whether a key pressed on a form's field sends the form, as Enter in a text field would on an ordinary page. A
+ * description's newline and a list's own keys stay theirs; a button already takes Enter as its own click.
+ */
+export const sendsForm = (key: string, field: { tagName: string; type?: string }): boolean =>
+  key === 'Enter' && field.tagName === 'INPUT' && field.type !== 'checkbox' && field.type !== 'radio';
+
+/** The panel's Agent line: the agent hand-offs go to without asking, or that each hand-off asks. */
+export const agentLine = (defaultAgent: string | undefined): string => (defaultAgent ? `Agent: ${defaultAgent}` : 'Agent: asks each time');
+
+/** The command that installs a `steno` the agents can run, pinned to the version the plugin bundles. */
+export const installCommand = (version: string): string => `npm install -g steno-spec@${version}`;
+
+/** What the warning bar says about the agents' `steno`, the Paseo panel's words; nothing when it matches. */
+export function agentStenoWarning(agentSteno: AgentSteno): string | undefined {
+  const { found, protocol, version, matches, bundled } = agentSteno;
+  if (matches) return undefined;
+  const install = installCommand(bundled);
+  if (!found) return `Your coding agents have no steno command. This plugin bundles ${bundled}. Install it: ${install}`;
+  if (version !== undefined && !atLeast(version, bundled)) {
+    return `The steno your coding agents run is ${version}, older than this plugin's ${bundled}. Install the current one: ${install}`;
+  }
+  const speaks = protocol === undefined ? 'an unknown protocol' : `protocol ${protocol}`;
+  return `The steno your coding agents run${version === undefined ? '' : `, ${version},`} speaks ${speaks}, not this plugin's ${bundled}. Install the current one: ${install}`;
 }

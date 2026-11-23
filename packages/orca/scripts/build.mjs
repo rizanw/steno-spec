@@ -43,6 +43,8 @@ await build({
   target: 'es2022',
   jsx: 'automatic',
   jsxImportSource: 'preact',
+  // the steno mark comes in as the text of assets/steno-mono.svg, so the panel draws the same file the other hosts do
+  loader: { '.svg': 'text' },
   minify: true,
   legalComments: 'none',
   plugins: [{

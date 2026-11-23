@@ -16,7 +16,7 @@ steno has no model inside. Everything deterministic lives in the CLI and costs z
 
 Skills never name a harness's tools. They say "run `steno next`" or "ask the user", so the same file works in every agent.
 
-The same checks reach your editor. `steno lsp` is a language server built on the same code as the commands, and the [VS Code extension](../packages/vscode/README.md) uses it to show the spec tree, the lint findings and the task packets. The [Paseo plugin](../packages/paseo/README.md) uses the same server for its spec tree, lint findings and approvals. The server returns exactly what the commands return, as described in the [JSON contract](json-contract.md).
+The same checks reach your editor. `steno lsp` is a language server built on the same code as the commands, and the [VS Code extension](../packages/vscode/README.md) uses it to show the spec tree, the lint findings and the task packets. The [Paseo plugin](../packages/paseo/README.md) and the [Orca plugin](orca.md) use the same server for their spec tree, lint findings and approvals. The server returns exactly what the commands return, as described in the [JSON contract](json-contract.md).
 
 ## Phases and gates
 
@@ -38,7 +38,7 @@ Every gated stage ends the same way. The first two steps loop back to the same d
 
 1. **Lint.** `steno lint <stage>` checks the file mechanically: EARS form, undefined terms, criteria with no design or task, leftover template text. Errors block approval.
 2. **Review (optional).** `steno-review` hands a packet with only that document to reviewers that have not seen your conversation. Lint finds what a rule can find; review finds contradictions, gaps and vague outcomes. Use it before approving anything you would not want to redo. A review is one full round and at most one verify round. Reviewers may rewrite or question what is there, but anything that would add to the spec or change its scope comes to you as a question first, and it has passed when no high finding is open and every question has an answer.
-3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. You can also approve from the VS Code extension or the Paseo plugin. The agent never approves on its own.
+3. **Approve.** You say yes, and `steno approve <stage>` records it and opens the next stage. You can also approve from the VS Code extension or the Paseo or Orca plugin. The agent never approves on its own.
 
 After the last task, a drift review compares the finished code with the spec.
 

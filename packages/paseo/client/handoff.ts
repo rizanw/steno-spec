@@ -37,7 +37,7 @@ export function handoffFor(row: Row | undefined, action: Action): Handoff | unde
   return undefined;
 }
 
-export const HANDOFF_ACTIONS: readonly Action[] = ['run', 'runNext', 'write', 'review', 'steer'];
+const HANDOFF_ACTIONS: readonly Action[] = ['run', 'runNext', 'write', 'review', 'steer'];
 
 /** The part of Paseo's composer a hand-off uses. */
 export interface ComposerLike { insertText(text: string): void; focus(): Promise<void> }

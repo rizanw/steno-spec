@@ -6,7 +6,7 @@ import type { FolderServer } from './pool';
 import { buildSnapshot, firstTree } from './snapshot';
 
 /** The workspace paths the panel's rows point at right now. */
-export async function listedPaths(server: FolderServer): Promise<Set<string>> {
+async function listedPaths(server: FolderServer): Promise<Set<string>> {
   const { specRows, steeringRows } = await buildSnapshot(server);
   return new Set([...specRows, ...steeringRows].flatMap(row => (row.path ? [row.path] : [])));
 }

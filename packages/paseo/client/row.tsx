@@ -34,7 +34,7 @@ export interface IconButtonProps { icon: string; label: string; theme: PluginThe
  * these buttons end the row, so the label never runs off the panel's edge, and it stays within the row's height,
  * where the list does not clip it.
  */
-export function IconButton({ icon, label, theme, onPress }: IconButtonProps) {
+function IconButton({ icon, label, theme, onPress }: IconButtonProps) {
   const [hint, setHint] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);

@@ -85,7 +85,7 @@ export async function setUpChoices(orca: Orca, active: Active, run: RunCli,
 }
 
 /** The notification that says what Set Up installed and where. */
-export function installedMessage(installed: Installed): { title: string; body: string } {
+function installedMessage(installed: Installed): { title: string; body: string } {
   const agents = Object.entries(installed.agents).map(([agent, dir]) => `${agent} (${dir})`);
   const body = [`Skills: ${installed.skills.join(', ') || 'none'}.`, `Agents: ${agents.join(', ') || 'the shared skills folder only'}.`, ...(installed.warnings ?? [])];
   return { title: 'steno is set up', body: body.join(' ') };

@@ -10,7 +10,7 @@ import { listInstructions, watchInstructions } from './instructions';
 import type { FolderServer, ServerPool } from './pool';
 
 /** The window that gathers change signals into one push. */
-export const THROTTLE_MS = 150;
+const THROTTLE_MS = 150;
 
 /** How long the first push waits for the server's first tree; a slow start then shows as `starting`. */
 const FIRST_TREE_MS = 5_000;

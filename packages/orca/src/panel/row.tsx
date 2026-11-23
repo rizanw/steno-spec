@@ -15,7 +15,7 @@ export interface IconButtonProps { icon: string; label: string; onPress(event: M
  * A small icon button, as Orca and VS Code draw a list row's inline actions. Its name shows on hover to its left
  * (panel.css): these buttons end the row, so the name never runs off the panel's edge.
  */
-export function IconButton({ icon, label, onPress, pressed }: IconButtonProps) {
+function IconButton({ icon, label, onPress, pressed }: IconButtonProps) {
   return (
     <button
       type="button" class={pressed ? 'icon-button pressed' : 'icon-button'} aria-label={label} data-label={label}
@@ -87,7 +87,7 @@ const sentence = (text: string): string => (/[.!?]$/.test(text) ? text : `${text
  * button. A notice at the top (the folder is not set up) stands alone and gets a heading and the primary button;
  * one inside a section stays lighter, so two empty sections do not stack two loud buttons.
  */
-export function NoticeView({ row, onAction }: { row: PanelRow; onAction(action: PanelAction): void }) {
+function NoticeView({ row, onAction }: { row: PanelRow; onAction(action: PanelAction): void }) {
   const top = row.depth === 0;
   const action = row.primary;
   return (

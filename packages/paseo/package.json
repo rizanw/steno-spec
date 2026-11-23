@@ -43,7 +43,6 @@
     "@getpaseo/plugin": "0.16.2",
     "@steno/core": "workspace:*",
     "@steno/host": "workspace:*",
-    "@tanstack/react-query": "^5.90.11",
     "@types/react": "~19.2.0",
     "esbuild": "^0.28.2",
     "react": "19.1.0",

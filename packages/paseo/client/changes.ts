@@ -5,7 +5,7 @@ import { reopenedMessage, reopenWording as wordingFor } from './vendor/host.mjs'
 
 export interface ChangeRequest { kind: 'approve' | 'done' | 'reopen' | 'reopenSpec'; spec: string; phase?: ChangeResult['phase']; task?: string }
 
-export const CHANGE_ACTIONS: readonly Action[] = ['approve', 'done', 'reopen', 'reopenSpec'];
+const CHANGE_ACTIONS: readonly Action[] = ['approve', 'done', 'reopen', 'reopenSpec'];
 
 /** The change a row's action asks for, or none when the action is not a change or the row lacks its target. */
 export function changeFor(row: Row, action: Action): ChangeRequest | undefined {
@@ -49,7 +49,7 @@ export function successMessage(request: ChangeRequest, result: ChangeResult): st
 }
 
 /** One lint problem as the refusal lists it: where, how bad, what. */
-export const problemLine = (d: Diagnostic): string => `${d.file}:${d.line}  ${d.severity}  ${d.message}`;
+const problemLine = (d: Diagnostic): string => `${d.file}:${d.line}  ${d.severity}  ${d.message}`;
 
 /** The lines a refusal shows under its message; only a lint block has any. */
 export const refusalProblems = (error: StructuredError): string[] => (error.findings ?? []).map(problemLine);

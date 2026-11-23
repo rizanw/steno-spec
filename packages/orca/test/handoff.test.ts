@@ -123,6 +123,28 @@ describe('hand-off', () => {
     expect(notices(calls)).toEqual([{ title: 'Paste this into your agent', body: expect.stringContaining('steno-run') }]);
   });
 
+  it('copies the call only when it is left to paste, leaving the clipboard alone when it was typed', async () => {
+    const copies: string[] = [];
+    const copy = async (text: string) => { copies.push(text); return true; };
+    expect(await delivered(await launch(fakeOrca().orca, 'ws1', { kind: 'run', spec: 'a', task: 'T1' }, 'claude', quick, copy))).toBe(true);
+    const running = fakeOrca({ running: [{ terminalId: 't9', title: null, agent: 'codex', state: 'waiting', stateStartedAt: 0 }] });
+    expect(await sendTo(running.orca, 'ws1', 't9', { kind: 'steer' }, copy)).toEqual({ sent: true });
+    expect(copies).toEqual([]);
+    const silent = fakeOrca({ typing: false });
+    expect(await delivered(await launch(silent.orca, 'ws1', { kind: 'steer' }, 'claude', quick, copy))).toBe(false);
+    const exited = fakeOrca();
+    expect(await sendTo(exited.orca, 'ws1', 't9', { kind: 'run', spec: 'a', task: 'T1' }, copy)).toEqual({ nothing: 'That agent is no longer running.' });
+    expect(copies).toEqual(['/steno-steer', expect.stringContaining('steno-run')]);
+    expect(notices(silent.calls)).toEqual([{ title: expect.stringMatching(/^Copied: press (⌘V|Ctrl\+V) in claude$/), body: '/steno-steer' }]);
+  });
+
+  it('still hands the call over to paste when copying fails', async () => {
+    const { orca, calls } = fakeOrca({ typing: false });
+    const result = await launch(orca, 'ws1', { kind: 'steer' }, 'claude', quick, async () => { throw new Error('no clipboard'); });
+    expect(await delivered(result)).toBe(false);
+    expect(notices(calls)).toEqual([{ title: 'Paste this into claude', body: '/steno-steer' }]);
+  });
+
   it('lists the agents running in a terminal that steno can word a call for', async () => {
     const running: Listed[] = [
       { terminalId: 't2', title: 'Claude Code', agent: 'claude', state: 'working', stateStartedAt: 0 },

@@ -1,10 +1,12 @@
 // Handing a row's work to a coding agent: the agent the user picked gets the same short skill call the VS Code
 // extension and the Paseo plugin send, such as `/steno-run T3.1 my-spec`, typed into its terminal in the focused
-// worktree, whether Orca starts it now or it is already running there.
+// worktree, whether Orca starts it now or it is already running there. Only when it cannot be typed there is it
+// copied to the clipboard, as the Paseo plugin does, so a hand-off that worked leaves the user's clipboard alone.
 import type { OrcaWorkerApi } from 'orca/worker';
 import { callForm, render, skillCall, type Handoff, type PanelAction, type PanelRow } from '@steno/core/host';
 import type { RunningAgent } from '../shared/messages.js';
 import { orcaAgent, stenoAgent } from './agents.js';
+import { PASTE_KEY, type Copy } from './clipboard.js';
 import { orNotify } from './errors.js';
 
 // `api` says which host calls take which parameters; a caller holding only part of the worker API may leave it out
@@ -64,9 +66,14 @@ export async function runningAgents(orca: Orca, workspaceId: string): Promise<Ru
   });
 }
 
-/** The skill call could not be typed: hand it to the user to paste, saying why. */
-async function pasteIt(orca: Orca, agent: string, prompt: string, why: string): Promise<{ nothing: string }> {
-  await orca.host.call('notifications.show', { title: `Paste this into ${agent}`, body: prompt }).catch(() => undefined);
+/**
+ * The skill call could not be typed: copy it when the caller can, and say in a notification why and how to paste it.
+ * The notice carries the call either way, since a copy that fails leaves it the one place the call is.
+ */
+async function pasteIt(orca: Orca, agent: string, prompt: string, why: string, copy?: Copy): Promise<{ nothing: string }> {
+  const copied = copy ? await copy(prompt).catch(() => false) : false;
+  const title = copied ? `Copied: press ${PASTE_KEY} in ${agent}` : `Paste this into ${agent}`;
+  await orca.host.call('notifications.show', { title, body: prompt }).catch(() => undefined);
   return { nothing: why };
 }
 
@@ -100,8 +107,9 @@ async function started(orca: Orca, workspaceId: string, terminalId: string, wait
  * The call is not given to `agent.launch` as its prompt: Orca checks for a running agent the moment the terminal
  * opens, finds none yet, and drops the prompt with only a line in the plugin log. Answers once the terminal is
  * open; the wait goes on in `delivered`, since Orca gives a panel request 30 seconds, no more than the wait.
+ * A call left to paste is also given to `copy`; without it nothing is copied.
  */
-export async function launch(orca: Orca, workspaceId: string, handoff: Handoff, agent: string, wait: Wait = WAIT):
+export async function launch(orca: Orca, workspaceId: string, handoff: Handoff, agent: string, wait: Wait = WAIT, copy?: Copy):
   Promise<{ launched: true; delivered: Promise<boolean> } | { nothing: string }> {
   const prompt = promptFor(handoff, agent);
   if (prompt === undefined) return nothingToHandOff(orca);
@@ -117,15 +125,15 @@ export async function launch(orca: Orca, workspaceId: string, handoff: Handoff, 
   const terminal = terminalId;
   const delivered = (async () => {
     if (!await started(orca, workspaceId, terminal, wait)) {
-      await pasteIt(orca, agent, prompt, `${agent} did not start within ${wait.timeoutMs / 1000} seconds.`);
+      await pasteIt(orca, agent, prompt, `${agent} did not start within ${wait.timeoutMs / 1000} seconds.`, copy);
       return false;
     }
     if (await typeInto(orca, terminal, prompt)) return true;
-    await pasteIt(orca, agent, prompt, `Orca would not type into ${agent}'s terminal.`);
+    await pasteIt(orca, agent, prompt, `Orca would not type into ${agent}'s terminal.`, copy);
     return false;
   })().catch(async (err: unknown) => {
     // nobody awaits this in the worker, so a rejection left unheard would end the worker
-    await pasteIt(orca, agent, prompt, `The call did not reach ${agent}: ${err instanceof Error ? err.message : String(err)}`);
+    await pasteIt(orca, agent, prompt, `The call did not reach ${agent}: ${err instanceof Error ? err.message : String(err)}`, copy);
     return false;
   });
   return { launched: true, delivered };
@@ -134,17 +142,17 @@ export async function launch(orca: Orca, workspaceId: string, handoff: Handoff, 
 /**
  * Type the hand-off's skill call into an agent already running in `terminalId`, worded for that agent, and show its
  * terminal. The agent is looked up again because it may have exited since the user picked it; then, or when Orca
- * will not type into the terminal, the call goes to a notification to paste.
+ * will not type into the terminal, the call goes to a notification to paste and to `copy`.
  */
-export async function sendTo(orca: Orca, workspaceId: string, terminalId: string, handoff: Handoff): Promise<{ sent: true } | { nothing: string }> {
+export async function sendTo(orca: Orca, workspaceId: string, terminalId: string, handoff: Handoff, copy?: Copy): Promise<{ sent: true } | { nothing: string }> {
   if (skillCall(handoff) === undefined) return nothingToHandOff(orca);
   const running = (await runningAgents(orca, workspaceId)).find(a => a.terminalId === terminalId);
   if (!running) {
     // with no agent to word it for, the call is worded as the other hosts word it for a plain chat
-    return pasteIt(orca, 'your agent', promptFor(handoff, 'plain') ?? '', 'That agent is no longer running.');
+    return pasteIt(orca, 'your agent', promptFor(handoff, 'plain') ?? '', 'That agent is no longer running.', copy);
   }
   const prompt = promptFor(handoff, running.agent) as string;
-  if (!await typeInto(orca, terminalId, prompt)) return pasteIt(orca, running.agent, prompt, `Orca would not type into ${running.agent}'s terminal.`);
+  if (!await typeInto(orca, terminalId, prompt)) return pasteIt(orca, running.agent, prompt, `Orca would not type into ${running.agent}'s terminal.`, copy);
   await orca.host.call('terminal.focus', { terminalId }).catch(() => undefined);
   return { sent: true };
 }

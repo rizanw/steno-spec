@@ -10,7 +10,8 @@ import { buildSnapshot, streamSnapshots } from './worker/snapshot.js';
 import { applyChange, changeOf, CHANGES, type Change, type ChangeRequest } from './worker/changes.js';
 import { bundledCli, createSpec, setUpChoices, setUpWorktree } from './worker/create.js';
 import { launchable } from './worker/agents.js';
-import { HANDOFF_ACTIONS, handoffFor, launch, nothingToHandOff, promptFor, runningAgents, sendTo } from './worker/handoff.js';
+import { copyText, type Copy } from './worker/clipboard.js';
+import { HANDOFF_ACTIONS, handoffFor, launch, nothingToHandOff, promptFor, runningAgents, sendTo, WAIT } from './worker/handoff.js';
 import { openRow } from './worker/open.js';
 import { checkAgentSteno, UNCHECKED } from './worker/agent-steno.js';
 import { handoffRoute, saveAgent, savedAgent } from './worker/default-agent.js';
@@ -54,10 +55,12 @@ export function answer(orca: Pick<OrcaWorkerApi, 'panels'>, handlers: Handlers):
 /**
  * The handlers for the focused worktree: its servers come from `pool`, `run` starts the bundled CLI, and every change
  * to it is posted to the open panels whole. `check` finds the agents' `steno`, each time the worktree changes and on
- * the panel's Re-check. Requests that have no real handler yet keep their stub answer.
+ * the panel's Re-check. Requests that have no real handler yet keep their stub answer. A skill call that cannot be
+ * typed into its agent is given to `copy`; without it nothing is copied, so tests leave the clipboard alone.
  */
 export function liveHandlers(
   orca: Orca & Pick<OrcaWorkerApi, 'panels' | 'log'>, pool: ServerPool, run: RunCli, check: () => Promise<AgentSteno> = () => checkAgentSteno(),
+  copy?: Copy,
 ): { handlers: Handlers } & Disposable {
   let active: Active | undefined;
   let stream: AbortController | undefined;
@@ -139,7 +142,7 @@ export function liveHandlers(
           const route = handoffRoute(saved, running);
           if (route === 'pick') return { form: 'agentPick', key: request.key, choices: launchable(), running };
           if (route === 'runningPick') return { form: 'agentPick', key: request.key, choices: [saved!], running: running.filter(r => r.agent === saved) };
-          const started = await launch(orca, active.workspaceId, handoff, saved!);
+          const started = await launch(orca, active.workspaceId, handoff, saved!, WAIT, copy);
           return 'launched' in started ? { done: true } : started;
         }
         if (action === 'open') return openRow(orca, active, await rowAt(active, request.key));
@@ -165,11 +168,11 @@ export function liveHandlers(
             refresh();
           }
           if (terminal) {
-            const sent = await sendTo(orca, active.workspaceId, terminal, handoff);
+            const sent = await sendTo(orca, active.workspaceId, terminal, handoff, copy);
             return 'sent' in sent ? { done: true } : sent;
           }
           if (!agent) return { nothing: 'No agent was picked.' };
-          const started = await launch(orca, active.workspaceId, handoff, agent);
+          const started = await launch(orca, active.workspaceId, handoff, agent, WAIT, copy);
           return 'launched' in started ? { done: true } : started;
         }
         if (request.form === 'defaultAgent') {
@@ -181,7 +184,9 @@ export function liveHandlers(
           return { done: true };
         }
         if (request.form === 'newSpec' || request.form === 'setUp') {
-          const result = await (request.form === 'newSpec' ? createSpec : setUpWorktree)(orca, active, run, request.answers);
+          const result = request.form === 'newSpec'
+            ? await createSpec(orca, active, run, request.answers, undefined, copy)
+            : await setUpWorktree(orca, active, run, request.answers);
           refresh();
           return result;
         }
@@ -199,7 +204,7 @@ export default function activate(orca: OrcaWorkerApi): void {
   // build.mjs copies the bundled language server and CLI to vendor/ beside this file
   const vendor = join(dirname(fileURLToPath(import.meta.url)), 'vendor');
   const pool = createPool({ source: { files: vendor }, log: line => orca.log(line) });
-  const live = liveHandlers(orca, pool, bundledCli({ files: vendor }));
+  const live = liveHandlers(orca, pool, bundledCli({ files: vendor }), undefined, copyText);
   answer(orca, live.handlers);
   running = { dispose() { live.dispose(); pool.dispose(); } };
 }

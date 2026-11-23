@@ -9,7 +9,8 @@ import {
 } from '@steno/core/host';
 import { runToEnd, type ProgramSource } from '@steno/host';
 import type { ActResult } from '../shared/messages.js';
-import { launch } from './handoff.js';
+import type { Copy } from './clipboard.js';
+import { launch, WAIT } from './handoff.js';
 import { openPath } from './open.js';
 import type { Active } from './worktree.js';
 
@@ -55,17 +56,17 @@ async function noAnswer(orca: Orca, what: string, outcome: Extract<CliOutcome<un
 
 /**
  * Create the spec the answers describe in the active worktree and open its first document. When the answers chose a
- * coding agent to write it, that agent starts on it straight away, with no second pick.
+ * coding agent to write it, that agent starts on it straight away, with no second pick; `copy` takes its call if it cannot be typed.
  */
 export async function createSpec(orca: Orca, active: Active, run: RunCli, answers: Record<string, string>,
-  exists?: (path: string) => boolean): Promise<ActResult> {
+  exists?: (path: string) => boolean, copy?: Copy): Promise<ActResult> {
   const cli = watched(run);
   const outcome = await newSpec(cli.run, active.folder, specRequest(answers));
   if (!outcome.ok) return noAnswer(orca, 'New Spec', outcome, cli.last());
   const { spec, phase, created = [] } = outcome.value;
   if (created[0]) await openPath(orca, active, documentPath(active.server.tree, spec, created[0]), exists);
   // the spec exists either way, so an agent that does not start is reported and the creation still stands
-  if (answers.writer === 'agent' && answers.agent) await launch(orca, active.workspaceId, { kind: 'write', spec, phase }, answers.agent);
+  if (answers.writer === 'agent' && answers.agent) await launch(orca, active.workspaceId, { kind: 'write', spec, phase }, answers.agent, WAIT, copy);
   return { done: true };
 }
 

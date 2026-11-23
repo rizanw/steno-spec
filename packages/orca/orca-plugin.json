@@ -7,6 +7,15 @@
   "license": "MIT",
   "repository": "https://github.com/rizanw/steno-spec/tree/main/packages/orca",
   "icon": "dist/icon.png",
+  "cover": { "path": "images/cover.png", "alt": "The steno mark and name beside the steno panel listing specs and tasks in Orca" },
+  "screenshots": [
+    { "path": "images/1-hand-off-dark.png", "alt": "Codex in Orca with a steno task call typed into its terminal and not sent, beside the steno panel", "caption": "Hand a task to any coding agent", "theme": "dark" },
+    { "path": "images/2-document-light.png", "alt": "A requirements document open in Orca, with its lint warning shown in the steno panel", "caption": "Lint problems beside each document", "theme": "light" },
+    { "path": "images/3-menu-dark.png", "alt": "The steno panel's right-click menu on a task, with Mark Done and Run Task", "caption": "Every action on a right-click", "theme": "dark" },
+    { "path": "images/4-agent-pick-dark.png", "alt": "The Run Task form asking which coding agent should take the task", "caption": "Pick the agent that takes the work", "theme": "dark" },
+    { "path": "images/5-hand-off-light.png", "alt": "Codex in Orca with a steno task call typed into its terminal and not sent, beside the steno panel", "caption": "Hand a task to any coding agent", "theme": "light" },
+    { "path": "images/6-document-dark.png", "alt": "A requirements document open in Orca, with its lint warning shown in the steno panel", "caption": "Lint problems beside each document", "theme": "dark" }
+  ],
   "engines": { "orca": ">=1.4.262" },
   "execution": "trusted-worker",
   "main": "dist/worker.mjs",

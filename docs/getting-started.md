@@ -25,7 +25,7 @@ If you use [Paseo](https://paseo.sh), the [plugin](../packages/paseo/README.md) 
 paseo plugin install npm:steno-paseo
 ```
 
-If you use [Orca](https://github.com/stablyai/orca), the [plugin](orca.md) adds a steno panel to the right sidebar for the worktree you have focused, with the same views and approvals. It carries its own copy of steno too, and the agents it starts run the CLI above from Orca's `PATH`. Each Orca command asks for your approval once:
+If you use [Orca](https://github.com/stablyai/orca), the [plugin](../packages/orca/README.md) adds a steno panel to the right sidebar for the worktree you have focused, with the same views and approvals. It carries its own copy of steno too, and the agents it starts run the CLI above from Orca's `PATH`. Each Orca command asks for your approval once:
 
 ```bash
 orca plugin catalog add rizanw/steno-spec
@@ -206,5 +206,5 @@ steno new shared-budgets --brief
 - [Agents & integrations](agents.md): other agents, VS Code, Paseo, Orca, EGM, coming from Kiro
 - [VS Code extension](../packages/vscode/README.md): the sidebar, approvals, handing work to your agent
 - [Paseo plugin](../packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
-- [Orca plugin](orca.md): the steno panel in Orca, approvals, handing work to an agent
+- [Orca plugin](../packages/orca/README.md): the steno panel in Orca, approvals, handing work to an agent
 - [JSON contract](json-contract.md): what `steno lsp` and `--json` return, for building on steno

@@ -5,109 +5,161 @@
 <h1 align="center">steno spec for Orca</h1>
 
 <p align="center">
+  <a href="https://orca.dev/plugins/rizanw/steno-spec"><img src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Frizanw%2Fsteno-spec%2Fmain%2Forca-catalog.json&query=%24.plugins%5B0%5D.releases%5B0%5D.version&label=Orca&prefix=v" alt="Orca plugin version"></a>
+  <a href="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml"><img src="https://github.com/rizanw/steno-spec/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/rizanw/steno-spec/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/steno-spec" alt="MIT license"></a>
+</p>
+
+<p align="center">
   <strong>Shorthand specs for any coding agent.</strong><br>
   Plan a feature before you build it: requirements, then design, then tasks, then code. Your agent
   writes each stage in Orca, and the steno panel shows where every spec stands, lists each lint
   problem and gives you the approvals. It has no model in it and spends no tokens.
 </p>
 
+<p align="center">
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#use-it">Use it</a> ·
+  <a href="#troubleshooting">Troubleshooting</a> ·
+  <a href="https://github.com/rizanw/steno-spec/blob/main/docs/getting-started.md">Getting started</a> ·
+  <a href="https://github.com/rizanw/steno-spec/blob/main/docs/concepts.md">Concepts</a> ·
+  <a href="https://github.com/rizanw/steno-spec/blob/main/docs/cli.md">CLI reference</a>
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/rizanw/steno-spec/main/packages/orca/images/5-hand-off-light.png" alt="The steno panel beside a coding agent in Orca, with a task call typed into the agent's terminal and not sent">
+</p>
+
 ---
+
+- **Specs are plain Markdown.** `requirements.md`, `design.md` and `tasks.md`, with EARS criteria and
+  stable IDs, so whichever agent you run in Orca can do the writing while you watch.
+- **Every stage has a gate.** Lint errors send a document back for another pass, and only your
+  approval moves a spec on.
+- **A task gets a packet, not the whole spec.** Your agent reads `steno ctx T2.1`, usually a few
+  hundred tokens. The panel, the lint problems and the approvals cost nothing.
+- **It brings everything it needs.** The plugin carries its own steno language server and skills, and
+  follows the worktree you have focused. There is no network call.
+
+## Quick start
+
+You need **Orca 1.4.262 or later**. The plugin is published through a catalog in the steno repository, so
+add that catalog once, then install the plugin from it:
 
 ```bash
 orca plugin catalog add rizanw/steno-spec
 orca plugin install rizanw.steno
-npm install -g steno-spec               # the steno your agents run
 ```
 
-Both Orca commands stop once to ask for your approval. **[Install and use it](../../docs/orca.md)** covers
-that, the panel, handing work to an agent, updates and troubleshooting.
+Each command first stops with `approval_required`, because a catalog decides where Orca installs plugins
+from and this plugin runs code. Read what it lists, then run the command it prints, which ends in
+`--approve <fingerprint>`.
 
-## Build from source
+Install by the catalog id `rizanw.steno`, not the repository name: the plugin sits in the repository's
+`packages/orca` folder, which only a catalog entry points Orca to.
+
+The plugin asks for these permissions:
+
+| Permission | What it is for |
+|---|---|
+| `workspace:read`, `workspace:write` | Reading the specs, and the files steno writes when you approve, tick a task or create a spec |
+| `agent:launch`, `agent:read`, `terminal:send` | Starting the agent you pick, finding the ones already running, and typing the skill call into its terminal |
+| `storage:own` | Remembering each worktree's agent |
+| `notifications:show` | Saying what an action did, or why it could not |
+
+The panel works on its own. Your agents are another matter: they call `steno` from their skills, and
+Orca starts them with its own `PATH`, so install the CLI where they will find it:
 
 ```bash
-pnpm build
-orca plugin dev load "$PWD/packages/orca"
-orca plugin logs local.steno            # a folder you load is local.<id>
+npm install -g steno-spec
 ```
 
-`pnpm build` is required: Orca runs no build and installs no npm dependencies, so `scripts/build.mjs` writes
-everything the plugin runs into `dist/`, which is not committed:
+If the agents' `steno` is missing, older than the plugin's copy or speaks a different protocol, the panel
+shows a warning bar with the exact command to install the right version. Install it, then press
+**Re-check**.
+
+Then focus a worktree and open the **steno** panel in the right sidebar. If the folder has no `.steno/`
+yet, choose **Set Up steno** and pick the coding agents that should get the steno skills.
+
+## The workflow
 
 ```text
-src/worker.ts              →  dist/worker.mjs     Orca's worker, on Node
-src/panel/panel.tsx        →  dist/panel.{js,css} the sidebar page, with Preact bundled in
-packages/cli/bin           →  dist/vendor/        the language server and CLI the worker starts
-packages/skills/skills     →  dist/skills/        what Set Up steno installs
-assets/steno.png           →  dist/icon.png
+brief?  →  requirements  →  design     →  tasks      →  execute      →  done
+approve    ↺ lint           ↺ lint        ↺ lint        ↺ next task     drift review?
+           ↺ review?        ↺ review?     ↺ review?
+           approve →        approve →     approve →
+
+↺ sends you back to revise the same stage; only approve moves to the next one.
 ```
 
-After a change, run `pnpm build`, then `orca plugin dev reload`. `orca plugin types` rewrites the Orca
-typings in `types/`, committed so CI needs no Orca install.
+Every stage has a skill that writes it and a gate that ends it. A review is there whenever you want
+one: read-only reviewers look at the document and never see your conversation. Only you can approve.
+No skill and no agent can do it for you.
 
-## Releases
+## Use it
 
-A `v*` tag releases the plugin with the rest of steno: `packages/orca/package.json` must carry the tag's
-version. The `catalog` job in `.github/workflows/release.yml` builds `dist/`, commits it on top of the tag,
-tags that commit `orca-v<version>` and adds a release pointing at it to `orca-catalog.json` on main. The
-built files live only on that tag; main never holds them. A pre-release (odd minor) gets the tag and no
-catalog entry.
+| You want to | Do this |
+|---|---|
+| See your specs | Expand a spec to see its documents and tasks. The next task is marked. |
+| Read a document | Press its row. It opens in Orca's editor; a task opens its spec's `tasks.md`. |
+| Move a spec on | Press **Approve** on the document of the current phase. If lint finds an error, the approval is refused and the problems are listed. |
+| Tick off a task | Press **Mark Done** on the task. **Reopen** asks you before it changes anything. |
+| Add work to a finished spec | Choose **Reopen Spec** from the spec's "more" menu, then add tasks to `tasks.md`. |
+| Hand work to an agent | Press **Run Task**, **Run Next Task**, **Write**, **Review** or **Revise** (Write becomes Revise once the document is written). |
+| Start something new | Press **New Spec** on the Specs header, or **Generate Steering** on the Steering header. |
+| Set up a folder | Press **Set Up steno** on a folder without `.steno/`, and choose which coding agents get the skills. |
 
-Orca refuses a release whose files hash differently from the catalog's `contentHash`. `scripts/content-hash.mjs`
-computes it the way Orca does, and `scripts/catalog.mjs` builds the release entry `orca plugin release-entry`
-prints; their tests pin values Orca computed. To compare with Orca by hand:
+When a row has more actions than fit as buttons, the rest are behind its **more** button (•••).
+
+### Handing work to an agent
+
+The line above the specs says which agent this worktree hands work to: **Agent: asks each time** until you
+pick one. The first agent you pick in a worktree becomes its agent, and **Change** picks another.
+
+With an agent chosen, a hand-off starts it in the focused worktree and types a call such as
+`/steno-run T2.1 link-expiry` into its terminal without pressing Enter. If one of that kind is already
+running there, the panel asks whether to use it or start a new one.
+
+When the call cannot be typed, because the agent did not start within 30 seconds or Orca refused to type
+into its terminal, it is copied to the clipboard and a notification says where to paste it. On Linux that
+needs `wl-copy`, `xclip` or `xsel`; without one, the notification shows the call to copy by hand.
+
+## Update and uninstall
+
+Orca keeps plugins from a catalog up to date. A release that asks for new permissions waits for your
+approval.
+
+| To | Run |
+|---|---|
+| Update now | `orca plugin update rizanw.steno` |
+| Turn it off for a while | `orca plugin disable rizanw.steno` (and `enable` to bring it back) |
+| Uninstall | `orca plugin uninstall rizanw.steno` |
+| Remove the catalog | `orca plugin catalog rm rizanw/steno-spec` |
+
+## Troubleshooting
+
+Start with the plugin's log:
 
 ```bash
-orca plugin inspect packages/orca --json      # contentHash of a folder
-node packages/orca/scripts/content-hash.mjs <folder>
+orca plugin logs rizanw.steno
 ```
 
-Hash a folder holding only committed files and `dist/`: Orca hashes every file in it, `node_modules/` too.
+| You see | What to do |
+|---|---|
+| A warning bar naming `npm install -g steno-spec@<version>` | Your agents' `steno` is missing, older than the plugin's or speaks a different protocol. Run that command, then press **Re-check**. |
+| "steno stopped in this worktree after it kept crashing" | Press **Restart**. If it stops again, [open an issue](https://github.com/rizanw/steno-spec/issues) and attach the log. |
+| "steno did not answer …, so whether it ran is unknown" | Orca stopped the plugin or it took too long. The specs below the bar show what steno reports now, so check whether the change happened before you try again. |
+| `server for <folder> could not start` in the log | Run `orca plugin update rizanw.steno`, then `orca plugin restart rizanw.steno`. |
+| A notification says the call was copied | The agent did not take the call. Paste it into the agent's terminal. |
+| `rizanw.steno` is not found | Add the catalog first: `orca plugin catalog add rizanw/steno-spec`. |
 
-### Listing images
+## Docs
 
-Orca's plugin page shows the icon (`assets/steno.png`), and can show a cover and up to 6 screenshots. Take them in
-Orca with the plugin installed, commit them under `packages/orca/images/`, and name them in `orca-plugin.json`:
-
-```json
-"cover": { "path": "images/cover.png", "alt": "The steno panel beside a spec in Orca" },
-"screenshots": [
-  { "path": "images/panel-dark.png", "alt": "The steno panel listing specs and tasks", "caption": "Specs, tasks and lint problems", "theme": "dark" }
-]
-```
-
-| Image | Format | Size | At most |
-|---|---|---|---|
-| Cover | PNG, JPEG or WebP, static | at least 800×500, 1600×1000 (16:10) recommended | 1 MB |
-| Screenshot | PNG, JPEG or WebP, static | at least 1280×800, 16:10 recommended, up to 2560×1600 | 1.5 MB each, 8 MB for all images together |
-
-`alt` is required (up to 160 characters) and `caption` is optional (up to 120). `theme` shows a screenshot only
-with a light or a dark Orca theme. Orca's release entry silently drops an image outside these limits, so
-`test/manifest.test.ts` fails on one instead; `orca plugin validate packages/orca` checks the same.
-
-Each catalog release pins every image's SHA-256, and Orca refuses an image whose bytes changed. To change a
-picture, commit it under a new file name and leave the old one, so earlier releases still show theirs.
-
-## Check by hand
-
-Orca draws the panel, so these are checked in Orca before a release, in a light and a dark theme and a
-narrow sidebar. `orca plugin shot packages/orca --panel steno --theme dark` saves a PNG of the panel as Orca draws
-it. The rest is covered by `pnpm test`.
-
-- [ ] Specs, documents and tasks show in the server's order; rows expand and collapse.
-- [ ] Every text and icon follows the theme; nothing is black on dark.
-- [ ] A row has the "more" button only when an action has no button of its own, and its menu lists every action.
-- [ ] Pressing a document, a steering file or a task opens the file in Orca's editor; a file deleted since the panel drew says so.
-- [ ] Approve a phase; a phase with a lint error is refused and lists each problem.
-- [ ] Mark a task done and reopen it; declining the reopen changes nothing.
-- [ ] Create a feature and a bugfix with **New Spec**; a taken name is refused.
-- [ ] Set up an empty folder with **Set Up steno**; the skills land for the agents picked.
-- [ ] Hand off with no agent chosen: the pick appears, and the agent picked becomes the worktree's agent.
-- [ ] Hand off with an agent chosen: it starts in the focused worktree and the call is typed unsent.
-- [ ] Hand off while that agent already runs: the panel offers it and a new one.
-- [ ] Hand off when the call cannot be typed: it is on the clipboard and the notification says where to paste it.
-- [ ] Switch worktrees: the panel follows the focused one.
-- [ ] Kill the language server until it stops: the stopped bar shows, and **Restart** clears it.
-- [ ] With an older `steno` on `PATH`, the warning bar names both versions and the install command with the plugin's version.
+- [Getting started](https://github.com/rizanw/steno-spec/blob/main/docs/getting-started.md): a first spec from start to finish, quick mode, bugfixes
+- [Concepts](https://github.com/rizanw/steno-spec/blob/main/docs/concepts.md): phases and gates, IDs, EARS, lint rules, context packets, steering
+- [CLI reference](https://github.com/rizanw/steno-spec/blob/main/docs/cli.md): every command and flag
+- [Agents & integrations](https://github.com/rizanw/steno-spec/blob/main/docs/agents.md): supported agents and reviewers
+- [Contributing](https://github.com/rizanw/steno-spec/blob/main/CONTRIBUTING.md#the-orca-plugin): build the plugin from source, release it and check it by hand
 
 ## License
 

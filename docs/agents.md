@@ -95,7 +95,7 @@ shows a warning bar with the command that installs the plugin's version. **Set U
 
 ## Orca
 
-The [Orca plugin](orca.md) adds a **steno** panel to [Orca](https://github.com/stablyai/orca)'s right
+The [Orca plugin](../packages/orca/README.md) adds a **steno** panel to [Orca](https://github.com/stablyai/orca)'s right
 sidebar, for the worktree you have focused. It shows the same specs, steering and lint problems, and the
 same approvals. To write, review or run something, it starts the agent you pick in that worktree and types
 one of the calls above into its terminal, unsent; when it cannot, it copies the call to the clipboard.

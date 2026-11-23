@@ -20,6 +20,11 @@ describe('orca-plugin.json', () => {
     expect(manifest.engines.orca).toBe('>=1.4.262');
   });
 
+  // Orca's plugin list and catalog search show this name, so it matches the VS Code Marketplace and Paseo listings.
+  it('shows the plugin as "steno spec", as the other plugins do', () => {
+    expect(manifest.name).toBe('steno spec');
+  });
+
   it('runs a worker behind one html panel', () => {
     expect(manifest).toMatchObject({ manifestVersion: 2, execution: 'trusted-worker', main: 'dist/worker.mjs' });
     expect(manifest.contributes.panels).toEqual([expect.objectContaining({ id: 'steno', ui: 'html', entry: 'dist/panel.html' })]);

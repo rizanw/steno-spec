@@ -283,6 +283,19 @@ describe('steno lsp: watching', () => {
     expect(c.received.slice(from).filter(r => r.method === TREE)).toHaveLength(1);
   });
 
+  it('without the registration capability, still sees a file changed on disk after the server replaced it', async () => {
+    const p = withTasks();
+    const c = client();
+    await c.initialize({ rootUri: uri(p.dir) });
+    await c.request('steno/specTree');
+    await c.request('steno/taskDone', { spec: 'demo', task: 'T1.1' });
+    await pause(300);
+    const from = c.received.length;
+    writeFileSync(p.tasks, readFileSync(p.tasks, 'utf8').replace('- [ ] 1.2', '- [x] 1.2'));
+    await c.waitFor(TREE, undefined, 3000, from);
+    expect((await c.request('steno/specTree')).specs[0].next).toEqual({ id: 'T2', title: 'Logout' });
+  });
+
   it('with the capability, registers the watched folders and reloads on the Client events', async () => {
     const p = demo();
     const c = client();

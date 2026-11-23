@@ -1,5 +1,5 @@
 // Learns of disk changes to watched files: through the Client's file watcher when it can register one, else with fs.watch.
-import { existsSync, watch, type FSWatcher } from 'node:fs';
+import { existsSync, readdirSync, watch, type FSWatcher } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DidChangeWatchedFilesNotification, type Connection, type Disposable } from 'vscode-languageserver/node';
@@ -18,19 +18,40 @@ function watchTargets(s: Session): { root: string; steno: string; config: string
   };
 }
 
-/** A key that changes when the watcher must be replaced: a configured folder moved, or (for fs.watch) a folder appeared or went. */
+/**
+ * Whether fs.watch can watch a folder tree in one call. Node 22's recursive watch on Linux watches each file by itself
+ * and goes deaf to a file once a rename replaces it, which is how steno writes a document; a watch on the folder
+ * reports such a file by name. So on Linux each folder of the tree gets a watch of its own.
+ */
+const RECURSIVE = process.platform !== 'linux';
+
+/** `dir` and every folder below it, parents first; none when `dir` cannot be listed. */
+function folders(dir: string): string[] {
+  let entries;
+  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  return [dir, ...entries.filter(e => e.isDirectory()).flatMap(e => folders(join(dir, e.name)))];
+}
+
+/** The folders fs.watch is given for a tree: its root, or on Linux each folder in it. */
+const treeFolders = (dir: string) => (RECURSIVE ? [dir] : folders(dir));
+
+/**
+ * A key that changes when the watcher must be replaced: a configured folder moved, or (for fs.watch) a folder appeared
+ * or went, which on Linux includes any folder inside the specs and steering folders, such as a new spec.
+ */
 export function watchKey(s: Session, client: boolean): string {
   const t = watchTargets(s);
   if (!t) return '';
   const dirs = [t.steno, t.specs, t.steering];
-  return JSON.stringify(client ? dirs : dirs.map(d => [d, existsSync(d)]));
+  if (client) return JSON.stringify(dirs);
+  return JSON.stringify([...dirs.map(d => [d, existsSync(d)]), ...(RECURSIVE ? [] : [t.specs, t.steering].map(folders))]);
 }
 
 const glob = (p: string) => p.split('\\').join('/');
 
 /**
  * Watch the `.steno` folder, the configuration file, the specs folder and the steering folder. With `client`, ask the
- * Client to watch them; otherwise use fs.watch, recursive on the specs and steering folders, and on the root for `.steno`.
+ * Client to watch them; otherwise use fs.watch on the specs and steering folder trees, and on the root for `.steno`.
  * `onChange` receives the absolute paths that changed.
  */
 export function watchProject(conn: Connection, s: Session, onChange: (paths: string[]) => void, client = false): Watcher {
@@ -62,6 +83,6 @@ export function watchProject(conn: Connection, s: Session, onChange: (paths: str
   };
   add(t.root, false, name => name === '.steno');
   add(t.steno, false);
-  for (const dir of new Set([t.specs, t.steering])) add(dir, true);
+  for (const dir of new Set([t.specs, t.steering].flatMap(treeFolders))) add(dir, RECURSIVE);
   return { close() { closed = true; for (const w of watchers) w.close(); } };
 }

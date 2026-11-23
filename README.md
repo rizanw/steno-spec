@@ -28,7 +28,7 @@
   <a href="docs/agents.md">Agents &amp; integrations</a> ·
   <a href="packages/vscode/README.md">VS Code extension</a> ·
   <a href="packages/paseo/README.md">Paseo plugin</a> ·
-  <a href="docs/orca.md">Orca plugin</a>
+  <a href="packages/orca/README.md">Orca plugin</a>
 </p>
 
 ---
@@ -192,7 +192,7 @@ approve each stage without leaving your editor.
 |---|---|
 | [VS Code](packages/vscode/README.md) | `code --install-extension rzndwb.steno-vscode` |
 | [Paseo](packages/paseo/README.md) | `paseo plugin install npm:steno-paseo` |
-| [Orca](docs/orca.md) | `orca plugin catalog add rizanw/steno-spec`, then `orca plugin install rizanw.steno` |
+| [Orca](packages/orca/README.md) | `orca plugin catalog add rizanw/steno-spec`, then `orca plugin install rizanw.steno` |
 
 All three plugins let you approve a phase, tick a task off or reopen it, and hand
 writing, reviewing or a task to an agent. When you hand work over, the agent gets a short skill call
@@ -222,7 +222,7 @@ grows, so what you build today keeps working.
 - [Agents & integrations](docs/agents.md): supported agents, VS Code, Paseo, Orca, EGM, coming from Kiro
 - [VS Code extension](packages/vscode/README.md): the sidebar, approvals, handing work to your agent
 - [Paseo plugin](packages/paseo/README.md): the steno panel in Paseo, approvals, handing work to an agent
-- [Orca plugin](docs/orca.md): the steno panel in Orca, approvals, handing work to an agent
+- [Orca plugin](packages/orca/README.md): the steno panel in Orca, approvals, handing work to an agent
 - [JSON contract](docs/json-contract.md): every shape `steno lsp` and `--json` return
 - [Why steno](docs/why.md): how it compares with Kiro, Spec Kit and EGM, and where the token savings come from
 - [Contributing](CONTRIBUTING.md): building from source, tests, commit messages, design principles

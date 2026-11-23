@@ -16,7 +16,7 @@ steno has no model inside. Everything deterministic lives in the CLI and costs z
 
 Skills never name a harness's tools. They say "run `steno next`" or "ask the user", so the same file works in every agent.
 
-The same checks reach your editor. `steno lsp` is a language server built on the same code as the commands, and the [VS Code extension](../packages/vscode/README.md) uses it to show the spec tree, the lint findings and the task packets. The [Paseo plugin](../packages/paseo/README.md) and the [Orca plugin](orca.md) use the same server for their spec tree, lint findings and approvals. The server returns exactly what the commands return, as described in the [JSON contract](json-contract.md).
+The same checks reach your editor. `steno lsp` is a language server built on the same code as the commands, and the [VS Code extension](../packages/vscode/README.md) uses it to show the spec tree, the lint findings and the task packets. The [Paseo plugin](../packages/paseo/README.md) and the [Orca plugin](../packages/orca/README.md) use the same server for their spec tree, lint findings and approvals. The server returns exactly what the commands return, as described in the [JSON contract](json-contract.md).
 
 ## Phases and gates
 

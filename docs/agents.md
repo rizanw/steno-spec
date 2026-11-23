@@ -93,24 +93,9 @@ npm install -g steno-spec
 If that `steno` is missing, older than the copy the plugin carries, or speaks another protocol, the panel
 shows a warning bar with the command that installs the plugin's version. **Set Up steno** in the panel runs `steno init` for a folder, with the agents you pick.
 
-## Orca
-
-The [Orca plugin](orca.md) adds a **steno** panel to [Orca](https://github.com/stablyai/orca)'s right
-sidebar, for the worktree you have focused. It shows the same specs, steering and lint problems, and the
-same approvals. To write, review or run something, it starts the agent you pick in that worktree and types
-one of the calls above into its terminal, unsent; when it cannot, it copies the call to the clipboard.
-
-The plugin carries its own CLI and language server. The agents it starts run `steno` from Orca's `PATH`:
-
-```bash
-orca plugin catalog add rizanw/steno-spec
-orca plugin install rizanw.steno
-npm install -g steno-spec
-```
-
 ## Building another integration
 
-The VS Code extension and the Paseo and Orca plugins use nothing private. `steno lsp` is a language server any editor can start, and every
+The VS Code extension and the Paseo plugin use nothing private. `steno lsp` is a language server any editor can start, and every
 command takes `--json`; both return the shapes in the [JSON contract](json-contract.md). See
 [`steno lsp`](cli.md#steno-lsp) for what the server offers.
 

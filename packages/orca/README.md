@@ -13,15 +13,6 @@
 
 ---
 
-```bash
-orca plugin catalog add rizanw/steno-spec
-orca plugin install rizanw.steno
-npm install -g steno-spec               # the steno your agents run
-```
-
-Both Orca commands stop once to ask for your approval. **[Install and use it](../../docs/orca.md)** covers
-that, the panel, handing work to an agent, updates and troubleshooting.
-
 ## Build from source
 
 ```bash

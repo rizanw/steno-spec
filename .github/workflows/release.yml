@@ -1,26 +1,28 @@
 name: Release
 
-# Push a tag matching every package version (e.g. v0.2.0) to publish steno-spec and the Paseo plugin (steno-paseo)
+# Start a release from the Actions tab (Run workflow, version: 0.2.0) once main carries that version in every
+# package. The `tag` job tests main's commit, commits the built Orca plugin (packages/orca/dist/) on top of it and
+# tags that commit v<version>; every later job works from the tag. steno-spec and the Paseo plugin (steno-paseo) go
 # to npm with provenance, the VS Code extension to the VS Code Marketplace and Open VSX, and the Orca plugin to
-# orca-catalog.json, all from the one tag.
-# Auth is trusted publishing (OIDC) everywhere with no stored token.
+# orca-catalog.json. Auth is trusted publishing (OIDC) everywhere with no stored token.
+#
+# The tag holds dist/ because Orca runs no build: it installs the plugin folder from the exact commit a release
+# names. Orca's community directory (orca.dev/plugins) also lists the newest v<major>.<minor>.<patch> tag, finding
+# the plugin through orca-catalog.json's source.path, and refuses a tag whose plugin folder lacks the files its
+# manifest names. main itself never holds built files: the release commit is reachable only from its tag.
 #
 # An odd minor is a pre-release, an even one a release (VS Code's convention: both extension registries take
 # only major.minor.patch). A pre-release goes to npm under `next` and to both registries with --pre-release.
 #
-# The Orca plugin is published through orca-catalog.json, the catalog Orca reads from main (the `catalog` job).
-#
-# A release can be resumed. Every publish step first asks its registry whether the version is already there and
-# skips it if so, so re-running a failed run, or starting this workflow by hand from the Actions tab with the tag
-# (Run workflow, tag: v0.2.0), publishes only what is missing. A run started by hand uses this file from the
-# branch it is started on and builds the tag's code.
+# A release can be resumed: run the workflow again with the same version. An existing tag is reused, not rebuilt (a
+# second build would differ by its commit date, and a registry or catalog may already point at the first), and every
+# publish step first asks its registry whether the version is already there and skips it if so. A run uses this file
+# from the branch it is started on.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'The release tag to publish, such as v0.2.0'
+      version:
+        description: 'The version to release, such as 0.2.0; every package on main must already carry it'
         required: true
 
 permissions:
@@ -28,34 +30,46 @@ permissions:
   id-token: write # trusted publishing to npm and both extension registries, and npm provenance
 
 jobs:
-  publish:
+  # Tests run before the tag exists: once pushed, a tag can be listed by Orca's directory within the hour.
+  tag:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      npm-tag: ${{ steps.release.outputs.npm-tag }}
       pre-release: ${{ steps.release.outputs.pre-release }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
-      # before anything is built or published: a wrong tag stops the release here
-      - name: Check the tag and every version
+          fetch-depth: 0
+      # before anything is built or published: a wrong version stops the release here
+      - name: Check the version and every package
         id: release
         env:
-          TAG: ${{ inputs.tag || github.ref_name }}
+          INPUT: ${{ inputs.version }}
         run: |
-          version="${TAG#v}"
-          cli=$(node -p "require('./packages/cli/package.json').version")
-          ext=$(node -p "require('./packages/vscode/package.json').version")
-          paseo=$(node -p "require('./packages/paseo/package.json').version")
-          orca=$(node -p "require('./packages/orca/package.json').version")
           fail() { echo "::error::$1"; exit 1; }
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "tag $TAG is not v<major>.<minor>.<patch>"
-          [ "$version" = "$cli" ] || fail "tag $TAG != packages/cli version $cli"
-          [ "$version" = "$ext" ] || fail "tag $TAG != packages/vscode version $ext"
-          [ "$version" = "$paseo" ] || fail "tag $TAG != packages/paseo version $paseo"
-          [ "$version" = "$orca" ] || fail "tag $TAG != packages/orca version $orca"
-          minor=$(echo "$version" | cut -d. -f2)
+          version="${INPUT#v}"
+          tag="v$version"
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "$INPUT is not <major>.<minor>.<patch>"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null; then
+            git fetch --no-tags origin "+refs/tags/$tag:refs/tags/$tag"
+            git checkout --quiet "$tag"
+            echo "$tag already exists, resuming the release from its commit"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            [ "$GITHUB_REF" = refs/heads/main ] || fail "start a new release from main, not $GITHUB_REF_NAME"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+          for package in cli vscode paseo orca; do
+            found=$(node -p "require('./packages/$package/package.json').version")
+            [ "$version" = "$found" ] || fail "$tag != packages/$package version $found"
+          done
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          minor=$(echo "$version" | cut -d. -f2)
           if (( minor % 2 == 1 )); then
             echo "npm-tag=next" >> "$GITHUB_OUTPUT"
             echo "pre-release=--pre-release" >> "$GITHUB_OUTPUT"
@@ -64,122 +78,129 @@ jobs:
             echo "pre-release=" >> "$GITHUB_OUTPUT"
           fi
       - uses: pnpm/action-setup@v6
+        if: steps.release.outputs.exists == 'false'
+      - uses: actions/setup-node@v7
+        if: steps.release.outputs.exists == 'false'
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Build and test
+        if: steps.release.outputs.exists == 'false'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          pnpm test
+          pnpm lint:skills
+      - name: Commit the built plugin and tag it
+        if: steps.release.outputs.exists == 'false'
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f packages/orca/dist
+          git commit --quiet -m "release ${TAG#v}"
+          git tag "$TAG"
+          git push origin "refs/tags/$TAG"
+
+  publish:
+    needs: tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.tag.outputs.tag }}
+      - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
-      - run: pnpm test
-      - run: pnpm lint:skills
       # pnpm publish rewrites workspace:* ranges; npm publish would ship them as-is. Each publish step skips a
       # version its registry already has, so a re-run publishes only what is missing.
       - name: Publish steno-spec to npm
         working-directory: packages/cli
         run: |
-          if npm view "steno-spec@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
-            echo "steno-spec ${{ steps.release.outputs.version }} is already on npm, skipping"
+          if npm view "steno-spec@${{ needs.tag.outputs.version }}" version >/dev/null 2>&1; then
+            echo "steno-spec ${{ needs.tag.outputs.version }} is already on npm, skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+            pnpm publish --provenance --access public --no-git-checks --tag ${{ needs.tag.outputs.npm-tag }}
           fi
       # The plugin bundles everything it runs and declares no dependencies; Paseo provides its host modules.
       - name: Publish steno-paseo to npm
         working-directory: packages/paseo
         run: |
-          if npm view "steno-paseo@${{ steps.release.outputs.version }}" version >/dev/null 2>&1; then
-            echo "steno-paseo ${{ steps.release.outputs.version }} is already on npm, skipping"
+          if npm view "steno-paseo@${{ needs.tag.outputs.version }}" version >/dev/null 2>&1; then
+            echo "steno-paseo ${{ needs.tag.outputs.version }} is already on npm, skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks --tag ${{ steps.release.outputs.npm-tag }}
+            pnpm publish --provenance --access public --no-git-checks --tag ${{ needs.tag.outputs.npm-tag }}
           fi
       # one .vsix, packaged once: both registries get this exact file. vsce only publishes a file as a
       # pre-release if it was packaged as one, so the flag goes on the package step too.
       - name: Package the extension
         working-directory: packages/vscode
-        run: pnpm exec vsce package --no-dependencies ${{ steps.release.outputs.pre-release }} --out steno-vscode-${{ steps.release.outputs.version }}.vsix
+        run: pnpm exec vsce package --no-dependencies ${{ needs.tag.outputs.pre-release }} --out steno-vscode-${{ needs.tag.outputs.version }}.vsix
       - uses: actions/upload-artifact@v7
         with:
           name: vsix
-          path: packages/vscode/steno-vscode-${{ steps.release.outputs.version }}.vsix
+          path: packages/vscode/steno-vscode-${{ needs.tag.outputs.version }}.vsix
           if-no-files-found: error
       - name: Publish to the VS Code Marketplace
         working-directory: packages/vscode
         run: |
-          version=${{ steps.release.outputs.version }}
+          version=${{ needs.tag.outputs.version }}
           if pnpm exec vsce show rzndwb.steno-vscode --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>process.exit(JSON.parse(s).versions.some(v=>v.version===process.argv[1])?0:1))' "$version"; then
             echo "steno-vscode $version is already on the Marketplace, skipping"
           else
-            pnpm exec vsce publish --oidc --packagePath steno-vscode-$version.vsix ${{ steps.release.outputs.pre-release }}
+            pnpm exec vsce publish --oidc --packagePath steno-vscode-$version.vsix ${{ needs.tag.outputs.pre-release }}
           fi
       - name: Publish to Open VSX
         working-directory: packages/vscode
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
         run: |
-          if curl -sf -o /dev/null "https://open-vsx.org/api/rzndwb/steno-vscode/${{ steps.release.outputs.version }}"; then
-            echo "steno-vscode ${{ steps.release.outputs.version }} is already on Open VSX, skipping"
+          if curl -sf -o /dev/null "https://open-vsx.org/api/rzndwb/steno-vscode/${{ needs.tag.outputs.version }}"; then
+            echo "steno-vscode ${{ needs.tag.outputs.version }} is already on Open VSX, skipping"
           elif [ -n "$OVSX_PAT" ]; then
-            pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }}
+            pnpm exec ovsx publish steno-vscode-${{ needs.tag.outputs.version }}.vsix ${{ needs.tag.outputs.pre-release }}
           else
             # an empty OVSX_PAT must not reach ovsx: a token takes priority over trusted publishing
             unset OVSX_PAT
-            pnpm exec ovsx publish steno-vscode-${{ steps.release.outputs.version }}.vsix ${{ steps.release.outputs.pre-release }} --trusted-publishing
+            pnpm exec ovsx publish steno-vscode-${{ needs.tag.outputs.version }}.vsix ${{ needs.tag.outputs.pre-release }} --trusted-publishing
           fi
 
-  # Orca runs no build: it installs the plugin folder from the exact commit a catalog release names, so that commit
-  # must hold dist/. It is a commit of its own on top of the tag, reachable only from the orca-v<version> tag, so main
-  # never holds built files. Then main's orca-catalog.json lists it, which is the one file this job pushes to main.
-  # A protected main needs a bypass for the workflow's token.
+  # main's orca-catalog.json lists the tag's commit, which is the one file this job pushes to main. A protected main
+  # needs a bypass for the workflow's token; without one the push fails here, and `scripts/catalog.mjs` lists the
+  # release by hand (see packages/orca/README.md). Every release is listed, pre-releases too: Orca's community
+  # directory lists every tag anyway, so leaving one out here would only make the two catalogs disagree.
   catalog:
-    needs: publish
+    needs: [tag, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
-      VERSION: ${{ needs.publish.outputs.version }}
-      ORCA_TAG: orca-v${{ needs.publish.outputs.version }}
+      VERSION: ${{ needs.tag.outputs.version }}
+      TAG: ${{ needs.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: refs/tags/${{ needs.tag.outputs.tag }}
           fetch-depth: 0
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: pnpm
-      # A re-run reuses the tag's commit: a second build would differ by its commit date, and the catalog may
-      # already point at the first.
-      - name: Tag the plugin's release commit
-        id: commit
+      - name: List the release in orca-catalog.json
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if git ls-remote --exit-code --tags origin "refs/tags/$ORCA_TAG" >/dev/null; then
-            git fetch --no-tags origin "+refs/tags/$ORCA_TAG:refs/tags/$ORCA_TAG"
-            echo "$ORCA_TAG already exists, reusing its commit"
-          else
-            pnpm install --frozen-lockfile
-            pnpm --filter 'steno-orca...' build
-            git add -f packages/orca/dist
-            git commit --quiet -m "release steno-orca $VERSION"
-            git tag "$ORCA_TAG"
-            git push origin "refs/tags/$ORCA_TAG"
-          fi
-          echo "sha=$(git rev-parse "$ORCA_TAG^{commit}")" >> "$GITHUB_OUTPUT"
-      # A pre-release gets its tag but no catalog entry: Orca would offer it to everyone as the latest release.
-      - name: List the release in orca-catalog.json
-        if: needs.publish.outputs.pre-release == ''
-        env:
-          COMMIT: ${{ steps.commit.outputs.sha }}
-        run: |
+          commit=$(git rev-parse "$TAG^{commit}")
           # the plugin exactly as the release commit holds it, and the tag's scripts, before main replaces the tree
           plugin="$RUNNER_TEMP/plugin"
           mkdir -p "$plugin" "$RUNNER_TEMP/scripts"
-          git archive "$COMMIT:packages/orca" | tar -x -C "$plugin"
+          git archive "$commit:packages/orca" | tar -x -C "$plugin"
+          [ -f "$plugin/dist/worker.mjs" ] || { echo "::error::$TAG holds no built plugin in packages/orca/dist"; exit 1; }
           cp packages/orca/scripts/catalog.mjs packages/orca/scripts/content-hash.mjs "$RUNNER_TEMP/scripts/"
           git fetch --no-tags origin main
           git checkout --quiet -B main origin/main
-          node "$RUNNER_TEMP/scripts/catalog.mjs" orca-catalog.json "$plugin" "$COMMIT" "$GITHUB_REPOSITORY"
+          node "$RUNNER_TEMP/scripts/catalog.mjs" orca-catalog.json "$plugin" "$commit" "$GITHUB_REPOSITORY"
           if git diff --quiet -- orca-catalog.json; then
             echo "orca-catalog.json already lists $VERSION, nothing to push"
           else

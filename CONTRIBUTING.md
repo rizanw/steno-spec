@@ -58,7 +58,7 @@ The scope names the feature or area, such as `vscode`, `paseo`, `orca`, `lsp-ser
 
 Pull requests are squashed into one commit on merge, so the pull request title is the one that has to follow this format.
 
-Please leave version numbers alone. A release bumps every package together and is published from a tag.
+Please leave version numbers alone. A release bumps every package together and is published by the Release workflow.
 
 ## Layout
 

@@ -46,11 +46,23 @@ typings in `types/`, committed so CI needs no Orca install.
 
 ## Releases
 
-A `v*` tag releases the plugin with the rest of steno: `packages/orca/package.json` must carry the tag's
-version. The `catalog` job in `.github/workflows/release.yml` builds `dist/`, commits it on top of the tag,
-tags that commit `orca-v<version>` and adds a release pointing at it to `orca-catalog.json` on main. The
-built files live only on that tag; main never holds them. A pre-release (odd minor) gets the tag and no
-catalog entry.
+The plugin is released with the rest of steno, from the **Release** workflow in the Actions tab (Run
+workflow, with the version). Every package on main, `packages/orca/package.json` and `orca-plugin.json` too,
+must already carry that version. The workflow's `tag` job tests main's commit, commits `dist/` on top of it and
+tags that commit `v<version>`, so the tag holds the built plugin and main never does. The `catalog` job then
+adds a release pointing at that commit to `orca-catalog.json` on main.
+
+Orca's community directory picks up the same tag: it lists the newest `v<major>.<minor>.<patch>` tag of a
+repository with the `orca-plugin` topic, finding the plugin through `source.path` in the root
+`orca-catalog.json`. Its listing status is at <https://orca.dev/plugins/rizanw/steno-spec>.
+
+If the `catalog` job cannot push to main, list the release by hand from a checkout of main:
+
+```bash
+git fetch origin tag v<version>
+p=$(mktemp -d); git archive v<version>:packages/orca | tar -x -C "$p"
+node packages/orca/scripts/catalog.mjs orca-catalog.json "$p" "$(git rev-parse 'v<version>^{commit}')" rizanw/steno-spec
+```
 
 Orca refuses a release whose files hash differently from the catalog's `contentHash`. `scripts/content-hash.mjs`
 computes it the way Orca does, and `scripts/catalog.mjs` builds the release entry `orca plugin release-entry`

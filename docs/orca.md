@@ -20,8 +20,8 @@ Each command first stops with `approval_required`, because a catalog decides whe
 from and this plugin runs code. Read what it lists, then run the command it prints, which ends in
 `--approve <fingerprint>`.
 
-Install by the catalog id `rizanw.steno`, not the repository name. Only the catalog's releases hold the
-built plugin; the repository's own `v*` tags do not.
+Install by the catalog id `rizanw.steno`, not the repository name: the plugin sits in the repository's
+`packages/orca` folder, which only a catalog entry points Orca to.
 
 The plugin asks for these permissions:
 

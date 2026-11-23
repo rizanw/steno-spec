@@ -51,6 +51,8 @@ await build({
 
 // The declarations, as `.d.mts` because TypeScript looks for that name beside an imported `.mjs`. They re-export
 // from @steno/core and vscode-jsonrpc, which resolve here as devDependencies; Paseo only strips types.
+// package.json leaves them out of the published plugin: Paseo's compiler follows every import in a declaration file
+// and fails the whole build when one does not resolve, and an installed plugin has no devDependencies.
 function declare(entry, outfile) {
   const program = ts.createProgram([entry], {
     declaration: true, emitDeclarationOnly: true, module: ts.ModuleKind.ESNext,

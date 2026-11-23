@@ -31,7 +31,9 @@
     "server/",
     "shared/",
     "media/",
-    "screenshots/"
+    "screenshots/",
+    "!server/vendor/*.d.mts",
+    "!client/vendor/*.d.mts"
   ],
   "scripts": {
     "build": "node scripts/build.mjs && pnpm run typecheck",

@@ -2,5 +2,54 @@
   "catalogVersion": 2,
   "name": "steno",
   "owner": "rizanw",
-  "plugins": []
+  "plugins": [
+    {
+      "id": "rizanw.steno",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/rizanw/steno-spec.git",
+        "ref": "main",
+        "path": "packages/orca"
+      },
+      "description": "Shorthand specs in your agent panel: spec-driven development that is agent-agnostic and token-efficient.",
+      "releases": [
+        {
+          "version": "0.1.5",
+          "commit": "89e06997c419a9233d547b3365ba7ded81440536",
+          "contentHash": "e3f59c00f6a0fe709c790f0352822aeaf2bfc8c8d44c1c424d5d228e4104040b",
+          "execution": "trusted-worker",
+          "minimumOrca": "1.4.262",
+          "name": "steno",
+          "contributes": [
+            {
+              "kind": "panels",
+              "name": "steno"
+            },
+            {
+              "kind": "events",
+              "name": "workspace.changed"
+            }
+          ],
+          "capabilities": [
+            "workspace:read",
+            "workspace:write",
+            "agent:launch",
+            "agent:read",
+            "terminal:send",
+            "storage:own",
+            "notifications:show"
+          ],
+          "images": {
+            "icon": {
+              "path": "assets/steno.png",
+              "alt": "steno",
+              "sha256": "f18cee0b25a3d88af39f311247f4ac0091de33d0a8526226b249cc7b3fca18b5",
+              "width": 480,
+              "height": 480
+            }
+          }
+        }
+      ]
+    }
+  ]
 }

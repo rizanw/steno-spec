@@ -2,7 +2,7 @@
   "name": "steno-vscode",
   "displayName": "steno spec",
   "description": "Shorthand specs in your IDE panel: spec-driven development that is agent-agnostic and token-efficient.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "license": "MIT",
   "publisher": "rzndwb",
